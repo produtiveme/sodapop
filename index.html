@@ -180,7 +180,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.6.0</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.0</p>
         </footer>
     </div>
 
@@ -198,6 +198,8 @@
                 allChangeTypes: ['Added', 'Changed', 'Deprecated', 'Fixed', 'Removed', 'Security', 'Task'],
                 allFuncionalidadeTypes: ['Funcionalidade', 'Melhoria', 'Correção'],
                 allFuncionalidadeStages: ['C - Clarificar', 'O - Organizar', 'D - Desenhar', 'E - Executar'],
+                allFuncionalidadeComplexidades: ['P', 'M', 'G', 'GG', 'XGG'],
+                complexityPoints: { 'P': 1, 'M': 3, 'G': 7, 'GG': 15, 'XGG': 50 },
                 completedStatuses: ['Finalizado', 'Concluído'],
                 currentView: 'sistemas',
                 selectedSistema: null,
@@ -208,7 +210,7 @@
                 calendarFilters: { status: [], responsible: [], sistema: [] },
                 overdueFilters: { responsible: [], status: [], sistema: [] },
                 kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
-                 finalizadosFilters: { startDate: '', endDate: '', sistema: [], tipo: [], funcionalidade: [] },
+                finalizadosFilters: { startDate: '', endDate: '', sistema: [], tipo: [], funcionalidade: [] },
                 finalizadosSort: { column: 'data_encerramento', direction: 'desc' },
             };
 
@@ -437,6 +439,7 @@
                     type: form.type.value,
                     stage: form.stage.value,
                     progress: parseInt(form.progress.value, 10),
+                    complexidade: form.complexidade.value,
                     updatedAt: new Date().toISOString()
                 };
 
@@ -470,6 +473,7 @@
                     type: form.type.value,
                     stage: form.stage.value,
                     progress: parseInt(form.progress.value, 10),
+                    complexidade: form.complexidade.value,
                 };
 
                 try {
@@ -524,8 +528,35 @@
                 state.sistemas.forEach(sistema => {
                     const color = colorMap[sistema.color] || colorMap.default;
                     const card = document.createElement('div');
+                    
+                    const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                    let totalPontos = 0;
+                    let pontosConcluidos = 0;
+
+                    sistemaFuncs.forEach(func => {
+                        const pontos = state.complexityPoints[func.complexidade] || 0;
+                        totalPontos += pontos;
+                        pontosConcluidos += pontos * ((func.progress || 0) / 100);
+                    });
+
+                    const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
+
                     card.className = `border ${color.border} bg-slate-800 rounded-lg p-5 flex flex-col justify-between hover:border-indigo-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10`;
-                    card.innerHTML = `<div><span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span><h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3><div class="text-sm text-slate-400 mt-2 h-20 overflow-hidden description-content">${markdownConverter.makeHtml(sistema.description || '')}</div></div><div class="text-xs text-slate-500 mt-4">Prazo: ${formatDate(sistema.prazo)}</div>`;
+                    card.innerHTML = `
+                        <div>
+                            <span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span>
+                            <h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3>
+                            <div class="text-sm text-slate-400 mt-2 h-16 overflow-hidden description-content">${markdownConverter.makeHtml(sistema.description || '')}</div>
+                        </div>
+                         <div class="mt-4">
+                            <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                <span>Progresso</span>
+                                <span>${Math.round(progressoPonderado)}%</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-1.5">
+                                <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
+                            </div>
+                        </div>`;
                     card.addEventListener('click', () => { state.selectedSistema = sistema; state.selectedSistemaTab = 'funcionalidade'; state.currentView = 'sistema-detail'; render(); });
                     grid.appendChild(card);
                 });
@@ -571,11 +602,13 @@
                     const progress = f.progress || 0;
                     const colorClass = (colorMap[sistema.color] || colorMap.default).text;
                     const circumference = 16 * 2 * Math.PI;
+                    const pontos = state.complexityPoints[f.complexidade] || 0;
 
                     return `
                         <li class="func-item-wrapper group bg-slate-800 p-3 rounded-md hover:bg-slate-700/50 transition-colors flex items-center justify-between" data-func-id="${f.id}">
                             <div class="flex-grow cursor-pointer flex items-center">
                                 <span class="pr-4">${f.text}</span>
+                                 <span class="bg-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">${f.complexidade || 'N/D'} (${pontos} pts)</span>
                             </div>
                             <div class="flex items-center flex-shrink-0">
                                 <button class="edit-func-btn hidden group-hover:block text-slate-400 hover:text-white mr-3" data-func-id="${f.id}"><i class="fa-solid fa-pencil text-xs"></i></button>
@@ -1317,9 +1350,17 @@
                                     </select>
                                 </div>
                             </div>
-                             <div>
-                                <label for="func-progress" class="block text-sm font-medium text-slate-400 mb-1">Progresso (${func.progress || 0}%)</label>
-                                <input type="range" id="func-progress" name="progress" min="0" max="100" value="${func.progress || 0}" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                     <label for="func-complexidade" class="block text-sm font-medium text-slate-400 mb-1">Complexidade</label>
+                                    <select id="func-complexidade" name="complexidade" class="form-select" required>
+                                        ${state.allFuncionalidadeComplexidades.map(c => `<option value="${c}" ${c === (func.complexidade || 'P') ? 'selected' : ''}>${c} (${state.complexityPoints[c]} pts)</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="func-progress" class="block text-sm font-medium text-slate-400 mb-1">Progresso (${func.progress || 0}%)</label>
+                                    <input type="range" id="func-progress" name="progress" min="0" max="100" value="${func.progress || 0}" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                                </div>
                             </div>
                             <div>
                                 <label for="func-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
