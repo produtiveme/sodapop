@@ -1144,7 +1144,17 @@
                         </div>
                         <h4 class="font-semibold text-white mb-2">Descrição</h4>
                         <div class="prose prose-sm prose-invert max-w-none text-slate-300 description-content">${markdownConverter.makeHtml(change.description || '')}</div>
-                        ${change.updates ? `<h4 class="font-semibold text-white mt-6 mb-2">Updates</h4><a href="${change.updates}" target="_blank" class="text-indigo-400 hover:underline break-all">${change.updates}</a>` : ''}
+                        ${change.updates ? `
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-white mb-2">Link do Google</h4>
+                            <div class="flex items-center gap-4">
+                                <a href="${change.updates}" target="_blank" class="text-indigo-400 hover:underline break-all">${change.updates}</a>
+                                <a href="${change.updates}" target="_blank" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded-md text-xs flex-shrink-0">
+                                    Abrir Link <i class="fa-solid fa-arrow-up-right-from-square ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div id="modal-actions" class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3"></div>
                 `;
@@ -1234,7 +1244,7 @@
                                 <div><label for="type" class="block text-sm font-medium text-slate-400 mb-1">Tipo</label><select id="type" name="type" class="form-select">${state.allChangeTypes.map(t => `<option value="${t}" ${t === change.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
                                 <div><label for="prazo" class="block text-sm font-medium text-slate-400 mb-1">Prazo</label><input type="date" id="prazo" name="prazo" class="form-input" value="${formatDate(change.prazo, true)}"></div>
                             </div>
-                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Updates (URL)</label><input type="url" id="updates" name="updates" class="form-input" value="${change.updates || ''}"></div>
+                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Link do Google</label><input type="url" id="updates" name="updates" class="form-input" value="${change.updates || ''}" pattern="https://docs\\.google\\.com/.*" title="Por favor, insira um link válido do Google (docs.google.com)."></div>
                              <div><label for="description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label><textarea id="description" name="description" rows="6" class="form-textarea">${change.description || ''}</textarea></div>
                             <div class="flex items-center"><input type="checkbox" id="goldenTicket" name="goldenTicket" class="h-4 w-4 rounded" ${change.goldenTicket ? 'checked' : ''}><label for="goldenTicket" class="ml-2 block text-sm">Golden Ticket <i class="fa-solid fa-star text-yellow-400"></i></label></div>
                         </div>
@@ -1263,7 +1273,7 @@
                                 <div><label for="type" class="block text-sm font-medium text-slate-400 mb-1">Tipo*</label><select id="type" name="type" class="form-select" required>${state.allChangeTypes.map(t => `<option value="${t}" ${t === 'Task' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
                                 <div><label for="prazo" class="block text-sm font-medium text-slate-400 mb-1">Prazo</label><input type="date" id="prazo" name="prazo" class="form-input"></div>
                             </div>
-                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Updates (URL)</label><input type="url" id="updates" name="updates" class="form-input"></div>
+                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Link do Google</label><input type="url" id="updates" name="updates" class="form-input" pattern="https://docs\\.google\\.com/.*" title="Por favor, insira um link válido do Google (docs.google.com)."></div>
                              <div><label for="description" class="block text-sm font-medium text-slate-400 mb-1">Descrição* (mín. 10 caracteres)</label><textarea id="description" name="description" rows="6" class="form-textarea" required minlength="10"></textarea></div>
                             <div class="flex items-center"><input type="checkbox" id="goldenTicket" name="goldenTicket" class="h-4 w-4 rounded"><label for="goldenTicket" class="ml-2 block text-sm text-slate-300">Golden Ticket <i class="fa-solid fa-star text-yellow-400"></i></label></div>
                         </div>
