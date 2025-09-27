@@ -127,6 +127,7 @@
                         <button id="nav-sistemas" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-slate-700">Sistemas</button>
                         <button id="nav-calendario" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Calendário</button>
                         <button id="nav-atrasados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Atrasados</button>
+                        <button id="nav-finalizados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Finalizados</button>
                         <div class="relative">
                             <select id="responsible-filter" class="bg-slate-700 text-white text-sm font-medium rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                                 <option value="">Meus Changes</option>
@@ -160,6 +161,7 @@
                 <div id="meus-changes-view" class="hidden"></div>
                 <div id="calendario-view" class="hidden"></div>
                 <div id="overdue-view" class="hidden"></div>
+                <div id="finalizados-view" class="hidden"></div>
             </div>
         </main>
         
@@ -178,7 +180,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.4.1</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.6.0</p>
         </footer>
     </div>
 
@@ -206,6 +208,8 @@
                 calendarFilters: { status: [], responsible: [], sistema: [] },
                 overdueFilters: { responsible: [], status: [], sistema: [] },
                 kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
+                 finalizadosFilters: { startDate: '', endDate: '', sistema: [], tipo: [], funcionalidade: [] },
+                finalizadosSort: { column: 'data_encerramento', direction: 'desc' },
             };
 
             // --- DOM ELEMENTS ---
@@ -224,11 +228,13 @@
                 meusChanges: document.getElementById('meus-changes-view'),
                 calendario: document.getElementById('calendario-view'),
                 overdue: document.getElementById('overdue-view'),
+                finalizados: document.getElementById('finalizados-view'),
             };
             const mainContentEl = document.getElementById('main-content');
             const navSistemasBtn = document.getElementById('nav-sistemas');
             const navCalendarioBtn = document.getElementById('nav-calendario');
             const navAtrasadosBtn = document.getElementById('nav-atrasados');
+            const navFinalizadosBtn = document.getElementById('nav-finalizados');
             const responsibleFilterEl = document.getElementById('responsible-filter');
             const mainModalEl = document.getElementById('main-modal');
             const modalContentEl = document.getElementById('modal-content');
@@ -489,7 +495,7 @@
             function render() {
                 Object.values(views).forEach(v => v.classList.add('hidden'));
                 views.container.classList.remove('hidden');
-                const navButtons = { sistemas: navSistemasBtn, sistema_detail: navSistemasBtn, calendario: navCalendarioBtn, overdue: navAtrasadosBtn };
+                const navButtons = { sistemas: navSistemasBtn, sistema_detail: navSistemasBtn, calendario: navCalendarioBtn, overdue: navAtrasadosBtn, finalizados: navFinalizadosBtn };
                 document.querySelectorAll('#app header button, #app header select').forEach(b => {
                     if(b.id.startsWith('nav-')) b.classList.remove('bg-slate-700');
                 });
@@ -508,6 +514,7 @@
                 else if (state.currentView === 'meus-changes') renderMeusChanges();
                 else if (state.currentView === 'calendario') renderCalendar();
                 else if (state.currentView === 'overdue') renderOverdue();
+                else if (state.currentView === 'finalizados') renderFinalizados();
             }
 
             function renderSistemasList() {
@@ -826,7 +833,7 @@
                     while (!placed && attempts < 20) {
                         let overlapping = false;
                         for (const pos of labelPositions) {
-                            if (Math.abs(labelY - pos.y) < labelHeight && Math.abs(point.x - pos.x) < (textWidth / 2 + (pos.text.length * 6) / 2)) {
+                            if (Math.abs(labelY - pos.y) < labelHeight && Math.abs(point.x - pos.x) < (textWidth / 2 + (pos.text.length * 6) / 2) ) {
                                 overlapping = true;
                                 break;
                             }
@@ -981,6 +988,132 @@
                     render();
                 }));
                 views.overdue.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+            }
+
+            function renderFinalizados() {
+                 views.finalizados.classList.remove('hidden');
+
+                const { startDate, endDate, sistema, tipo, funcionalidade } = state.finalizadosFilters;
+                let finalizados = state.changes.filter(c => state.completedStatuses.includes(c.status) && c.data_encerramento);
+                
+                if (startDate) finalizados = finalizados.filter(c => new Date(c.data_encerramento) >= new Date(startDate));
+                if (endDate) finalizados = finalizados.filter(c => new Date(c.data_encerramento) <= new Date(endDate));
+                if (sistema.length > 0) finalizados = finalizados.filter(c => sistema.includes(c.sistema_id));
+                if (tipo.length > 0) finalizados = finalizados.filter(c => tipo.includes(c.type));
+                if (funcionalidade.length > 0) finalizados = finalizados.filter(c => funcionalidade.includes(c.funcionalidade_id));
+                
+                const { column, direction } = state.finalizadosSort;
+                finalizados.sort((a, b) => {
+                    const valA = a[column];
+                    const valB = b[column];
+                    let comparison = 0;
+                    if (valA > valB) comparison = 1;
+                    else if (valA < valB) comparison = -1;
+                    return direction === 'asc' ? comparison : -comparison;
+                });
+
+                 const getSortIcon = (col) => {
+                    if (column !== col) return '';
+                    return direction === 'asc' ? '▲' : '▼';
+                };
+
+                views.finalizados.innerHTML = `
+                    <h2 class="text-2xl font-bold text-white mb-4">Changes Finalizados</h2>
+                    <div class="bg-slate-800/50 p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-400">De</label>
+                            <input type="date" id="finalizados-start-date" class="form-input" value="${startDate}">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400">Até</label>
+                            <input type="date" id="finalizados-end-date" class="form-input" value="${endDate}">
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Sistema</label>
+                             <select id="finalizados-sistema" class="form-select"><option value="">Todos</option>${state.sistemas.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Tipo</label>
+                            <select id="finalizados-tipo" class="form-select"><option value="">Todos</option>${state.allChangeTypes.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Funcionalidade</label>
+                            <select id="finalizados-funcionalidade" class="form-select"></select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto bg-slate-800 rounded-lg">
+                        <table class="w-full text-sm text-left text-slate-400">
+                            <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="idChange">Ticket ${getSortIcon('idChange')}</th>
+                                    <th scope="col" class="px-6 py-3">Nome</th>
+                                    <th scope="col" class="px-6 py-3">Sistema</th>
+                                    <th scope="col" class="px-6 py-3">Funcionalidade</th>
+                                    <th scope="col" class="px-6 py-3">Tipo</th>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="prazo">Prazo ${getSortIcon('prazo')}</th>
+                                    <th scope="col" class="px-6 py-3">Responsável</th>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="data_encerramento">Finalizado Em ${getSortIcon('data_encerramento')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${finalizados.map(change => {
+                                    const sistema = state.sistemas.find(s => s.id == change.sistema_id);
+                                    const func = state.funcionalidades.find(f => f.id == change.funcionalidade_id);
+                                    return `
+                                        <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                            <th scope="row" class="px-6 py-4 font-medium text-white whitespace-nowrap">Ticket-${change.idChange}</th>
+                                            <td class="px-6 py-4 text-white">${change.text}</td>
+                                            <td class="px-6 py-4">${sistema?.name || 'N/A'}</td>
+                                            <td class="px-6 py-4">${func?.text || 'N/A'}</td>
+                                            <td class="px-6 py-4">${change.type}</td>
+                                            <td class="px-6 py-4">${formatDate(change.prazo)}</td>
+                                            <td class="px-6 py-4">${change.responsible}</td>
+                                            <td class="px-6 py-4">${formatDate(change.data_encerramento)}</td>
+                                        </tr>
+                                    `
+                                }).join('')}
+                                ${finalizados.length === 0 ? '<tr><td colspan="8" class="text-center py-8">Nenhum resultado encontrado.</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                document.getElementById('finalizados-start-date').addEventListener('change', e => { state.finalizadosFilters.startDate = e.target.value; render(); });
+                document.getElementById('finalizados-end-date').addEventListener('change', e => { state.finalizadosFilters.endDate = e.target.value; render(); });
+                
+                const sistemaSelect = document.getElementById('finalizados-sistema');
+                const funcSelect = document.getElementById('finalizados-funcionalidade');
+
+                const updateFuncOptions = () => {
+                    const selectedSistema = sistemaSelect.value;
+                    const funcs = state.funcionalidades.filter(f => !selectedSistema || f.sistema_id === selectedSistema);
+                    funcSelect.innerHTML = '<option value="">Todas</option>' + funcs.map(f => `<option value="${f.id}">${f.text}</option>`).join('');
+                };
+                
+                updateFuncOptions();
+                
+                sistemaSelect.addEventListener('change', e => {
+                    state.finalizadosFilters.sistema = e.target.value ? [e.target.value] : [];
+                    updateFuncOptions();
+                    render();
+                });
+                funcSelect.addEventListener('change', e => { state.finalizadosFilters.funcionalidade = e.target.value ? [e.target.value] : []; render(); });
+
+                document.getElementById('finalizados-tipo').addEventListener('change', e => { state.finalizadosFilters.tipo = e.target.value ? [e.target.value] : []; render(); });
+
+                views.finalizados.querySelectorAll('th[data-sort]').forEach(th => {
+                    th.addEventListener('click', () => {
+                        const column = th.dataset.sort;
+                        if (state.finalizadosSort.column === column) {
+                            state.finalizadosSort.direction = state.finalizadosSort.direction === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            state.finalizadosSort.column = column;
+                            state.finalizadosSort.direction = 'asc';
+                        }
+                        render();
+                    });
+                });
             }
 
             function showChangeModal(changeId) {
@@ -1255,6 +1388,11 @@
                 responsibleFilterEl.value = '';
                 state.calendarFilters = { status: [], responsible: [], sistema: [] };
                 state.kanbanFilters = { status: [], responsible: [], funcionalidade: [] };
+                render();
+            });
+             navFinalizadosBtn.addEventListener('click', () => {
+                state.currentView = 'finalizados'; state.selectedSistema = null; state.selectedResponsible = null;
+                responsibleFilterEl.value = '';
                 render();
             });
             responsibleFilterEl.addEventListener('change', (e) => {
