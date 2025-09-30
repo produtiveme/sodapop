@@ -180,7 +180,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.5</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.6</p>
         </footer>
     </div>
 
@@ -760,8 +760,8 @@
 
             function renderSistemaKanbanView() {
                 const container = views.sistemaDetail.querySelector('#sistema-tab-content');
-                let changes = state.changes.filter(c => c.sistema_id === state.selectedSistema.id);
-                const funcionalidadesSistema = state.funcionalidades.filter(f => f.sistema_id === state.selectedSistema.id);
+                let changes = state.changes.filter(c => c.sistema_id == state.selectedSistema.id);
+                const funcionalidadesSistema = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
 
                 if (state.kanbanFilters.status.length > 0) changes = changes.filter(c => state.kanbanFilters.status.includes(c.status));
                 if (state.kanbanFilters.responsible.length > 0) changes = changes.filter(c => state.kanbanFilters.responsible.includes(c.responsible));
@@ -788,7 +788,7 @@
                                     <h3 class="font-semibold text-white mb-3 flex justify-between items-center text-sm"><span>${status}</span><span class="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">${columnChanges.length}</span></h3>
                                     <div class="space-y-3 h-full overflow-y-auto">
                                         ${columnChanges.length > 0 ? columnChanges.map(change => {
-                                            const func = state.funcionalidades.find(f => f.id === change.funcionalidade_id);
+                                            const func = state.funcionalidades.find(f => f.id == change.funcionalidade_id);
                                             return `
                                                 <div class="bg-slate-900/70 p-3 rounded-md shadow-md cursor-pointer hover:bg-slate-700 border-l-4 ${statusBorderMap[change.status] || 'border-slate-500'}" data-change-id="${change.id}">
                                                     <p class="font-semibold text-sm text-slate-200">${change.text}</p>
