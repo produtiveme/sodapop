@@ -11,6 +11,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
         }
         /* Custom scrollbar for better aesthetics */
         ::-webkit-scrollbar {
@@ -76,6 +77,112 @@
             transform: rotate(-90deg);
             transform-origin: 50% 50%;
         }
+
+        /* Light Theme Styles - V2 (Correction) */
+        .light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f1f5f9; /* slate-100 */
+            --bg-tertiary: #e2e8f0; /* slate-200 */
+            --text-primary: #1e293b; /* slate-800 */
+            --text-secondary: #475569; /* slate-600 */
+            --text-muted: #64748b; /* slate-500 */
+            --border-color: #cbd5e1; /* slate-300 */
+            --border-color-hover: #94a3b8; /* slate-400 */
+        }
+
+        .light-theme, .light-theme body {
+            background-color: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme header, .light-theme footer {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        /* Generic Text Overrides */
+        .light-theme h1, .light-theme h2, .light-theme h3, .light-theme h4, 
+        .light-theme .text-white, .light-theme .font-medium.text-white, .light-theme .text-slate-200,
+        .light-theme .text-slate-300, .light-theme .font-semibold, .light-theme .font-bold {
+            color: var(--text-primary) !important;
+        }
+        .light-theme p, .light-theme span, .light-theme div, .light-theme .text-sm, .light-theme .text-xs {
+             color: inherit;
+        }
+        .light-theme .text-slate-400 { color: var(--text-secondary) !important; }
+        .light-theme .text-slate-500 { color: var(--text-muted) !important; }
+        .light-theme a { color: #4f46e5; }
+        .light-theme .text-indigo-400 { color: #4f46e5 !important; }
+        .light-theme .bg-slate-700.text-slate-300 { color: var(--text-primary) !important; }
+        .light-theme .text-red-400 { color: #ef4444 !important; }
+
+
+        /* Component Specific Overrides */
+        .light-theme #app header button, .light-theme #responsible-filter {
+            background-color: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme #app header button:hover, .light-theme #responsible-filter:hover {
+            background-color: #cbd5e1 !important;
+        }
+        .light-theme #app header button.bg-slate-700, .light-theme #responsible-filter.bg-slate-700 {
+            background-color: #93c5fd !important;
+            color: #1e3a8a !important;
+        }
+        .light-theme #logout-button, .light-theme #theme-toggle-btn {
+            background-color: transparent !important;
+            color: var(--text-secondary) !important;
+        }
+        .light-theme #logout-button:hover, .light-theme #theme-toggle-btn:hover {
+            color: var(--text-primary) !important;
+        }
+
+        .light-theme .bg-slate-800, .light-theme .bg-slate-900\/70, .light-theme .bg-slate-800\/50, .light-theme .bg-slate-900,
+        .light-theme .bg-slate-700\/50, .light-theme .bg-slate-700 {
+            background-color: var(--bg-primary) !important;
+        }
+        .light-theme .border, .light-theme .border-b, .light-theme .border-t {
+            border-color: var(--border-color) !important;
+        }
+        .light-theme .form-input, .light-theme .form-select, .light-theme .form-textarea {
+            background-color: var(--bg-tertiary) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme .kanban-column { background-color: var(--bg-secondary) !important; }
+        .light-theme .calendar-day { background-color: var(--bg-primary) !important; }
+        .light-theme .calendar-grid { background-color: var(--border-color) !important; }
+        .light-theme .calendar-grid .text-center { background-color: var(--bg-secondary) !important; color: var(--text-primary) !important;}
+        .light-theme .change-card.bg-slate-700 { background-color: var(--bg-tertiary) !important; }
+        .light-theme .bg-slate-700.rounded-full { background-color: var(--bg-tertiary) !important; }
+
+        .light-theme #modal-content, .light-theme #sub-modal-content {
+            background-color: var(--bg-primary) !important;
+        }
+        .light-theme #modal-content .bg-slate-900\/50 {
+            background-color: var(--bg-secondary) !important;
+        }
+        .light-theme .hover\:bg-slate-700:hover, .light-theme .hover\:bg-slate-600:hover, .light-theme .hover\:bg-slate-700\/50:hover, .light-theme .hover\:bg-slate-700\/20:hover {
+             background-color: var(--bg-tertiary) !important;
+        }
+        .light-theme ::-webkit-scrollbar-track { background: #e2e8f0 !important; }
+        .light-theme ::-webkit-scrollbar-thumb { background-color: #94a3b8 !important; border-color: #e2e8f0 !important; }
+        .light-theme ::-webkit-scrollbar-thumb:hover { background-color: #64748b !important; }
+        
+        .light-theme #hill-chart-svg path, .light-theme #hill-chart-svg line { stroke: var(--border-color-hover) !important; }
+        .light-theme #hill-chart-svg text { fill: var(--text-secondary) !important; }
+        .light-theme #hill-chart-svg circle { stroke: var(--bg-primary) !important; }
+        
+        .light-theme .prose-invert {
+            --tw-prose-body: var(--text-secondary);
+            --tw-prose-headings: var(--text-primary);
+            --tw-prose-bold: var(--text-primary);
+            --tw-prose-links: #4f46e5;
+            --tw-prose-hr: var(--border-color);
+            --tw-prose-quotes: var(--text-primary);
+            --tw-prose-quote-borders: var(--border-color);
+            --tw-prose-code: var(--text-primary);
+            --tw-prose-pre-bg: var(--bg-tertiary);
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -136,6 +243,10 @@
                                <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
+                        <button id="theme-toggle-btn" class="text-slate-400 hover:text-white" title="Alterar tema">
+                            <i id="theme-icon-sun" class="fa-solid fa-sun hidden"></i>
+                            <i id="theme-icon-moon" class="fa-solid fa-moon"></i>
+                        </button>
                         <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
                     </div>
                 </div>
@@ -166,10 +277,10 @@
         </main>
         
         <!-- Modals -->
-        <div id="main-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div id="main-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
             <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"></div>
         </div>
-        <div id="sub-modal" class="fixed inset-0 bg-black bg-opacity-70 z-[60] hidden items-center justify-center p-4">
+        <div id="sub-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden items-center justify-center p-4">
             <div id="sub-modal-content" class="bg-slate-700 rounded-lg shadow-xl w-full max-w-sm p-6"></div>
         </div>
 
@@ -180,7 +291,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.6</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.9</p>
         </footer>
     </div>
 
@@ -215,12 +326,16 @@
             };
 
             // --- DOM ELEMENTS ---
+            const bodyEl = document.body;
             const loginViewEl = document.getElementById('login-view');
             const appViewEl = document.getElementById('app');
             const loginFormEl = document.getElementById('login-form');
             const loginErrorEl = document.getElementById('login-error');
             const loginButtonEl = document.getElementById('login-button');
             const logoutButtonEl = document.getElementById('logout-button');
+            const themeToggleButton = document.getElementById('theme-toggle-btn');
+            const themeIconSun = document.getElementById('theme-icon-sun');
+            const themeIconMoon = document.getElementById('theme-icon-moon');
             
             const views = {
                 loading: document.getElementById('loading'),
@@ -264,7 +379,6 @@
                 const date = new Date(dateString);
                 if (isNaN(date)) return forInput ? '' : 'Data inválida';
                 
-                // For input fields, we need the YYYY-MM-DD format from UTC
                 if (forInput) {
                     const year = date.getUTCFullYear();
                     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -272,7 +386,6 @@
                     return `${year}-${month}-${day}`;
                 }
                 
-                // For display, format the date using UTC parts to avoid timezone shifts
                 return date.toLocaleDateString('pt-BR', { 
                     year: 'numeric', 
                     month: 'short', 
@@ -285,6 +398,12 @@
                 toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
                 toastEl.classList.remove('hidden');
                 setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
+            };
+            const toggleTheme = () => {
+                bodyEl.classList.toggle('light-theme');
+                const isLight = bodyEl.classList.contains('light-theme');
+                themeIconSun.classList.toggle('hidden', !isLight);
+                themeIconMoon.classList.toggle('hidden', isLight);
             };
             const colorMap = { blue: { bg: 'bg-blue-900/10', border: 'border-blue-500', text: 'text-blue-400' }, green: { bg: 'bg-green-900/10', border: 'border-green-500', text: 'text-green-400' }, pink: { bg: 'bg-pink-900/10', border: 'border-pink-500', text: 'text-pink-400' }, gray: { bg: 'bg-slate-700/10', border: 'border-slate-500', text: 'text-slate-400' }, orange: { bg: 'bg-orange-900/10', border: 'border-orange-500', text: 'text-orange-400' }, default: { bg: 'bg-slate-800', border: 'border-slate-700', text: 'text-slate-300' } };
             const statusMap = { 'BackLog': 'bg-slate-600 text-slate-200', 'Fazendo': 'bg-blue-500 text-white', 'Teste': 'bg-yellow-500 text-black', 'Concluído': 'bg-green-500 text-white', 'A Fazer': 'bg-gray-400 text-black', 'Em Andamento': 'bg-indigo-500 text-white', 'Finalizado': 'bg-green-600 text-white' };
@@ -403,10 +522,8 @@
                 const originalChange = state.changes.find(c => c.id == changeId);
                 const form = document.getElementById('edit-change-form');
                 
-                // Handle date input: an empty input should result in null
                 let prazoISO = null;
                 if (form.prazo.value) {
-                    // Treat the date input as UTC to avoid timezone shifts on saving
                     const [year, month, day] = form.prazo.value.split('-').map(Number);
                     prazoISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
                 }
@@ -824,7 +941,7 @@
             
             function renderSistemaHillChartView() {
                 const container = views.sistemaDetail.querySelector('#sistema-tab-content');
-                const funcionalidades = state.funcionalidades.filter(f => f.sistema_id === state.selectedSistema.id);
+                const funcionalidades = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
                 
                 container.innerHTML = `
                     <div class="bg-slate-800/50 p-6 rounded-lg">
@@ -1465,6 +1582,7 @@
             // --- EVENT LISTENERS ---
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
+            themeToggleButton.addEventListener('click', toggleTheme);
 
             navSistemasBtn.addEventListener('click', () => {
                 state.currentView = 'sistemas'; state.selectedSistema = null; state.selectedResponsible = null;
