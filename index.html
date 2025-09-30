@@ -180,7 +180,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.4</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.5</p>
         </footer>
     </div>
 
@@ -263,8 +263,22 @@
                 if (!dateString || dateString.startsWith('1970')) return forInput ? '' : 'N/D';
                 const date = new Date(dateString);
                 if (isNaN(date)) return forInput ? '' : 'Data inválida';
-                if (forInput) return date.toISOString().split('T')[0];
-                return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric' });
+                
+                // For input fields, we need the YYYY-MM-DD format from UTC
+                if (forInput) {
+                    const year = date.getUTCFullYear();
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+                
+                // For display, format the date using UTC parts to avoid timezone shifts
+                return date.toLocaleDateString('pt-BR', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    timeZone: 'UTC' 
+                });
             };
             const showToast = (message, isError = false) => {
                 toastMessageEl.textContent = message;
@@ -388,7 +402,16 @@
                 button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
                 const originalChange = state.changes.find(c => c.id == changeId);
                 const form = document.getElementById('edit-change-form');
-                const updatedChange = { ...originalChange, text: form.text.value, status: form.status.value, responsible: form.responsible.value, prazo: form.prazo.value ? new Date(form.prazo.value).toISOString() : null, type: form.type.value, goldenTicket: form.goldenTicket.checked, description: form.description.value, updates: form.updates.value, updatedAt: new Date().toISOString() };
+                
+                // Handle date input: an empty input should result in null
+                let prazoISO = null;
+                if (form.prazo.value) {
+                    // Treat the date input as UTC to avoid timezone shifts on saving
+                    const [year, month, day] = form.prazo.value.split('-').map(Number);
+                    prazoISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
+                }
+
+                const updatedChange = { ...originalChange, text: form.text.value, status: form.status.value, responsible: form.responsible.value, prazo: prazoISO, type: form.type.value, goldenTicket: form.goldenTicket.checked, description: form.description.value, updates: form.updates.value, updatedAt: new Date().toISOString() };
                 if (state.completedStatuses.includes(updatedChange.status) && !state.completedStatuses.includes(originalChange.status)) {
                     updatedChange.data_encerramento = new Date().toISOString();
                 }
@@ -409,7 +432,14 @@
                 
                 button.disabled = true;
                 button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Criando...`;
-                const newChangeData = { funcionalidade_id: funcionalidadeId, sistema_id: sistemaId, text: form.text.value, description: form.description.value, type: form.type.value, status: form.status.value, responsible: form.responsible.value, prazo: form.prazo.value ? new Date(form.prazo.value).toISOString() : null, goldenTicket: form.goldenTicket.checked, data_encerramento: null, updates: form.updates.value };
+
+                let prazoISO = null;
+                if (form.prazo.value) {
+                    const [year, month, day] = form.prazo.value.split('-').map(Number);
+                    prazoISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
+                }
+
+                const newChangeData = { funcionalidade_id: funcionalidadeId, sistema_id: sistemaId, text: form.text.value, description: form.description.value, type: form.type.value, status: form.status.value, responsible: form.responsible.value, prazo: prazoISO, goldenTicket: form.goldenTicket.checked, data_encerramento: null, updates: form.updates.value };
                  try {
                     const response = await fetch(URLS.createChange, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newChangeData) });
                     if (!response.ok) throw new Error(`O servidor respondeu com o status ${response.status}`);
