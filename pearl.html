@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pearl - Mermaid Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            --brand-color: #FF4E00;
+        }
+        #editor {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #64748b; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300 flex flex-col h-screen">
+
+    <header class="bg-slate-800/80 backdrop-blur-sm border-b-2" style="border-color: var(--brand-color);">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <svg class="h-8 w-8 text-white" style="color: var(--brand-color);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                    <h1 class="text-2xl font-bold text-white">Pearl</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="copy-svg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                        <i class="fa-solid fa-copy"></i>
+                        Copiar SVG
+                    </button>
+                    <button id="download-png-btn" class="text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors" style="background-color: var(--brand-color); opacity: 0.9; hover:opacity: 1;">
+                        <i class="fa-solid fa-download"></i>
+                        Baixar PNG
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="flex-grow grid md:grid-cols-2 gap-4 p-4 container mx-auto">
+        <!-- Editor Column -->
+        <div class="flex flex-col h-full">
+            <textarea id="editor" class="w-full h-full bg-slate-800 border border-slate-700 rounded-lg p-4 resize-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900" style="--tw-ring-color: var(--brand-color);" spellcheck="false"></textarea>
+        </div>
+
+        <!-- Preview Column -->
+        <div id="preview-container" class="bg-slate-800 border border-slate-700 rounded-lg p-4 flex items-center justify-center overflow-auto">
+            <div id="output" class="w-full h-full flex items-center justify-center"></div>
+        </div>
+    </main>
+
+    <!-- Hidden canvas for PNG conversion -->
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <!-- Mermaid JS -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+    <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const editor = document.getElementById('editor');
+            const output = document.getElementById('output');
+            const copyBtn = document.getElementById('copy-svg-btn');
+            const downloadBtn = document.getElementById('download-png-btn');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const exampleCode = `graph TD
+    A[Start] --> B{Is it?};
+    B -->|Yes| C[OK];
+    C --> D[End];
+    B -->|No| E[Not OK];
+    E --> D[End];
+`;
+
+            editor.value = exampleCode;
+
+            const renderMermaid = async () => {
+                const code = editor.value;
+                if (!code.trim()) {
+                    output.innerHTML = '<p class="text-slate-500">Comece a digitar seu código Mermaid...</p>';
+                    return;
+                }
+
+                try {
+                    const { svg } = await mermaid.render('mermaid-graph', code);
+                    output.innerHTML = svg;
+                } catch (error) {
+                    output.innerHTML = `
+                        <div class="text-red-400 bg-red-900/50 border border-red-500 rounded-lg p-4">
+                            <h3 class="font-bold mb-2">Erro de Sintaxe</h3>
+                            <pre class="text-sm whitespace-pre-wrap">${error.message}</pre>
+                        </div>
+                    `;
+                }
+            };
+
+            const copyToClipboard = () => {
+                const svgElement = output.querySelector('svg');
+                if (svgElement) {
+                    const svgData = new XMLSerializer().serializeToString(svgElement);
+                    // Use a temporary textarea to work with document.execCommand
+                    const tempTextArea = document.createElement('textarea');
+                    tempTextArea.value = svgData;
+                    document.body.appendChild(tempTextArea);
+                    tempTextArea.select();
+                    try {
+                        document.execCommand('copy');
+                        alert('SVG copiado para a área de transferência!');
+                    } catch (err) {
+                        alert('Falha ao copiar SVG.');
+                    }
+                    document.body.removeChild(tempTextArea);
+                } else {
+                    alert('Nenhum gráfico para copiar.');
+                }
+            };
+            
+            const downloadAsPng = () => {
+                const svgElement = output.querySelector('svg');
+                if (!svgElement) {
+                    alert('Nenhum gráfico para baixar.');
+                    return;
+                }
+
+                const svgData = new XMLSerializer().serializeToString(svgElement);
+                const img = new Image();
+
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = () => {
+                    const { width, height } = svgElement.viewBox.baseVal;
+                    canvas.width = width * 2; // Render at 2x for better quality
+                    canvas.height = height * 2;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const pngUrl = canvas.toDataURL('image/png');
+                    
+                    const a = document.createElement('a');
+                    a.href = pngUrl;
+                    a.download = 'diagram.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+                
+                img.onerror = (e) => {
+                    console.error("Erro ao carregar SVG na imagem:", e);
+                    alert("Ocorreu um erro ao tentar gerar a imagem.");
+                }
+
+                img.src = url;
+            };
+
+            editor.addEventListener('input', renderMermaid);
+            copyBtn.addEventListener('click', copyToClipboard);
+            downloadBtn.addEventListener('click', downloadAsPng);
+
+            // Initial render
+            renderMermaid();
+        });
+    </script>
+</body>
+</html>
