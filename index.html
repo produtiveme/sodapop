@@ -180,7 +180,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.1</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.2</p>
         </footer>
     </div>
 
@@ -990,11 +990,12 @@
 
             function renderOverdue() {
                 views.overdue.classList.remove('hidden');
-                const now = new Date();
-                now.setHours(23, 59, 59, 999);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Define a data/hora para o início de HOJE
                 let overdueChanges = state.changes.filter(change => {
                     if (!change.prazo || change.prazo.startsWith('1970') || state.completedStatuses.includes(change.status)) return false;
-                    return new Date(change.prazo) < now;
+                    const prazoDate = new Date(change.prazo);
+                    return prazoDate < today;
                 });
                 if (state.overdueFilters.sistema.length > 0) overdueChanges = overdueChanges.filter(c => state.overdueFilters.sistema.includes(c.sistema_id));
                 if (state.overdueFilters.responsible.length > 0) overdueChanges = overdueChanges.filter(c => state.overdueFilters.responsible.includes(c.responsible));
@@ -1007,7 +1008,10 @@
                     return acc;
                 }, {});
                 views.overdue.innerHTML = `<h2 class="text-2xl font-bold text-white mb-4">Changes Atrasados (${overdueChanges.length})</h2><div class="flex flex-col md:flex-row md:items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg">${createFilterDropdown('overdue-sistema-filter', 'Sistema', state.sistemas, state.overdueFilters.sistema, 'sistema', 'id', 'name')}${createFilterDropdown('overdue-responsible-filter', 'Responsável', state.responsaveis.map(r=>({name:r,value:r})), state.overdueFilters.responsible, 'responsible', 'value', 'name')}${createFilterDropdown('overdue-status-filter', 'Status', state.allStatuses.filter(s=>!state.completedStatuses.includes(s)).map(s=>({name:s,value:s})), state.overdueFilters.status, 'status', 'value', 'name')}</div><div class="space-y-6">${Object.keys(groupedChanges).length > 0 ? Object.values(groupedChanges).map(group => `<div><h3 class="text-lg font-semibold text-indigo-400 mb-3">${group.sistemaName}</h3><div class="space-y-3">${group.changes.map(change => {
-                                    const prazoDate = new Date(change.prazo), diffTime = Math.abs(now - prazoDate), diffDays = Math.ceil(diffTime / 864e5);
+                                    const prazoDate = new Date(change.prazo);
+                                    // Recalcula a diferença de dias com base no início de hoje
+                                    const diffTime = Math.abs(today.getTime() - prazoDate.getTime());
+                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                                     return `<div class="change-card bg-slate-800 p-4 rounded-lg border border-red-500/50 flex items-center justify-between cursor-pointer" data-change-id="${change.id}"><div class="flex items-center min-w-0"><div class="mr-4">${change.goldenTicket ? '<i class="fa-solid fa-star text-yellow-400 text-lg"></i>' : `<div class="w-1 h-10 bg-red-500/50 rounded-full"></div>`}</div><div class="min-w-0"><p class="font-semibold text-white truncate">${change.text}</p><p class="text-xs text-slate-400"><span class="font-mono">Ticket-${change.idChange}</span> | Responsável: ${change.responsible}</p></div></div><div class="text-right flex-shrink-0 ml-4"><span class="text-xs font-bold px-2 py-1 rounded-full ${statusMap[change.status] || ''}">${change.status}</span><p class="text-sm font-bold text-red-400 mt-1">${diffDays} dia(s) atrasado</p></div></div>`
                                 }).join('')}</div></div>`).join('') : `<p class="text-slate-500 mt-6">Nenhum change atrasado encontrado.</p>`}</div>`;
                 ['overdue-sistema-filter', 'overdue-responsible-filter', 'overdue-status-filter'].forEach(id => {
