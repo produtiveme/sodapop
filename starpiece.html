@@ -171,7 +171,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2">
-        <p class="text-xs text-slate-500">Star Piece | v1.0.1</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.0.2</p>
     </footer>
 
     <script>
@@ -263,60 +263,38 @@
             group.setAttribute('class', 'fluxo-node');
             group.setAttribute('id', nodeId);
             
-            // Set default data
+            group.dataset.type = type;
             group.dataset.name = type;
             group.dataset.description = "";
             group.dataset.actionType = "Nenhum";
             group.dataset.color = "#1e293b";
             
-            let offsetX = 75;
-            let offsetY = type === 'decision' ? 75 : type === 'start-end' ? 25 : 40;
-            group.setAttribute('transform', `translate(${x - offsetX}, ${y - offsetY})`);
-            
-            let shape, textEl;
-            
-            switch (type) {
-                case 'start-end':
-                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    shape.setAttribute('width', '150');
-                    shape.setAttribute('height', '50');
-                    shape.setAttribute('rx', '25');
-                    shape.setAttribute('ry', '25');
-                    break;
-                case 'action':
-                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    shape.setAttribute('width', '150');
-                    shape.setAttribute('height', '80');
-                    break;
-                case 'decision':
-                    shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    shape.setAttribute('d', 'M 75 0 L 150 75 L 75 150 L 0 75 Z');
-                    break;
-            }
-
+            const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             shape.setAttribute('stroke', '#475569');
             shape.setAttribute('stroke-width', '2');
 
-            textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            textEl.setAttribute('x', '75');
-            textEl.setAttribute('y', type === 'decision' ? '75' : type === 'start-end' ? '25' : '40');
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             textEl.setAttribute('text-anchor', 'middle');
-            textEl.setAttribute('dy', '.3em');
             textEl.setAttribute('fill', '#cbd5e1');
+            textEl.setAttribute('font-size', '14');
 
             group.appendChild(shape);
             group.appendChild(textEl);
-            
             canvas.appendChild(group);
+
+            updateNodeVisuals(group);
+            
+            const bbox = group.getBBox();
+            group.setAttribute('transform', `translate(${x - bbox.width / 2}, ${y - bbox.height / 2})`);
+
 
             group.addEventListener('mousedown', startDrag);
             group.addEventListener('click', handleNodeClick);
             group.addEventListener('dblclick', (e) => {
-                e.stopPropagation(); // prevent modal from opening
+                e.stopPropagation(); 
                 editText(e);
             });
             
-            updateNodeVisuals(group);
             openPropertiesModal(group);
         }
 
@@ -355,8 +333,7 @@
         function editText(e) {
             if (connectionMode || deleteMode) return;
             const group = e.currentTarget;
-            const textEl = group.querySelector('text');
-            const newText = prompt("Editar nome:", textEl.textContent);
+            const newText = prompt("Editar nome:", group.dataset.name);
             if (newText !== null) {
                 group.dataset.name = newText;
                 updateNodeVisuals(group);
@@ -374,7 +351,6 @@
             }
         }
         
-        // --- Properties Modal Logic ---
         function openPropertiesModal(node) {
             nodeBeingEdited = node;
             propertiesForm.name.value = node.dataset.name;
@@ -406,47 +382,87 @@
         cancelPropertiesBtn.addEventListener('click', closePropertiesModal);
         
         function updateNodeVisuals(node) {
-            const shape = node.querySelector('rect, path');
+            let shape = node.querySelector('path, rect'); // Use let instead of const
             const textEl = node.querySelector('text');
+            const type = node.dataset.type;
+
+            const PADDING_X = 20;
+            const PADDING_Y = 15;
+            const LINE_HEIGHT = 18;
+            const MIN_WIDTH = 150;
+            const MAX_WIDTH = 250;
+            const TAG_HEIGHT = 18;
+            const TAG_MARGIN = 5;
+
+            // 1. Wrap text
+            textEl.innerHTML = '';
+            const words = node.dataset.name.split(' ');
+            let tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.setAttribute('x', 0);
+            tspan.setAttribute('dy', `${LINE_HEIGHT}px`);
+            textEl.appendChild(tspan);
+            let lineCount = 1;
+
+            for (const word of words) {
+                const testText = tspan.textContent + (tspan.textContent ? ' ' : '') + word;
+                tspan.textContent = testText;
+                if (tspan.getComputedTextLength() > MAX_WIDTH) {
+                    tspan.textContent = testText.slice(0, -(word.length + 1));
+                    tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.setAttribute('x', 0);
+                    tspan.setAttribute('dy', `${LINE_HEIGHT}px`);
+                    tspan.textContent = word;
+                    textEl.appendChild(tspan);
+                    lineCount++;
+                }
+            }
             
-            // Update Text
-            textEl.textContent = node.dataset.name;
+            // 2. Calculate dimensions
+            const textBBox = textEl.getBBox();
+            let newWidth = Math.max(MIN_WIDTH, textBBox.width + PADDING_X * 2);
+            let newHeight = textBBox.height + PADDING_Y * 2;
             
-            // Update Color
-            shape.setAttribute('fill', node.dataset.color);
+            if(node.dataset.actionType !== 'Nenhum') {
+                newHeight += TAG_HEIGHT + TAG_MARGIN;
+            }
             
-            // Update Description Icon
-            let infoIcon = node.querySelector('.info-icon-group');
-            if (node.dataset.description && !infoIcon) {
-                const bbox = shape.getBBox();
-                infoIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                infoIcon.setAttribute('class', 'info-icon-group');
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', bbox.width - 10);
-                circle.setAttribute('cy', '10');
-                circle.setAttribute('r', '8');
-                circle.setAttribute('fill', '#4f46e5');
-                const i = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                i.setAttribute('x', bbox.width - 10);
-                i.setAttribute('y', '10');
-                i.setAttribute('dy', '.35em');
-                i.setAttribute('text-anchor', 'middle');
-                i.setAttribute('fill', 'white');
-                i.setAttribute('font-size', '10');
-                i.setAttribute('font-weight', 'bold');
-                i.textContent = 'i';
-                infoIcon.appendChild(circle);
-                infoIcon.appendChild(i);
-                node.appendChild(infoIcon);
-            } else if (!node.dataset.description && infoIcon) {
-                node.removeChild(infoIcon);
+            if (type === 'decision') {
+                newWidth = Math.max(newWidth, newHeight * 1.5);
+                newHeight = newWidth / 1.5;
             }
 
-            // Update Action Type Tag
+
+            // 3. Update shape
+             shape.setAttribute('fill', node.dataset.color);
+            if (type === 'start-end') {
+                shape.tagName === 'rect' || (shape = redrawShape(node, 'rect'));
+                shape.setAttribute('width', newWidth);
+                shape.setAttribute('height', newHeight);
+                shape.setAttribute('rx', newHeight/2);
+                shape.setAttribute('ry', newHeight/2);
+            } else if (type === 'action') {
+                shape.tagName === 'rect' || (shape = redrawShape(node, 'rect'));
+                shape.setAttribute('width', newWidth);
+                shape.setAttribute('height', newHeight);
+            } else if (type === 'decision') {
+                shape.tagName === 'path' || (shape = redrawShape(node, 'path'));
+                shape.setAttribute('d', `M ${newWidth / 2} 0 L ${newWidth} ${newHeight / 2} L ${newWidth / 2} ${newHeight} L 0 ${newHeight / 2} Z`);
+            }
+            
+             // 4. Reposition text
+            const shapeBBox = shape.getBBox();
+            textEl.setAttribute('transform', `translate(${shapeBBox.width/2}, ${PADDING_Y - LINE_HEIGHT / 2})`);
+            
+            // Reposition tspans for vertical centering
+            const totalTextHeight = lineCount * LINE_HEIGHT;
+            const startY = (shapeBBox.height - totalTextHeight - (node.dataset.actionType !== 'Nenhum' ? TAG_HEIGHT + TAG_MARGIN : 0)) / 2;
+            textEl.setAttribute('transform', `translate(${shapeBBox.width/2}, ${startY})`);
+            
+            // 5. Update Action Tag
             let actionTag = node.querySelector('.action-tag-group');
-            if (actionTag) node.removeChild(actionTag); // Remove old one first
+            if (actionTag) node.removeChild(actionTag);
             if (node.dataset.actionType !== 'Nenhum') {
-                const bbox = shape.getBBox();
+                 // ... (code for creating tag)
                 actionTag = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 actionTag.setAttribute('class', 'action-tag-group');
                 const tagRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -457,28 +473,67 @@
                 tagText.setAttribute('fill', 'white');
                 tagText.setAttribute('text-anchor', 'middle');
                 
-                const textBBox = tagText.getBBox(); // Measure text after setting content
-                const tagWidth = textBBox.width + 12;
-                const tagHeight = 18;
+                const textBBoxTag = tagText.getBBox(); 
+                const tagWidth = textBBoxTag.width + 12;
 
-                tagRect.setAttribute('x', (bbox.width - tagWidth) / 2);
-                tagRect.setAttribute('y', bbox.height - tagHeight - 5);
+                tagRect.setAttribute('x', (shapeBBox.width - tagWidth) / 2);
+                tagRect.setAttribute('y', shapeBBox.height - TAG_HEIGHT - TAG_MARGIN);
                 tagRect.setAttribute('width', tagWidth);
-                tagRect.setAttribute('height', tagHeight);
+                tagRect.setAttribute('height', TAG_HEIGHT);
                 tagRect.setAttribute('rx', '4');
                 tagRect.setAttribute('fill', actionTypeColors[node.dataset.actionType] || '#64748b');
 
-                tagText.setAttribute('x', bbox.width / 2);
-                tagText.setAttribute('y', bbox.height - tagHeight / 2 - 5);
+                tagText.setAttribute('x', shapeBBox.width / 2);
+                tagText.setAttribute('y', shapeBBox.height - TAG_HEIGHT / 2 - TAG_MARGIN);
                 tagText.setAttribute('dy', '.3em');
 
                 actionTag.appendChild(tagRect);
                 actionTag.appendChild(tagText);
                 node.appendChild(actionTag);
             }
+            
+            // 6. Update Description Icon
+            let infoIcon = node.querySelector('.info-icon-group');
+             if (infoIcon) node.removeChild(infoIcon);
+            if (node.dataset.description) {
+                infoIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                infoIcon.setAttribute('class', 'info-icon-group');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', shapeBBox.width - 12);
+                circle.setAttribute('cy', '12');
+                circle.setAttribute('r', '8');
+                circle.setAttribute('fill', '#4f46e5');
+                const i = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                i.setAttribute('x', shapeBBox.width - 12);
+                i.setAttribute('y', '12');
+                i.setAttribute('dy', '.35em');
+                i.setAttribute('text-anchor', 'middle');
+                i.setAttribute('fill', 'white');
+                i.setAttribute('font-size', '10');
+                i.setAttribute('font-weight', 'bold');
+                i.textContent = 'i';
+                infoIcon.appendChild(circle);
+                infoIcon.appendChild(i);
+                node.appendChild(infoIcon);
+            }
+            
+            updateConnections(node.id);
         }
-
-        // --- Connection Logic ---
+        
+        function redrawShape(node, newType) {
+            let newShape;
+            const currentShape = node.querySelector('path, rect');
+            if (newType === 'rect') {
+                newShape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            } else {
+                 newShape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            }
+            newShape.setAttribute('stroke', '#475569');
+            newShape.setAttribute('stroke-width', '2');
+            node.insertBefore(newShape, node.querySelector('text'));
+            if(currentShape) node.removeChild(currentShape);
+            return newShape;
+        }
 
         function deleteNode(nodeToDelete) {
             const nodeId = nodeToDelete.id;
