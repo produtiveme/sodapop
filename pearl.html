@@ -20,6 +20,13 @@
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
         ::-webkit-scrollbar-thumb:hover { background-color: #64748b; }
+        .form-select {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300 flex flex-col h-screen">
@@ -54,8 +61,17 @@
         </div>
 
         <!-- Preview Column -->
-        <div id="preview-container" class="bg-slate-800 border border-slate-700 rounded-lg p-4 flex items-center justify-center overflow-auto">
-            <div id="output" class="w-full h-full flex items-center justify-center"></div>
+        <div class="flex flex-col h-full gap-4">
+            <div class="flex items-center gap-4 bg-slate-800 border border-slate-700 rounded-lg p-3">
+                 <label for="focus-filter" class="text-sm font-medium text-slate-400 flex-shrink-0">Foco no Componente:</label>
+                 <select id="focus-filter" class="form-select w-full">
+                     <option value="">Ver Todos</option>
+                 </select>
+                 <button id="clear-filter-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Limpar</button>
+            </div>
+            <div id="preview-container" class="bg-slate-800 border border-slate-700 rounded-lg p-4 flex-grow flex items-center justify-center overflow-auto">
+                <div id="output" class="w-full h-full flex items-center justify-center"></div>
+            </div>
         </div>
     </main>
 
@@ -75,26 +91,143 @@
             const downloadBtn = document.getElementById('download-png-btn');
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
+            const focusFilter = document.getElementById('focus-filter');
+            const clearFilterBtn = document.getElementById('clear-filter-btn');
 
-            const exampleCode = `graph TD
-    A[Start] --> B{Is it?};
-    B -->|Yes| C[OK];
-    C --> D[End];
-    B -->|No| E[Not OK];
-    E --> D[End];
+            let fullCode = '';
+
+            const exampleCode = `graph LR
+
+%% Bases antigas %%
+
+TAR[(Tarefas)]
+PRJ[(Projetos)]
+ARE[(Áreas)]
+RRR[(Recursos)]
+NOT[(Anotações)]
+CAD[(Cadernos)]
+TOP[(Tópicos)]
+PLA[(Planners)]
+MET[(Metas)]
+
+
+%% Novas Bases de Dados %%
+
+CRM[(CRM)]
+
+
+CRM --| 1 X |--- TAR
+CRM --| 1 X |--- PRJ
+TAR --| X 1 |--- PRJ
+ARE --| X X |--- MET
+ARE --| X X |--- NOT
+ARE --| X X |--- PRJ
+ARE --| X X |--- RRR
+ARE --| X X |--- TAR
+PRJ --| X X |--- NOT
+PRJ --| X X |--- MET
+PRJ --| X X |--- RRR
+TAR --| X X |--- NOT
+TAR --| X X |--- MET
+TAR --| X X |--- RRR
+TAR --| X X |--- ARE
 `;
 
             editor.value = exampleCode;
+            fullCode = exampleCode;
+
+            const parseMermaidCode = (code) => {
+                const lines = code.split('\n');
+                const nodes = new Map();
+                const links = [];
+                // Corrected Regex to find node definitions
+                const nodeRegex = /^(\s*)(\w+)(?:\[.*?\]|\(.*?\)|>.*?\]|\{.*?\})?/;
+                const linkRegex = /(\w+)\s*--.*-->?\s*(\w+)/;
+                const linkWithTextRegex = /(\w+)\s*--\|(.*?)\|--\s*(\w+)/;
+
+
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (line.startsWith('%%') || line === '') return;
+
+                    let match = line.match(nodeRegex);
+                    // Check if it's a node definition and not a link
+                    if (match && !line.includes('--')) {
+                        const id = match[2];
+                        if (id !== 'graph' && id !== 'subgraph' && id !== 'end') {
+                           nodes.set(id, line);
+                        }
+                    } else {
+                        let linkMatch = line.match(linkWithTextRegex) || line.match(linkRegex);
+                        if(linkMatch) {
+                            links.push({line: line, from: linkMatch[1], to: linkMatch[3] || linkMatch[2]});
+                        }
+                    }
+                });
+                return { nodes, links };
+            };
+            
+            const generateFilteredCode = (focusNodeId, nodes, links) => {
+                const header = fullCode.match(/^(graph\s+\w+)/);
+                if (!header) return 'graph TD\n  A[No graph type found]';
+
+                const relevantLinks = links.filter(l => l.from === focusNodeId || l.to === focusNodeId);
+                const relevantNodeIds = new Set([focusNodeId]);
+                relevantLinks.forEach(l => {
+                    relevantNodeIds.add(l.from);
+                    relevantNodeIds.add(l.to);
+                });
+
+                let filteredCode = header[0] + '\n\n';
+                relevantNodeIds.forEach(nodeId => {
+                    if (nodes.has(nodeId)) {
+                        filteredCode += `    ${nodes.get(nodeId)}\n`;
+                    } else {
+                        // Add node if it only exists in links
+                        filteredCode += `    ${nodeId}\n`;
+                    }
+                });
+                
+                filteredCode += '\n';
+                
+                relevantLinks.forEach(link => {
+                    filteredCode += `    ${link.line}\n`;
+                });
+
+                return filteredCode;
+            };
+
+            const updateFilterOptions = () => {
+                 const { nodes } = parseMermaidCode(fullCode);
+                 const currentVal = focusFilter.value;
+                 focusFilter.innerHTML = '<option value="">Ver Todos</option>';
+                 const sortedNodes = [...nodes.keys()].sort();
+                 sortedNodes.forEach(nodeId => {
+                     const option = document.createElement('option');
+                     option.value = nodeId;
+                     option.textContent = nodeId;
+                     focusFilter.appendChild(option);
+                 });
+                 focusFilter.value = currentVal;
+            };
 
             const renderMermaid = async () => {
-                const code = editor.value;
-                if (!code.trim()) {
+                let codeToRender = fullCode;
+                const selectedFocus = focusFilter.value;
+
+                if (selectedFocus) {
+                    const { nodes, links } = parseMermaidCode(fullCode);
+                    codeToRender = generateFilteredCode(selectedFocus, nodes, links);
+                }
+
+                if (!codeToRender.trim()) {
                     output.innerHTML = '<p class="text-slate-500">Comece a digitar seu código Mermaid...</p>';
                     return;
                 }
 
                 try {
-                    const { svg } = await mermaid.render('mermaid-graph', code);
+                    const uniqueId = `mermaid-graph-${Date.now()}`;
+                    const { svg } = await mermaid.render(uniqueId, codeToRender);
                     output.innerHTML = svg;
                 } catch (error) {
                     output.innerHTML = `
@@ -104,6 +237,12 @@
                         </div>
                     `;
                 }
+            };
+
+            const handleEditorInput = () => {
+                fullCode = editor.value;
+                updateFilterOptions();
+                renderMermaid();
             };
 
             const copyToClipboard = () => {
@@ -145,9 +284,8 @@
                 const drawAndDownload = (includeLogo) => {
                     diagramImage.onload = () => {
                         const scale = 2;
-                        const margin = 40 * scale; // Margin around the diagram
+                        const margin = 40 * scale; 
                         const footerHeight = includeLogo ? (60 * scale) : 0;
-                        const padding = 20 * scale; // Padding inside the footer
                         
                         const { width, height } = svgElement.viewBox.baseVal;
                         canvas.width = (width * scale) + (margin * 2);
@@ -156,20 +294,18 @@
                         ctx.fillStyle = 'white';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
-                        // Draw diagram with margin
                         ctx.drawImage(diagramImage, margin, margin, width * scale, height * scale);
 
                         if (includeLogo) {
                             const logoSize = 40 * scale;
-                            // Position footer content relative to the full canvas size
-                            const footerY = (height * scale) + (margin * 1.5);
-                            ctx.drawImage(logoImage, margin, footerY + (footerHeight - logoSize)/2 - (10*scale), logoSize, logoSize);
+                            const footerY = (height * scale) + margin + (margin / 2);
+                            ctx.drawImage(logoImage, margin, footerY + (footerHeight - logoSize) / 2, logoSize, logoSize);
                             
                             ctx.fillStyle = '#475569';
                             ctx.font = `bold ${16 * scale}px Inter`;
                             ctx.textAlign = 'left';
                             ctx.textBaseline = 'middle';
-                            ctx.fillText(footerText, margin + logoSize + (10 * scale), footerY + (footerHeight / 2) - (10*scale));
+                            ctx.fillText(footerText, margin + logoSize + (10 * scale), footerY + (footerHeight / 2));
                         }
 
                         const pngUrl = canvas.toDataURL('image/png');
@@ -190,18 +326,23 @@
                 logoImage.onerror = () => {
                     console.error("Não foi possível carregar o logo.");
                     alert("Não foi possível carregar o logo, o download continuará sem ele.");
-                    drawAndDownload(false); // Fallback to download without logo
+                    drawAndDownload(false);
                 };
 
                 logoImage.src = logoUrl;
             };
 
-            editor.addEventListener('input', renderMermaid);
+            editor.addEventListener('input', handleEditorInput);
+            focusFilter.addEventListener('change', renderMermaid);
+            clearFilterBtn.addEventListener('click', () => {
+                focusFilter.value = '';
+                renderMermaid();
+            });
             copyBtn.addEventListener('click', copyToClipboard);
             downloadBtn.addEventListener('click', downloadAsPng);
 
-            // Initial render
-            renderMermaid();
+            // Initial setup
+            handleEditorInput();
         });
     </script>
 </body>
