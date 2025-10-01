@@ -71,7 +71,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v1.2.5</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.2.7</p>
     </footer>
 
     <script>
@@ -369,9 +369,14 @@
                             </div>
                         </div>
                     </div>
-                    <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-4">
-                        <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                    <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+                        <div>
+                           ${step.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
+                        </div>
+                        <div class="flex gap-4">
+                            <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                        </div>
                     </div>
                  </form>
             `;
@@ -396,6 +401,34 @@
             form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
                 state.editingStep = null;
                 render();
+            });
+            const deleteBtn = form.querySelector('#delete-step-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => showDeleteConfirmation(step));
+            }
+        }
+        
+        function showDeleteConfirmation(step) {
+            editModeContent.classList.add('hidden');
+            viewModeContent.classList.remove('hidden');
+
+            viewModeContent.innerHTML = `
+                <div class="p-6 text-center">
+                    <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+                    <h3 class="text-2xl font-bold text-white">Confirmar Exclusão</h3>
+                    <p class="mt-2 text-slate-400">Tem certeza que deseja apagar a etapa "${step.name}"? Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-4">
+                    <button type="button" id="cancel-delete-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="button" id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Sim, Apagar</button>
+                </div>
+            `;
+
+            viewModeContent.querySelector('#confirm-delete-btn').addEventListener('click', () => {
+                handleDeleteStep(step.id);
+            });
+            viewModeContent.querySelector('#cancel-delete-btn').addEventListener('click', () => {
+                renderEditForm(step);
             });
         }
 
@@ -432,6 +465,20 @@
             
             state.currentStepId = stepData.id;
             state.editingStep = null;
+            render();
+        }
+
+        function handleDeleteStep(stepIdToDelete) {
+            state.steps.forEach(step => {
+                if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
+                if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
+                if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
+            });
+
+            state.steps = state.steps.filter(step => step.id !== stepIdToDelete);
+
+            state.editingStep = null;
+            state.currentStepId = null;
             render();
         }
 
