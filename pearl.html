@@ -26,7 +26,6 @@
             color: #cbd5e1;
             border-radius: 0.375rem;
             padding: 0.5rem 0.75rem;
-            width: 100%;
         }
     </style>
 </head>
@@ -44,16 +43,16 @@
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
                         <label for="username" class="sr-only">Usuário</label>
-                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md text-base p-3" placeholder="Usuário">
                     </div>
                     <div>
                         <label for="password" class="sr-only">Senha</label>
-                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md text-base p-3" placeholder="Senha">
                     </div>
                 </div>
                  <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
                 <div>
-                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Entrar
                     </button>
                 </div>
@@ -70,7 +69,20 @@
                         <img src="https://www.svgrepo.com/show/153086/pearl.svg" class="h-8 w-8 filter invert" alt="Pearl Logo">
                         <h1 class="text-2xl font-bold text-white">Pearl</h1>
                     </div>
-                    <div class="flex items-center space-x-4">
+                    <div id="main-actions" class="hidden items-center space-x-4">
+                        <div class="flex items-center gap-2">
+                             <label for="sistema-select" class="text-sm font-medium text-slate-400 flex-shrink-0">Sistema:</label>
+                             <select id="sistema-select" class="form-select w-64"></select>
+                        </div>
+                        <button id="new-diagram-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                            <i class="fa-solid fa-file"></i>
+                            Novo
+                        </button>
+                        <button id="save-diagram-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                            <i class="fa-solid fa-save"></i>
+                            Salvar
+                        </button>
+                        <div class="h-8 border-l border-slate-600"></div>
                         <button id="copy-svg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
                             <i class="fa-solid fa-copy"></i>
                             Copiar SVG
@@ -107,6 +119,10 @@
         </main>
     </div>
 
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden transition-opacity duration-300">
+        <p id="toast-message"></p>
+    </div>
+
     <!-- Hidden canvas for PNG conversion -->
     <canvas id="canvas" class="hidden"></canvas>
 
@@ -117,6 +133,12 @@
         mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 
         document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE ---
+            let state = {
+                sistemas: [],
+                currentSistemaId: null
+            };
+
             // --- DOM ELEMENTS ---
             const loginViewEl = document.getElementById('login-view');
             const appViewEl = document.getElementById('app');
@@ -124,6 +146,7 @@
             const loginErrorEl = document.getElementById('login-error');
             const loginButtonEl = document.getElementById('login-button');
             const logoutButtonEl = document.getElementById('logout-button');
+            const mainActionsEl = document.getElementById('main-actions');
 
             const editor = document.getElementById('editor');
             const output = document.getElementById('output');
@@ -133,26 +156,44 @@
             const ctx = canvas.getContext('2d');
             const focusFilter = document.getElementById('focus-filter');
             const clearFilterBtn = document.getElementById('clear-filter-btn');
+            const sistemaSelect = document.getElementById('sistema-select');
+            const saveDiagramBtn = document.getElementById('save-diagram-btn');
+            const newDiagramBtn = document.getElementById('new-diagram-btn');
+            const toastEl = document.getElementById('toast');
+            const toastMessageEl = document.getElementById('toast-message');
 
             let fullCode = '';
 
             // --- N8N WEBHOOK URLS ---
             const URLS = {
                 login: 'https://work.produ-cloud.com/webhook/envia_login',
+                sistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
+                updateDiagrama: 'https://work.produ-cloud.com/webhook/atualiza_diagrama_sistema'
+            };
+            
+            const showToast = (message, isError = false) => {
+                toastMessageEl.textContent = message;
+                toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+                toastEl.classList.remove('hidden');
+                setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
             };
 
              // --- AUTHENTICATION ---
             function checkAuth() {
-                // We use sodapop_user to allow a seamless experience between apps
                 const user = sessionStorage.getItem('sodapop_user');
                 if (user) {
                     loginViewEl.classList.add('hidden');
                     appViewEl.classList.remove('hidden');
                     appViewEl.classList.add('flex');
+                    mainActionsEl.classList.remove('hidden');
+                    mainActionsEl.classList.add('flex');
+                    fetchSistemas();
                 } else {
                     loginViewEl.classList.remove('hidden');
                     appViewEl.classList.add('hidden');
                     appViewEl.classList.remove('flex');
+                    mainActionsEl.classList.add('hidden');
+                    mainActionsEl.classList.remove('flex');
                 }
             }
 
@@ -175,7 +216,6 @@
                     if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
                     
                     const result = await response.json();
-                    
                     const userData = Array.isArray(result) ? result[0] : result;
 
                     if (userData && userData.id) {
@@ -198,42 +238,85 @@
                 checkAuth();
             }
 
+            // --- DATA OPERATIONS ---
+            async function fetchSistemas() {
+                try {
+                    const response = await fetch(URLS.sistemas);
+                    if (!response.ok) throw new Error('Falha ao buscar sistemas.');
+                    state.sistemas = await response.json();
+                    populateSistemaSelect();
+                } catch (error) {
+                    showToast(error.message, true);
+                }
+            }
 
-            const exampleCode = `graph LR
+            function populateSistemaSelect() {
+                sistemaSelect.innerHTML = '<option value="">Selecione um Sistema...</option>';
+                state.sistemas.forEach(sistema => {
+                    const option = document.createElement('option');
+                    option.value = sistema.id;
+                    option.textContent = sistema.name;
+                    sistemaSelect.appendChild(option);
+                });
+            }
 
-%% Bases antigas %%
+            function handleSistemaSelect() {
+                const selectedId = sistemaSelect.value;
+                state.currentSistemaId = selectedId;
+                if (selectedId) {
+                    const sistema = state.sistemas.find(s => s.id == selectedId);
+                    const code = sistema.diagramCode || `graph TD\n    A[Comece a desenhar o diagrama para: ${sistema.name}]`;
+                    editor.value = code;
+                    handleEditorInput();
+                } else {
+                    editor.value = exampleCode;
+                    handleEditorInput();
+                }
+            }
 
-TAR[(Tarefas)]
-PRJ[(Projetos)]
-ARE[(Áreas)]
-RRR[(Recursos)]
-NOT[(Anotações)]
-CAD[(Cadernos)]
-TOP[(Tópicos)]
-PLA[(Planners)]
-MET[(Metas)]
+            async function handleSaveDiagram() {
+                if (!state.currentSistemaId) {
+                    alert('Por favor, selecione um sistema para salvar o diagrama.');
+                    return;
+                }
+                
+                saveDiagramBtn.disabled = true;
+                saveDiagramBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
+                try {
+                    const response = await fetch(URLS.updateDiagrama, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: state.currentSistemaId,
+                            code: editor.value
+                        })
+                    });
+                    if (!response.ok) throw new Error('Falha ao salvar o diagrama.');
+                    
+                    const sistema = state.sistemas.find(s => s.id == state.currentSistemaId);
+                    if(sistema) sistema.diagramCode = editor.value;
 
-%% Novas Bases de Dados %%
+                    showToast('Diagrama salvo com sucesso!');
 
-CRM[(CRM)]
+                } catch (error) {
+                     showToast(error.message, true);
+                } finally {
+                    saveDiagramBtn.disabled = false;
+                    saveDiagramBtn.innerHTML = `<i class="fa-solid fa-save"></i> Salvar`;
+                }
+            }
 
+            function handleNewDiagram() {
+                sistemaSelect.value = '';
+                state.currentSistemaId = null;
+                editor.value = `graph TD\n    A[Novo Diagrama]`;
+                handleEditorInput();
+            }
 
-CRM --| 1 X |--- TAR
-CRM --| 1 X |--- PRJ
-TAR --| X 1 |--- PRJ
-ARE --| X X |--- MET
-ARE --| X X |--- NOT
-ARE --| X X |--- PRJ
-ARE --| X X |--- RRR
-ARE --| X X |--- TAR
-PRJ --| X X |--- NOT
-PRJ --| X X |--- MET
-PRJ --| X X |--- RRR
-TAR --| X X |--- NOT
-TAR --| X X |--- MET
-TAR --| X X |--- RRR
-TAR --| X X |--- ARE
+            // --- MERMAID LOGIC ---
+            const exampleCode = `graph TD
+    A[Comece a editar] --> B(Seu Diagrama);
 `;
 
             editor.value = exampleCode;
@@ -435,6 +518,9 @@ TAR --| X X |--- ARE
             // --- EVENT LISTENERS ---
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
+            sistemaSelect.addEventListener('change', handleSistemaSelect);
+            saveDiagramBtn.addEventListener('click', handleSaveDiagram);
+            newDiagramBtn.addEventListener('click', handleNewDiagram);
 
             editor.addEventListener('input', handleEditorInput);
             focusFilter.addEventListener('change', renderMermaid);
