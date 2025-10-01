@@ -58,6 +58,18 @@
             stroke-dasharray: 5,5;
             pointer-events: none;
         }
+        .form-input, .form-select, .form-textarea {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300 flex flex-col h-screen overflow-hidden">
@@ -96,8 +108,10 @@
                 <div class="w-32 h-16 bg-slate-900 rounded-md mx-auto mt-2"></div>
             </div>
             <div class="sidebar-node bg-slate-700 p-4 rounded-lg text-center" draggable="true" data-type="decision">
-                <p class="font-medium">Decisão</p>
-                <div class="w-24 h-24 bg-slate-900 transform rotate-45 mx-auto mt-2"></div>
+                <p class="font-medium mb-2">Decisão</p>
+                <div class="h-20 flex items-center justify-center">
+                    <div class="w-14 h-14 bg-slate-900 transform rotate-45"></div>
+                </div>
             </div>
         </aside>
 
@@ -107,6 +121,59 @@
         </main>
     </div>
 
+    <!-- Properties Modal -->
+    <div id="properties-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-lg shadow-xl w-full max-w-lg">
+            <form id="properties-form">
+                <div class="p-6 border-b border-slate-700">
+                    <h3 class="text-xl font-bold text-white">Propriedades do Bloco</h3>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label for="prop-name" class="block text-sm font-medium text-slate-400 mb-1">Nome do Bloco</label>
+                        <input type="text" id="prop-name" name="name" class="form-input">
+                    </div>
+                    <div>
+                        <label for="prop-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
+                        <textarea id="prop-description" name="description" rows="3" class="form-textarea"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="prop-action-type" class="block text-sm font-medium text-slate-400 mb-1">Tipo de Ação</label>
+                            <select id="prop-action-type" name="actionType" class="form-select">
+                                <option value="Nenhum">Nenhum</option>
+                                <option value="Manual">Manual</option>
+                                <option value="Automação">Automação</option>
+                                <option value="Gatilho">Gatilho</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="prop-color" class="block text-sm font-medium text-slate-400 mb-1">Cor</label>
+                            <select id="prop-color" name="color" class="form-select">
+                                <option value="#1e293b">Padrão</option>
+                                <option value="#ef4444">Vermelho</option>
+                                <option value="#3b82f6">Azul</option>
+                                <option value="#22c55e">Verde</option>
+                                <option value="#eab308">Amarelo</option>
+                                <option value="#8b5cf6">Roxo</option>
+                                <option value="#64748b">Cinza</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3">
+                    <button type="button" id="cancel-properties" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
+                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2">
+        <p class="text-xs text-slate-500">Star Piece | v1.0.1</p>
+    </footer>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const canvas = document.getElementById('canvas');
@@ -114,6 +181,9 @@
         const sidebarNodes = document.querySelectorAll('.sidebar-node');
         const connectorTool = document.getElementById('connector-tool');
         const deleteTool = document.getElementById('delete-tool');
+        const propertiesModal = document.getElementById('properties-modal');
+        const propertiesForm = document.getElementById('properties-form');
+        const cancelPropertiesBtn = document.getElementById('cancel-properties');
 
         let selectedNode = null;
         let offset = { x: 0, y: 0 };
@@ -122,7 +192,15 @@
         let deleteMode = false;
         let startNode = null;
         let tempLine = null;
+        let nodeBeingEdited = null;
         
+        const actionTypeColors = {
+            'Manual': '#38bdf8', // sky-400
+            'Automação': '#a855f7', // purple-500
+            'Gatilho': '#f59e0b', // amber-500
+            'Outros': '#64748b' // slate-500
+        };
+
         function deactivateAllTools() {
             connectionMode = false;
             connectorTool.classList.remove('active');
@@ -184,13 +262,19 @@
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             group.setAttribute('class', 'fluxo-node');
             group.setAttribute('id', nodeId);
+            
+            // Set default data
+            group.dataset.name = type;
+            group.dataset.description = "";
+            group.dataset.actionType = "Nenhum";
+            group.dataset.color = "#1e293b";
+            
             let offsetX = 75;
             let offsetY = type === 'decision' ? 75 : type === 'start-end' ? 25 : 40;
             group.setAttribute('transform', `translate(${x - offsetX}, ${y - offsetY})`);
             
             let shape, textEl;
-            const textContent = prompt("Digite o texto para este bloco:", type);
-
+            
             switch (type) {
                 case 'start-end':
                     shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -210,7 +294,6 @@
                     break;
             }
 
-            shape.setAttribute('fill', '#1e293b');
             shape.setAttribute('stroke', '#475569');
             shape.setAttribute('stroke-width', '2');
 
@@ -220,7 +303,6 @@
             textEl.setAttribute('text-anchor', 'middle');
             textEl.setAttribute('dy', '.3em');
             textEl.setAttribute('fill', '#cbd5e1');
-            textEl.textContent = textContent || type;
 
             group.appendChild(shape);
             group.appendChild(textEl);
@@ -229,7 +311,13 @@
 
             group.addEventListener('mousedown', startDrag);
             group.addEventListener('click', handleNodeClick);
-            group.addEventListener('dblclick', editText);
+            group.addEventListener('dblclick', (e) => {
+                e.stopPropagation(); // prevent modal from opening
+                editText(e);
+            });
+            
+            updateNodeVisuals(group);
+            openPropertiesModal(group);
         }
 
         function startDrag(e) {
@@ -268,9 +356,10 @@
             if (connectionMode || deleteMode) return;
             const group = e.currentTarget;
             const textEl = group.querySelector('text');
-            const newText = prompt("Editar texto:", textEl.textContent);
+            const newText = prompt("Editar nome:", textEl.textContent);
             if (newText !== null) {
-                textEl.textContent = newText;
+                group.dataset.name = newText;
+                updateNodeVisuals(group);
             }
         }
         
@@ -280,8 +369,116 @@
                 handleConnectionClick(clickedNode);
             } else if (deleteMode) {
                 deleteNode(clickedNode);
+            } else {
+                 openPropertiesModal(clickedNode);
             }
         }
+        
+        // --- Properties Modal Logic ---
+        function openPropertiesModal(node) {
+            nodeBeingEdited = node;
+            propertiesForm.name.value = node.dataset.name;
+            propertiesForm.description.value = node.dataset.description;
+            propertiesForm.actionType.value = node.dataset.actionType;
+            propertiesForm.color.value = node.dataset.color;
+            propertiesModal.classList.remove('hidden');
+            propertiesModal.classList.add('flex');
+        }
+
+        function closePropertiesModal() {
+            nodeBeingEdited = null;
+            propertiesModal.classList.add('hidden');
+            propertiesModal.classList.remove('flex');
+        }
+
+        propertiesForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (nodeBeingEdited) {
+                nodeBeingEdited.dataset.name = propertiesForm.name.value;
+                nodeBeingEdited.dataset.description = propertiesForm.description.value;
+                nodeBeingEdited.dataset.actionType = propertiesForm.actionType.value;
+                nodeBeingEdited.dataset.color = propertiesForm.color.value;
+                updateNodeVisuals(nodeBeingEdited);
+            }
+            closePropertiesModal();
+        });
+
+        cancelPropertiesBtn.addEventListener('click', closePropertiesModal);
+        
+        function updateNodeVisuals(node) {
+            const shape = node.querySelector('rect, path');
+            const textEl = node.querySelector('text');
+            
+            // Update Text
+            textEl.textContent = node.dataset.name;
+            
+            // Update Color
+            shape.setAttribute('fill', node.dataset.color);
+            
+            // Update Description Icon
+            let infoIcon = node.querySelector('.info-icon-group');
+            if (node.dataset.description && !infoIcon) {
+                const bbox = shape.getBBox();
+                infoIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                infoIcon.setAttribute('class', 'info-icon-group');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', bbox.width - 10);
+                circle.setAttribute('cy', '10');
+                circle.setAttribute('r', '8');
+                circle.setAttribute('fill', '#4f46e5');
+                const i = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                i.setAttribute('x', bbox.width - 10);
+                i.setAttribute('y', '10');
+                i.setAttribute('dy', '.35em');
+                i.setAttribute('text-anchor', 'middle');
+                i.setAttribute('fill', 'white');
+                i.setAttribute('font-size', '10');
+                i.setAttribute('font-weight', 'bold');
+                i.textContent = 'i';
+                infoIcon.appendChild(circle);
+                infoIcon.appendChild(i);
+                node.appendChild(infoIcon);
+            } else if (!node.dataset.description && infoIcon) {
+                node.removeChild(infoIcon);
+            }
+
+            // Update Action Type Tag
+            let actionTag = node.querySelector('.action-tag-group');
+            if (actionTag) node.removeChild(actionTag); // Remove old one first
+            if (node.dataset.actionType !== 'Nenhum') {
+                const bbox = shape.getBBox();
+                actionTag = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                actionTag.setAttribute('class', 'action-tag-group');
+                const tagRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                const tagText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                
+                tagText.textContent = node.dataset.actionType;
+                tagText.setAttribute('font-size', '10');
+                tagText.setAttribute('fill', 'white');
+                tagText.setAttribute('text-anchor', 'middle');
+                
+                const textBBox = tagText.getBBox(); // Measure text after setting content
+                const tagWidth = textBBox.width + 12;
+                const tagHeight = 18;
+
+                tagRect.setAttribute('x', (bbox.width - tagWidth) / 2);
+                tagRect.setAttribute('y', bbox.height - tagHeight - 5);
+                tagRect.setAttribute('width', tagWidth);
+                tagRect.setAttribute('height', tagHeight);
+                tagRect.setAttribute('rx', '4');
+                tagRect.setAttribute('fill', actionTypeColors[node.dataset.actionType] || '#64748b');
+
+                tagText.setAttribute('x', bbox.width / 2);
+                tagText.setAttribute('y', bbox.height - tagHeight / 2 - 5);
+                tagText.setAttribute('dy', '.3em');
+
+                actionTag.appendChild(tagRect);
+                actionTag.appendChild(tagText);
+                node.appendChild(actionTag);
+            }
+        }
+
+        // --- Connection Logic ---
 
         function deleteNode(nodeToDelete) {
             const nodeId = nodeToDelete.id;
