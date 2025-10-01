@@ -102,13 +102,15 @@
                 </div>
             </div>
             <!-- Canvas Panel -->
-            <div id="canvas-container" class="flex-grow bg-slate-800 rounded-lg overflow-auto relative">
+            <div class="flex-grow relative"> <!-- Wrapper for positioning -->
+                <div id="canvas-container" class="bg-slate-800 rounded-lg overflow-auto h-full w-full">
+                    <svg id="process-map" width="2000" height="1200"></svg>
+                </div>
                 <div class="absolute top-2 right-2 z-10">
                     <button id="add-step-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
                         <i class="fa-solid fa-plus"></i> Adicionar Etapa
                     </button>
                 </div>
-                <svg id="process-map" width="2000" height="1200"></svg>
             </div>
         </div>
     </main>
