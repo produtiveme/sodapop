@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Star Piece - Construtor de Fluxogramas</title>
+    <title>Star Piece - Construtor de Soluções</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -40,84 +41,167 @@
                     <i class="fa-solid fa-star text-2xl" style="color: var(--brand-color);"></i>
                     <h1 class="text-2xl font-bold text-white">Star Piece</h1>
                 </div>
+                 <div class="flex items-center space-x-4">
+                    <button id="toggle-edit-mode" class="bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-pencil"></i>
+                        <span>Modo Edição</span>
+                    </button>
+                </div>
             </div>
         </nav>
     </header>
 
-    <main class="flex-grow relative">
-        <div id="canvas-container" class="w-full h-full overflow-auto">
-             <svg id="process-map" width="2000" height="1200"></svg>
-        </div>
-        <div id="edit-panel" class="absolute top-4 left-4 z-10 space-y-2">
-            <button id="toggle-edit-mode" class="bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg">
-                <i class="fa-solid fa-pencil"></i>
-                <span>Modo Edição</span>
-            </button>
-            <button id="add-step-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-lg hidden">
-                <i class="fa-solid fa-plus"></i>
-                Adicionar Etapa
-            </button>
+    <main class="flex-grow flex p-4 gap-4 container mx-auto">
+        <!-- Left Sidebar: Problems List -->
+        <aside class="w-1/4 bg-slate-800 rounded-lg p-4 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-lg text-white">Problemas</h2>
+                <button id="add-problem-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+            <ul id="problems-list" class="space-y-2 overflow-y-auto">
+                <!-- Problem items will be injected here -->
+            </ul>
+        </aside>
+
+        <!-- Right Content Area -->
+        <div class="w-3/4 flex flex-col gap-4">
+            <!-- Context Panel -->
+            <div id="context-panel" class="grid grid-cols-2 gap-4 flex-shrink-0">
+                <div class="bg-slate-800 p-4 rounded-lg relative">
+                    <h3 class="font-bold text-white mb-2">Causa Raiz</h3>
+                    <div id="causa-raiz-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-lg relative">
+                    <h3 class="font-bold text-white mb-2">Solução Técnica</h3>
+                    <div id="solucao-tecnica-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                </div>
+            </div>
+            <!-- Canvas Panel -->
+            <div id="canvas-container" class="flex-grow bg-slate-800 rounded-lg overflow-auto relative">
+                <div class="absolute top-2 right-2 z-10">
+                    <button id="add-step-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
+                        <i class="fa-solid fa-plus"></i> Adicionar Etapa
+                    </button>
+                </div>
+                <svg id="process-map" width="2000" height="1200"></svg>
+            </div>
         </div>
     </main>
 
     <!-- Details Modal -->
     <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
-        <div class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <!-- View Mode -->
+        <div id="modal-content-wrapper" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div id="view-mode-content"></div>
-            <!-- Edit Mode -->
             <div id="edit-mode-content" class="hidden"></div>
         </div>
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v1.2.7</p>
+        <p class="text-xs text-slate-500">Star Piece | v2.0.1</p>
     </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const state = {
             isEditMode: false,
-            steps: [
-                { id: 1, name: 'Início do Processo', type: 'Inicio', description: 'Este é o ponto de partida do fluxo.', nextStepId: 2 },
-                { id: 2, name: 'Análise Manual', type: 'Acao', description: 'Uma pessoa da equipe precisa analisar os dados recebidos.', nextStepId: 3 },
-                { id: 3, name: 'Precisa de Aprovação?', type: 'Decisao', description: 'Verificar se o valor ou a complexidade exige aprovação de um superior.', nextStepYesId: 4, nextStepNoId: 5 },
-                { id: 4, name: 'Enviar para Aprovação', type: 'Aprovacao', description: 'O gestor recebe uma notificação para aprovar ou reprovar.', nextStepId: 5 },
-                { id: 5, name: 'Executar Automação', type: 'Automacao', description: 'O sistema executa a tarefa automaticamente.', nextStepId: 6 },
-                { id: 6, name: 'Fim do Processo', type: 'Fim', description: 'O fluxo é concluído com sucesso.', nextStepId: null },
+            problemas: [
+                { 
+                    id: 1, 
+                    dor: 'Baixa conversão de leads',
+                    causaRaiz: 'O processo de follow-up com os leads é manual e inconsistente. A equipe de vendas perde o timing ideal para contato.',
+                    solucaoTecnica: 'Implementar um CRM automatizado que dispara lembretes e e-mails de nutrição baseados no tempo de inatividade do lead.',
+                    processoToBe: [
+                        { id: 101, name: 'Lead Entra no Funil', type: 'Inicio', description: 'Lead é capturado via formulário do site.', nextStepId: 102 },
+                        { id: 102, name: 'Automação Qualifica', type: 'Automacao', description: 'Sistema verifica se o lead preenche os critérios mínimos (ex: e-mail corporativo).', nextStepId: 103 },
+                        { id: 103, name: 'Lead Qualificado?', type: 'Decisao', description: 'A automação decide com base nos critérios.', nextStepYesId: 104, nextStepNoId: 105 },
+                        { id: 104, name: 'Atribuir a Vendedor', type: 'Acao', description: 'Lead é adicionado à carteira de um vendedor no CRM.', nextStepId: 106 },
+                        { id: 105, name: 'Nutrição de Marketing', type: 'Automacao', description: 'Lead entra em um fluxo de e-mails para aquecimento.', nextStepId: 107 },
+                        { id: 106, name: 'Contato Realizado', type: 'Aprovacao', description: 'Vendedor realiza o primeiro contato e marca a tarefa como concluída.', nextStepId: 107 },
+                        { id: 107, name: 'Fim do Fluxo Inicial', type: 'Fim', description: 'Lead foi tratado.', nextStepId: null },
+                    ]
+                }
             ],
+            currentProblemaId: null,
             currentStepId: null,
             editingStep: null,
+            editingProblema: null,
         };
+
+        const markdownConverter = new showdown.Converter();
 
         const processMap = document.getElementById('process-map');
         const detailsModal = document.getElementById('details-modal');
-        const viewModeContent = document.getElementById('view-mode-content');
-        const editModeContent = document.getElementById('edit-mode-content');
+        const modalContentWrapper = document.getElementById('modal-content-wrapper');
         const toggleEditModeBtn = document.getElementById('toggle-edit-mode');
-        const editPanel = document.getElementById('edit-panel');
+        const addProblemBtn = document.getElementById('add-problem-btn');
         const addStepBtn = document.getElementById('add-step-btn');
-
+        const problemsList = document.getElementById('problems-list');
+        const causaRaizContent = document.getElementById('causa-raiz-content');
+        const solucaoTecnicaContent = document.getElementById('solucao-tecnica-content');
+        
         function render() {
-            autoLayout();
-            renderMap();
+            renderProblemsList();
+            renderCurrentProblem();
             renderModal();
         }
 
-        function autoLayout() {
+        function renderProblemsList() {
+            problemsList.innerHTML = '';
+            state.problemas.forEach(prob => {
+                const li = document.createElement('li');
+                li.className = `p-3 rounded-md cursor-pointer hover:bg-slate-700 flex justify-between items-center ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : ''}`;
+                li.innerHTML = `<span>${prob.dor}</span>`;
+                
+                if(state.isEditMode && prob.id === state.currentProblemaId) {
+                    const editBtn = document.createElement('button');
+                    editBtn.className = "text-slate-400 hover:text-white";
+                    editBtn.innerHTML = `<i class="fa-solid fa-pencil"></i>`;
+                    editBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        state.editingProblema = prob;
+                        render();
+                    }
+                    li.appendChild(editBtn);
+                }
+
+                li.dataset.id = prob.id;
+                li.addEventListener('click', () => {
+                    state.currentProblemaId = prob.id;
+                    state.currentStepId = null;
+                    state.editingStep = null;
+                    state.editingProblema = null;
+                    render();
+                });
+                problemsList.appendChild(li);
+            });
+        }
+        
+        function renderCurrentProblem() {
+            const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+            if(problem) {
+                causaRaizContent.innerHTML = markdownConverter.makeHtml(problem.causaRaiz || '_Sem descrição_');
+                solucaoTecnicaContent.innerHTML = markdownConverter.makeHtml(problem.solucaoTecnica || '_Sem descrição_');
+                renderMap(problem.processoToBe);
+            } else {
+                causaRaizContent.innerHTML = '';
+                solucaoTecnicaContent.innerHTML = '';
+                processMap.innerHTML = '';
+            }
+        }
+        
+        function autoLayout(steps) {
             const levels = new Map();
             const positions = new Map();
             
             function traverse(stepId, level) {
                 if (!stepId || positions.has(stepId)) return;
-                
-                if (!levels.has(level)) {
-                    levels.set(level, []);
-                }
+                if (!levels.has(level)) levels.set(level, []);
                 levels.get(level).push(stepId);
                 positions.set(stepId, { level });
                 
-                const step = state.steps.find(s => s.id === stepId);
+                const step = steps.find(s => s.id === stepId);
                 if (step.type === 'Decisao') {
                     traverse(step.nextStepYesId, level + 1);
                     traverse(step.nextStepNoId, level + 1);
@@ -127,54 +211,43 @@
             }
 
             const allNextSteps = new Set();
-            state.steps.forEach(s => {
+            steps.forEach(s => {
                 if (s.nextStepId) allNextSteps.add(s.nextStepId);
                 if (s.nextStepYesId) allNextSteps.add(s.nextStepYesId);
                 if (s.nextStepNoId) allNextSteps.add(s.nextStepNoId);
             });
-            const rootSteps = state.steps.filter(s => !allNextSteps.has(s.id));
+            const rootSteps = steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 200;
-            const Y_SPACING = 120;
-
+            const X_SPACING = 200; const Y_SPACING = 120;
             levels.forEach((stepIds, level) => {
                 const x = 150 + level * X_SPACING;
                 const totalHeight = (stepIds.length - 1) * Y_SPACING;
                 let y = (parseFloat(processMap.getAttribute('height')) / 2) - (totalHeight / 2);
 
                 stepIds.forEach(stepId => {
-                    const step = state.steps.find(s => s.id === stepId);
-                    if (step) {
-                        step.x = x;
-                        step.y = y;
-                        y += Y_SPACING;
-                    }
+                    const step = steps.find(s => s.id === stepId);
+                    if (step) { step.x = x; step.y = y; y += Y_SPACING; }
                 });
             });
         }
 
 
-        function renderMap() {
+        function renderMap(steps) {
             processMap.innerHTML = '';
+            if (!steps) return;
+            autoLayout(steps);
 
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             defs.innerHTML = `
-                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
-                </marker>
-                <marker id="arrow-yes" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
-                </marker>
-                <marker id="arrow-no" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
-                </marker>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" /></marker>
+                <marker id="arrow-yes" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" /></marker>
+                <marker id="arrow-no" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" /></marker>
             `;
             processMap.appendChild(defs);
 
             const connections = [];
-
-            state.steps.forEach(step => {
+            steps.forEach(step => {
                 if (step.type === 'Decisao') {
                     if (step.nextStepYesId) connections.push({ from: step.id, to: step.nextStepYesId, type: 'yes' });
                     if (step.nextStepNoId) connections.push({ from: step.id, to: step.nextStepNoId, type: 'no' });
@@ -184,64 +257,36 @@
             });
             
             connections.forEach(conn => {
-                const fromStep = state.steps.find(s => s.id === conn.from);
-                const toStep = state.steps.find(s => s.id === conn.to);
+                const fromStep = steps.find(s => s.id === conn.from);
+                const toStep = steps.find(s => s.id === conn.to);
                 if (fromStep && toStep) {
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', fromStep.x);
-                    line.setAttribute('y1', fromStep.y);
-                    line.setAttribute('x2', toStep.x);
-                    line.setAttribute('y2', toStep.y);
-                    line.setAttribute('stroke-width', 2);
-                    line.setAttribute('class', 'map-line');
+                    line.setAttribute('x1', fromStep.x); line.setAttribute('y1', fromStep.y);
+                    line.setAttribute('x2', toStep.x); line.setAttribute('y2', toStep.y);
+                    line.setAttribute('stroke-width', 2); line.setAttribute('class', 'map-line');
                     if(conn.type === 'yes') { line.setAttribute('stroke', '#22c55e'); line.setAttribute('marker-end', 'url(#arrow-yes)');}
                     else if(conn.type === 'no') { line.setAttribute('stroke', '#ef4444'); line.setAttribute('marker-end', 'url(#arrow-no)');}
                     else { line.setAttribute('stroke', '#64748b'); line.setAttribute('marker-end', 'url(#arrow)'); }
-                    
                     processMap.appendChild(line);
                 }
             });
 
-            state.steps.forEach(step => {
+            steps.forEach(step => {
                 const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 group.setAttribute('class', 'map-step');
                 group.setAttribute('transform', `translate(${step.x}, ${step.y})`);
                 group.dataset.id = step.id;
-
-                if (step.id === state.currentStepId) {
-                    group.classList.add('active');
-                }
+                if (step.id === state.currentStepId) group.classList.add('active');
 
                 let icon;
                 switch(step.type) {
-                    case 'Acao':
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        icon.setAttribute('x', -12); icon.setAttribute('y', -12); icon.setAttribute('width', 24); icon.setAttribute('height', 24); icon.setAttribute('rx', 3);
-                        break;
-                    case 'Aprovacao': // Quadrant
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M -15 0 A 15 15 0 0 1 0 -15 L 0 0 Z');
-                        break;
-                    case 'Inicio':
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M0-15 L4.6-4.6 L14.2 0 L4.6 4.6 L0 15 L-4.6 4.6 L-14.2 0 L-4.6 -4.6 Z');
-                        break;
-                    case 'Fim': // Polygon (Octagon)
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M -6 -15 L 6 -15 L 15 -6 L 15 6 L 6 15 L -6 15 L -15 6 L -15 -6 Z');
-                        break;
-                    case 'Decisao':
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M 0 -15 L 15 0 L 0 15 L -15 0 Z');
-                        break;
-                    case 'Automacao':
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M 0 -15 L 15 15 L -15 15 Z');
-                        break;
-                    default:
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        icon.setAttribute('r', 12);
-                        break;
+                    case 'Acao': icon = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); icon.setAttribute('x', -12); icon.setAttribute('y', -12); icon.setAttribute('width', 24); icon.setAttribute('height', 24); icon.setAttribute('rx', 3); break;
+                    case 'Aprovacao': icon = document.createElementNS('http://www.w3.org/2000/svg', 'path'); icon.setAttribute('d', 'M -15 0 A 15 15 0 0 1 0 -15 L 0 0 Z'); break;
+                    case 'Inicio': icon = document.createElementNS('http://www.w3.org/2000/svg', 'path'); icon.setAttribute('d', 'M0-15 L4.6-4.6 L14.2 0 L4.6 4.6 L0 15 L-4.6 4.6 L-14.2 0 L-4.6 -4.6 Z'); break;
+                    case 'Fim': icon = document.createElementNS('http://www.w3.org/2000/svg', 'path'); icon.setAttribute('d', 'M -6 -15 L 6 -15 L 15 -6 L 15 6 L 6 15 L -6 15 L -15 6 L -15 -6 Z'); break;
+                    case 'Decisao': icon = document.createElementNS('http://www.w3.org/2000/svg', 'path'); icon.setAttribute('d', 'M 0 -15 L 15 0 L 0 15 L -15 0 Z'); break;
+                    case 'Automacao': icon = document.createElementNS('http://www.w3.org/2000/svg', 'path'); icon.setAttribute('d', 'M 0 -15 L 15 15 L -15 15 Z'); break;
+                    default: icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); icon.setAttribute('r', 12); break;
                 }
                 icon.setAttribute('class', 'step-icon');
                 icon.setAttribute('fill', '#334155');
@@ -249,52 +294,55 @@
 
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.textContent = step.name;
-                text.setAttribute('text-anchor', 'middle');
-                text.setAttribute('y', '-30');
-                text.setAttribute('fill', '#cbd5e1');
-                text.setAttribute('font-size', '12px');
+                text.setAttribute('text-anchor', 'middle'); text.setAttribute('y', '-30');
+                text.setAttribute('fill', '#cbd5e1'); text.setAttribute('font-size', '12px');
                 text.setAttribute('font-weight', '500');
 
                 group.appendChild(icon);
                 group.appendChild(text);
                 group.addEventListener('click', () => {
-                     if (state.isEditMode) {
-                        state.editingStep = state.steps.find(s => s.id === step.id);
-                    } else {
-                        state.currentStepId = step.id;
-                    }
-                    render();
+                     if (state.isEditMode) state.editingStep = steps.find(s => s.id === step.id);
+                     else state.currentStepId = step.id;
+                     render();
                 });
                 processMap.appendChild(group);
             });
         }
-
+        
         function renderModal() {
-            if (!state.currentStepId && !state.editingStep) {
-                detailsModal.classList.add('hidden');
-                detailsModal.classList.remove('flex');
-                return;
-            }
-            detailsModal.classList.remove('hidden');
-            detailsModal.classList.add('flex');
+            const viewModeContent = modalContentWrapper.querySelector('#view-mode-content');
+            const editModeContent = modalContentWrapper.querySelector('#edit-mode-content');
 
-            const step = state.editingStep || state.steps.find(s => s.id === state.currentStepId);
+             if (!state.currentStepId && !state.editingStep && !state.editingProblema) {
+                 detailsModal.classList.add('hidden');
+                 return;
+             }
+             detailsModal.classList.remove('hidden');
+             detailsModal.classList.add('flex');
 
-            if (state.isEditMode && state.editingStep) {
-                renderEditForm(step);
-            } else {
-                renderViewMode(step);
-            }
+             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+
+             if (state.isEditMode) {
+                viewModeContent.classList.add('hidden');
+                editModeContent.classList.remove('hidden');
+                if (state.editingStep) renderEditForm(state.editingStep, problem.processoToBe, 'step');
+                else if (state.editingProblema) renderEditForm(state.editingProblema, null, 'problem');
+             } else if (state.currentStepId && problem) {
+                editModeContent.classList.add('hidden');
+                viewModeContent.classList.remove('hidden');
+                const step = problem.processoToBe.find(s => s.id === state.currentStepId);
+                renderViewMode(step, problem.processoToBe);
+             } else {
+                 detailsModal.classList.add('hidden');
+             }
         }
         
-        function renderViewMode(currentStep) {
-            viewModeContent.classList.remove('hidden');
-            editModeContent.classList.add('hidden');
-
+        function renderViewMode(currentStep, steps) {
+            const viewModeContent = document.getElementById('view-mode-content');
             if (!currentStep) return;
 
             let prevStepId = null;
-            state.steps.forEach(step => {
+            steps.forEach(step => {
                 if(step.nextStepId === currentStep.id || step.nextStepYesId === currentStep.id || step.nextStepNoId === currentStep.id) {
                     prevStepId = step.id;
                 }
@@ -306,7 +354,7 @@
                         <span class="text-sm font-bold uppercase tracking-wider" style="color: var(--brand-color);">${currentStep.type}</span>
                         <h2 class="text-4xl font-bold text-white mt-1">${currentStep.name}</h2>
                     </div>
-                    <div class="prose prose-invert max-w-none text-slate-300">${currentStep.description}</div>
+                    <div class="prose prose-sm prose-invert max-w-none text-slate-300">${markdownConverter.makeHtml(currentStep.description)}</div>
                 </div>
                 <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between">
                     ${prevStepId ? `<button data-id="${prevStepId}" class="nav-btn bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> Etapa Anterior</button>` : '<div></div>'}
@@ -325,118 +373,149 @@
             }));
         }
         
-        function renderEditForm(step) {
-            editModeContent.classList.remove('hidden');
-            viewModeContent.classList.add('hidden');
-            
-            editModeContent.innerHTML = `
-                 <form id="step-form">
-                    <input type="hidden" id="step-id">
-                    <div class="p-6 space-y-6">
-                        <div>
-                            <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
-                            <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
-                        </div>
-                        <div>
-                            <label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label>
-                            <select id="step-type" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
-                                <option value="Inicio">Início</option>
-                                <option value="Acao">Ação</option>
-                                <option value="Aprovacao">Aprovação</option>
-                                <option value="Automacao">Automação</option>
-                                <option value="Decisao">Decisão</option>
-                                <option value="Fim">Fim</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label>
-                            <textarea id="step-description" rows="5" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
-                        </div>
-                        
-                        <div id="single-next-step-group">
-                            <label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label>
-                            <select id="step-next" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
-                        </div>
+        function renderEditForm(data, steps, type) {
+            const editModeContent = document.getElementById('edit-mode-content');
+            let formHTML = '';
 
-                        <div id="decision-next-step-group" class="hidden grid grid-cols-2 gap-4">
-                             <div>
-                                <label for="step-next-yes" class="block text-sm font-bold text-green-400 mb-1">Caminho "Sim"</label>
-                                <select id="step-next-yes" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+            if (type === 'step') {
+                 formHTML = `
+                     <form id="step-form">
+                        <input type="hidden" id="step-id">
+                        <div class="p-6 space-y-6">
+                            <div>
+                                <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
+                                <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
                             </div>
                             <div>
-                                <label for="step-next-no" class="block text-sm font-bold text-red-400 mb-1">Caminho "Não"</label>
-                                <select id="step-next-no" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                                <label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label>
+                                <select id="step-type" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                                    <option value="Inicio">Início</option> <option value="Acao">Ação</option> <option value="Aprovacao">Aprovação</option>
+                                    <option value="Automacao">Automação</option> <option value="Decisao">Decisão</option> <option value="Fim">Fim</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label>
+                                <textarea id="step-description" rows="5" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
+                            </div>
+                            <div id="single-next-step-group">
+                                <label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label>
+                                <select id="step-next" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                            </div>
+                            <div id="decision-next-step-group" class="hidden grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="step-next-yes" class="block text-sm font-bold text-green-400 mb-1">Caminho "Sim"</label>
+                                    <select id="step-next-yes" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                                </div>
+                                <div>
+                                    <label for="step-next-no" class="block text-sm font-bold text-red-400 mb-1">Caminho "Não"</label>
+                                    <select id="step-next-no" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
-                        <div>
-                           ${step.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+                            <div>
+                               ${data.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
+                            </div>
+                            <div class="flex gap-4">
+                                <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                            </div>
                         </div>
-                        <div class="flex gap-4">
+                     </form>
+                `;
+            } else { // problem
+                 formHTML = `
+                    <form id="problem-form">
+                        <div class="p-6 space-y-6">
+                             <div>
+                                <label for="problem-dor" class="block text-sm font-bold text-slate-300 mb-1">Dor (Problema)</label>
+                                <input type="text" id="problem-dor" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
+                            </div>
+                            <div>
+                                <label for="problem-causa" class="block text-sm font-bold text-slate-300 mb-1">Causa Raiz</label>
+                                <textarea id="problem-causa" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
+                            </div>
+                            <div>
+                                <label for="problem-solucao" class="block text-sm font-bold text-slate-300 mb-1">Solução Técnica</label>
+                                <textarea id="problem-solucao" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-4">
                             <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Problema</button>
                         </div>
-                    </div>
-                 </form>
-            `;
+                    </form>
+                `;
+            }
 
-            const form = editModeContent.querySelector('#step-form');
-            const typeSelect = form.querySelector('#step-type');
-            
-            form['step-id'].value = step.id || '';
-            form['step-name'].value = step.name || '';
-            typeSelect.value = step.type || 'Acao';
-            form['step-description'].value = step.description || '';
-            
-            updateNextStepOptions(step.id);
-            handleStepTypeChange(typeSelect.value);
+            editModeContent.innerHTML = formHTML;
+            const form = editModeContent.querySelector('form');
 
-            form['step-next'].value = step.nextStepId || '';
-            form['step-next-yes'].value = step.nextStepYesId || '';
-            form['step-next-no'].value = step.nextStepNoId || '';
-            
-            typeSelect.addEventListener('change', () => handleStepTypeChange(typeSelect.value));
-            form.addEventListener('submit', handleFormSubmit);
-            form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
+            if(type === 'step') {
+                const typeSelect = form.querySelector('#step-type');
+                form['step-id'].value = data.id || '';
+                form['step-name'].value = data.name || '';
+                typeSelect.value = data.type || 'Acao';
+                form['step-description'].value = data.description || '';
+                updateNextStepOptions(data.id, steps);
+                handleStepTypeChange(typeSelect.value);
+                form['step-next'].value = data.nextStepId || '';
+                form['step-next-yes'].value = data.nextStepYesId || '';
+                form['step-next-no'].value = data.nextStepNoId || '';
+                typeSelect.addEventListener('change', () => handleStepTypeChange(typeSelect.value));
+                form.addEventListener('submit', handleStepFormSubmit);
+                const deleteBtn = form.querySelector('#delete-step-btn');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => {
+                        handleDeleteStep(data.id);
+                    });
+                }
+            } else { // problem
+                 form['problem-dor'].value = data.dor;
+                 form['problem-causa'].value = data.causaRaiz;
+                 form['problem-solucao'].value = data.solucaoTecnica;
+                 form.addEventListener('submit', handleProblemFormSubmit);
+            }
+
+             form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
                 state.editingStep = null;
+                state.editingProblema = null;
                 render();
             });
-            const deleteBtn = form.querySelector('#delete-step-btn');
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', () => showDeleteConfirmation(step));
-            }
         }
         
-        function showDeleteConfirmation(step) {
-            editModeContent.classList.add('hidden');
-            viewModeContent.classList.remove('hidden');
+        function handleProblemFormSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const id = state.editingProblema.id;
+            const isNew = !state.problemas.some(p => p.id === id);
 
-            viewModeContent.innerHTML = `
-                <div class="p-6 text-center">
-                    <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
-                    <h3 class="text-2xl font-bold text-white">Confirmar Exclusão</h3>
-                    <p class="mt-2 text-slate-400">Tem certeza que deseja apagar a etapa "${step.name}"? Esta ação não pode ser desfeita.</p>
-                </div>
-                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-4">
-                    <button type="button" id="cancel-delete-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                    <button type="button" id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Sim, Apagar</button>
-                </div>
-            `;
+            const problemData = {
+                id: isNew ? Date.now() : id,
+                dor: form['problem-dor'].value,
+                causaRaiz: form['problem-causa'].value,
+                solucaoTecnica: form['problem-solucao'].value,
+            };
 
-            viewModeContent.querySelector('#confirm-delete-btn').addEventListener('click', () => {
-                handleDeleteStep(step.id);
-            });
-            viewModeContent.querySelector('#cancel-delete-btn').addEventListener('click', () => {
-                renderEditForm(step);
-            });
+            if (isNew) {
+                problemData.processoToBe = [];
+                state.problemas.push(problemData);
+                state.currentProblemaId = problemData.id;
+            } else {
+                const index = state.problemas.findIndex(p => p.id === id);
+                problemData.processoToBe = state.problemas[index].processoToBe;
+                state.problemas[index] = problemData;
+            }
+            state.editingProblema = null;
+            render();
         }
 
-        function handleFormSubmit(e) {
+        function handleStepFormSubmit(e) {
             e.preventDefault();
             const form = e.target;
             const id = parseInt(form['step-id'].value);
-            const isNew = !state.steps.some(s => s.id === id);
+            const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+            const isNew = !problem.processoToBe.some(s => s.id === id);
 
             const stepData = {
                 id: isNew ? Date.now() : id,
@@ -455,12 +534,12 @@
             if (isNew) {
                 stepData.x = 100;
                 stepData.y = 100;
-                state.steps.push(stepData);
+                problem.processoToBe.push(stepData);
             } else {
-                const index = state.steps.findIndex(s => s.id === id);
-                stepData.x = state.steps[index].x;
-                stepData.y = state.steps[index].y;
-                state.steps[index] = stepData;
+                const index = problem.processoToBe.findIndex(s => s.id === id);
+                stepData.x = problem.processoToBe[index].x;
+                stepData.y = problem.processoToBe[index].y;
+                problem.processoToBe[index] = stepData;
             }
             
             state.currentStepId = stepData.id;
@@ -469,22 +548,27 @@
         }
 
         function handleDeleteStep(stepIdToDelete) {
-            state.steps.forEach(step => {
-                if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
-                if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
-                if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
-            });
+             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+             if (!problem) return;
 
-            state.steps = state.steps.filter(step => step.id !== stepIdToDelete);
+             problem.processoToBe.forEach(step => {
+                 if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
+                 if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
+                 if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
+             });
 
-            state.editingStep = null;
-            state.currentStepId = null;
-            render();
+             problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
+
+             state.editingStep = null;
+             state.currentStepId = null;
+             render();
         }
 
         function handleStepTypeChange(type) {
-            const singleGroup = editModeContent.querySelector('#single-next-step-group');
-            const decisionGroup = editModeContent.querySelector('#decision-next-step-group');
+            const singleGroup = modalContentWrapper.querySelector('#single-next-step-group');
+            const decisionGroup = modalContentWrapper.querySelector('#decision-next-step-group');
+            if(!singleGroup || !decisionGroup) return;
+            
             if (type === 'Decisao') {
                 singleGroup.classList.add('hidden');
                 decisionGroup.classList.remove('hidden');
@@ -494,50 +578,61 @@
             }
         }
         
-        function updateNextStepOptions(currentId) {
-            const sortedSteps = [...state.steps].sort((a, b) => {
+        function updateNextStepOptions(currentId, steps) {
+            const sortedSteps = [...steps].sort((a, b) => {
                 if (a.x !== b.x) return a.x - b.x;
                 return a.y - b.y;
             });
 
             const options = sortedSteps
                 .filter(s => s.id !== currentId)
-                .map(s => {
-                    const stepIndex = sortedSteps.findIndex(sorted => sorted.id === s.id);
-                    const stepNumber = String(stepIndex + 1).padStart(2, '0');
+                .map((s, index) => {
+                    const stepNumber = String(index + 1).padStart(2, '0');
                     return `<option value="${s.id}">${stepNumber} - ${s.name}</option>`;
                 }).join('');
             
-            const nextSelect = editModeContent.querySelector('#step-next');
-            const yesSelect = editModeContent.querySelector('#step-next-yes');
-            const noSelect = editModeContent.querySelector('#step-next-no');
+            const nextSelect = modalContentWrapper.querySelector('#step-next');
+            const yesSelect = modalContentWrapper.querySelector('#step-next-yes');
+            const noSelect = modalContentWrapper.querySelector('#step-next-no');
             
-            nextSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
-            yesSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
-            noSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
+            if(nextSelect) nextSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
+            if(yesSelect) yesSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
+            if(noSelect) noSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
         }
 
-        // --- Event Listeners ---
         toggleEditModeBtn.addEventListener('click', () => {
             state.isEditMode = !state.isEditMode;
-            addStepBtn.classList.toggle('hidden', !state.isEditMode);
+            addProblemBtn.classList.toggle('hidden', !state.isEditMode);
+            addStepBtn.classList.toggle('hidden', !state.isEditMode || !state.currentProblemaId);
             toggleEditModeBtn.classList.toggle('bg-indigo-600');
             toggleEditModeBtn.classList.toggle('bg-slate-600');
             if (!state.isEditMode) {
                 state.editingStep = null;
-                render();
+                state.editingProblema = null;
             } else {
                 state.currentStepId = null;
-                render();
             }
+            render();
         });
 
+        addProblemBtn.addEventListener('click', () => {
+            const newProblem = { 
+                id: Date.now(),
+                dor: 'Novo Problema', 
+                causaRaiz: '',
+                solucaoTecnica: '',
+                processoToBe: []
+            };
+            state.problemas.push(newProblem);
+            state.currentProblemaId = newProblem.id;
+            state.editingProblema = newProblem;
+            render();
+        });
+        
         addStepBtn.addEventListener('click', () => {
             const newStep = { 
-                id: null,
-                name: 'Nova Etapa', 
-                type: 'Acao',
-                description: '',
+                id: null, name: 'Nova Etapa', 
+                type: 'Acao', description: '',
             };
             state.editingStep = newStep;
             render();
@@ -547,12 +642,15 @@
             if(e.target === detailsModal) {
                  state.editingStep = null;
                  state.currentStepId = null;
+                 state.editingProblema = null;
                  render();
             }
         });
 
+        if (state.problemas.length > 0) {
+            state.currentProblemaId = state.problemas[0].id;
+        }
         render();
-        editPanel.classList.remove('hidden');
     });
     </script>
 </body>
