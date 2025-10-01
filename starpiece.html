@@ -71,7 +71,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v1.2.1</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.2.3</p>
     </footer>
 
     <script>
@@ -79,12 +79,12 @@
         const state = {
             isEditMode: false,
             steps: [
-                { id: 1, name: 'Início do Processo', type: 'Gatilho', description: 'Este é o ponto de partida do fluxo.', nextStepId: 2 },
+                { id: 1, name: 'Início do Processo', type: 'Inicio', description: 'Este é o ponto de partida do fluxo.', nextStepId: 2 },
                 { id: 2, name: 'Análise Manual', type: 'Acao', description: 'Uma pessoa da equipe precisa analisar os dados recebidos.', nextStepId: 3 },
                 { id: 3, name: 'Precisa de Aprovação?', type: 'Decisao', description: 'Verificar se o valor ou a complexidade exige aprovação de um superior.', nextStepYesId: 4, nextStepNoId: 5 },
                 { id: 4, name: 'Enviar para Aprovação', type: 'Aprovacao', description: 'O gestor recebe uma notificação para aprovar ou reprovar.', nextStepId: 5 },
                 { id: 5, name: 'Executar Automação', type: 'Automacao', description: 'O sistema executa a tarefa automaticamente.', nextStepId: 6 },
-                { id: 6, name: 'Fim do Processo', type: 'Gatilho', description: 'O fluxo é concluído com sucesso.', nextStepId: null },
+                { id: 6, name: 'Fim do Processo', type: 'Fim', description: 'O fluxo é concluído com sucesso.', nextStepId: null },
             ],
             currentStepId: null,
             editingStep: null,
@@ -214,17 +214,29 @@
 
                 let icon;
                 switch(step.type) {
-                    case 'Aprovacao':
+                    case 'Acao':
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                         icon.setAttribute('x', -12); icon.setAttribute('y', -12); icon.setAttribute('width', 24); icon.setAttribute('height', 24); icon.setAttribute('rx', 3);
+                        break;
+                    case 'Aprovacao':
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        icon.setAttribute('d', 'M -15 12 A 15 15 0 0 1 15 12 Z');
+                        break;
+                    case 'Inicio':
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        icon.setAttribute('d', 'M0-15 L4.6-4.6 L14.2 0 L4.6 4.6 L0 15 L-4.6 4.6 L-14.2 0 L-4.6 -4.6 Z');
+                        break;
+                    case 'Fim':
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        icon.setAttribute('d', 'M -15 -15 L -15 15 L -12 15 L -12 -5 L 15 -10 L -12 0 L -12 15');
                         break;
                     case 'Decisao':
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         icon.setAttribute('d', 'M 0 -15 L 15 0 L 0 15 L -15 0 Z');
                         break;
-                    case 'Gatilho':
-                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        icon.setAttribute('r', 14); icon.setAttribute('stroke-width', 2);
+                    case 'Automacao':
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        icon.setAttribute('d', 'M 0 -15 L 15 15 L -15 15 Z');
                         break;
                     default:
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -260,9 +272,11 @@
         function renderModal() {
             if (!state.currentStepId && !state.editingStep) {
                 detailsModal.classList.add('hidden');
+                detailsModal.classList.remove('flex');
                 return;
             }
             detailsModal.classList.remove('hidden');
+            detailsModal.classList.add('flex');
 
             const step = state.editingStep || state.steps.find(s => s.id === state.currentStepId);
 
@@ -328,7 +342,8 @@
                             <select id="step-type" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
                                 <option value="Acao">Ação</option>
                                 <option value="Aprovacao">Aprovação</option>
-                                <option value="Gatilho">Gatilho/Início</option>
+                                <option value="Inicio">Início</option>
+                                <option value="Fim">Fim</option>
                                 <option value="Decisao">Decisão</option>
                                 <option value="Automacao">Automação</option>
                             </select>
