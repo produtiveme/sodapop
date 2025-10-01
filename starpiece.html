@@ -33,6 +33,11 @@
         #canvas-container {
             cursor: grab;
         }
+        .form-input {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+        }
         /* Custom scrollbar for better aesthetics */
         ::-webkit-scrollbar {
             width: 8px;
@@ -51,69 +56,106 @@
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-300 flex flex-col h-screen overflow-hidden">
+<body class="bg-slate-900 text-slate-300">
 
-    <header class="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 flex-shrink-0 z-10">
-        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <i class="fa-solid fa-star text-2xl" style="color: var(--brand-color);"></i>
-                    <h1 class="text-2xl font-bold text-white">Star Piece</h1>
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                 <i class="fa-solid fa-star text-4xl mx-auto" style="color: var(--brand-color);"></i>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Star Piece</h2>
+                <p class="mt-2 text-sm text-slate-400">Faça login para continuar</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input appearance-none rounded-none relative block w-full px-3 py-2 border placeholder-slate-500 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input appearance-none rounded-none relative block w-full px-3 py-2 border placeholder-slate-500 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Senha">
+                    </div>
                 </div>
-                 <div class="flex items-center space-x-4">
-                    <button id="toggle-edit-mode" class="bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg">
-                        <i class="fa-solid fa-pencil"></i>
-                        <span>Modo Edição</span>
+                 <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Entrar
                     </button>
                 </div>
-            </div>
-        </nav>
-    </header>
-
-    <main class="flex-grow flex p-4 gap-4 container mx-auto">
-        <!-- Left Sidebar: Problems List -->
-        <aside class="w-1/4 bg-slate-800 rounded-lg p-4 flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="font-bold text-lg text-white">Problemas</h2>
-                <button id="add-problem-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
-                    <i class="fa-solid fa-plus"></i>
-                </button>
-            </div>
-             <div id="loading-problemas" class="text-center p-4 hidden">
-                <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-500"></i>
-                <p class="text-sm text-slate-500 mt-2">Carregando...</p>
-            </div>
-            <ul id="problems-list" class="space-y-2 overflow-y-auto">
-                <!-- Problem items will be injected here -->
-            </ul>
-        </aside>
-
-        <!-- Right Content Area -->
-        <div class="w-3/4 flex flex-col gap-4">
-            <!-- Context Panel -->
-            <div id="context-panel" class="grid grid-cols-2 gap-4 flex-shrink-0">
-                <div class="bg-slate-800 p-4 rounded-lg relative">
-                    <h3 class="font-bold text-white mb-2">Causa Raiz</h3>
-                    <div id="causa-raiz-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
-                </div>
-                <div class="bg-slate-800 p-4 rounded-lg relative">
-                    <h3 class="font-bold text-white mb-2">Solução Técnica</h3>
-                    <div id="solucao-tecnica-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
-                </div>
-            </div>
-            <!-- Canvas Panel -->
-            <div class="flex-grow relative"> <!-- Wrapper for positioning -->
-                <div id="canvas-container" class="bg-slate-800 rounded-lg overflow-auto h-full w-full">
-                    <svg id="process-map" width="2000" height="1200"></svg>
-                </div>
-                <div class="absolute top-2 right-2 z-10">
-                    <button id="add-step-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
-                        <i class="fa-solid fa-plus"></i> Adicionar Etapa
-                    </button>
-                </div>
-            </div>
+            </form>
         </div>
-    </main>
+    </div>
+    
+    <!-- App View -->
+    <div id="app" class="hidden flex-col h-screen overflow-hidden">
+        <header class="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 flex-shrink-0 z-10">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-star text-2xl" style="color: var(--brand-color);"></i>
+                        <h1 class="text-2xl font-bold text-white">Star Piece</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="toggle-edit-mode" class="bg-slate-600 hover:bg-slate-500 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 shadow-lg">
+                            <i class="fa-solid fa-pencil"></i>
+                            <span>Modo Edição</span>
+                        </button>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="flex-grow flex p-4 gap-4 container mx-auto">
+            <!-- Left Sidebar: Problems List -->
+            <aside class="w-1/4 bg-slate-800 rounded-lg p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-lg text-white">Problemas</h2>
+                    <button id="add-problem-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                <div id="loading-problemas" class="text-center p-4 hidden">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-500"></i>
+                    <p class="text-sm text-slate-500 mt-2">Carregando...</p>
+                </div>
+                <ul id="problems-list" class="space-y-2 overflow-y-auto">
+                    <!-- Problem items will be injected here -->
+                </ul>
+            </aside>
+
+            <!-- Right Content Area -->
+            <div class="w-3/4 flex flex-col gap-4">
+                <!-- Context Panel -->
+                <div id="context-panel" class="grid grid-cols-2 gap-4 flex-shrink-0">
+                    <div class="bg-slate-800 p-4 rounded-lg relative">
+                        <h3 class="font-bold text-white mb-2">Causa Raiz</h3>
+                        <div id="causa-raiz-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-lg relative">
+                        <h3 class="font-bold text-white mb-2">Solução Técnica</h3>
+                        <div id="solucao-tecnica-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                    </div>
+                </div>
+                <!-- Canvas Panel -->
+                <div class="flex-grow relative"> <!-- Wrapper for positioning -->
+                    <div id="canvas-container" class="bg-slate-800 rounded-lg overflow-auto h-full w-full">
+                        <svg id="process-map" width="2000" height="1200"></svg>
+                    </div>
+                    <div class="absolute top-2 right-2 z-10">
+                        <button id="add-step-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
+                            <i class="fa-solid fa-plus"></i> Adicionar Etapa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
+            <p class="text-xs text-slate-500">Star Piece | v2.4.0</p>
+        </footer>
+    </div>
 
     <!-- Details Modal -->
     <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
@@ -128,12 +170,12 @@
         <p id="toast-message"></p>
     </div>
 
-    <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v2.3.0</p>
-    </footer>
-
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        
+        const URLS = {
+            login: 'https://work.produ-cloud.com/webhook/envia_login'
+        };
 
         const state = {
             isEditMode: false,
@@ -173,6 +215,14 @@
 
         const markdownConverter = new showdown.Converter({simplifiedAutoLink: true, strikethrough: true, tables: true});
 
+        // --- DOM Elements ---
+        const loginViewEl = document.getElementById('login-view');
+        const appViewEl = document.getElementById('app');
+        const loginFormEl = document.getElementById('login-form');
+        const loginErrorEl = document.getElementById('login-error');
+        const loginButtonEl = document.getElementById('login-button');
+        const logoutButtonEl = document.getElementById('logout-button');
+
         const processMap = document.getElementById('process-map');
         const detailsModal = document.getElementById('details-modal');
         const modalContentWrapper = document.getElementById('modal-content-wrapper');
@@ -186,6 +236,62 @@
         const canvasContainer = document.getElementById('canvas-container');
         const toastEl = document.getElementById('toast');
         const toastMessageEl = document.getElementById('toast-message');
+
+        // --- AUTHENTICATION ---
+        function checkAuth() {
+            const user = sessionStorage.getItem('sodapop_user');
+            if (user) {
+                loginViewEl.classList.add('hidden');
+                appViewEl.classList.remove('hidden');
+                appViewEl.classList.add('flex');
+                initialize();
+            } else {
+                loginViewEl.classList.remove('hidden');
+                appViewEl.classList.add('hidden');
+                appViewEl.classList.remove('flex');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            loginButtonEl.disabled = true;
+            loginButtonEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+            loginErrorEl.classList.add('hidden');
+
+            const username = loginFormEl.username.value;
+            const password = loginFormEl.password.value;
+
+            try {
+                const response = await fetch(URLS.login, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
+                
+                const result = await response.json();
+                const userData = Array.isArray(result) ? result[0] : result;
+
+                if (userData && userData.id) {
+                    sessionStorage.setItem('sodapop_user', JSON.stringify(userData));
+                    checkAuth();
+                } else {
+                        throw new Error('Usuário ou senha inválidos.');
+                }
+            } catch (error) {
+                loginErrorEl.textContent = error.message;
+                loginErrorEl.classList.remove('hidden');
+            } finally {
+                loginButtonEl.disabled = false;
+                loginButtonEl.textContent = 'Entrar';
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('sodapop_user');
+            checkAuth();
+        }
 
         // --- Panning logic for the canvas ---
         let isPanning = false;
@@ -720,6 +826,10 @@
             if(noSelect) noSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
         }
 
+        // --- Event Listeners ---
+        loginFormEl.addEventListener('submit', handleLogin);
+        logoutButtonEl.addEventListener('click', handleLogout);
+
         toggleEditModeBtn.addEventListener('click', () => {
             state.isEditMode = !state.isEditMode;
             addProblemBtn.classList.toggle('hidden', !state.isEditMode);
@@ -773,7 +883,8 @@
             }
             render();
         }
-        initialize();
+        
+        checkAuth();
     });
     </script>
 </body>
