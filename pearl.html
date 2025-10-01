@@ -20,60 +20,92 @@
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
         ::-webkit-scrollbar-thumb:hover { background-color: #64748b; }
-        .form-select {
+        .form-select, .form-input {
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #cbd5e1;
             border-radius: 0.375rem;
             padding: 0.5rem 0.75rem;
+            width: 100%;
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-300 flex flex-col h-screen">
+<body class="bg-slate-900 text-slate-300">
 
-    <header class="bg-slate-800/80 backdrop-blur-sm border-b-2" style="border-color: var(--brand-color);">
-        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <svg class="h-8 w-8 text-white" style="color: var(--brand-color);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                    <h1 class="text-2xl font-bold text-white">Pearl</h1>
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-lg p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                 <img src="https://www.svgrepo.com/show/153086/pearl.svg" class="h-12 w-12 mx-auto filter invert" alt="Pearl Logo">
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Pearl</h2>
+                <p class="mt-2 text-sm text-slate-400">Faça login para continuar</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                    </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="copy-svg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
-                        <i class="fa-solid fa-copy"></i>
-                        Copiar SVG
-                    </button>
-                    <button id="download-png-btn" class="text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors" style="background-color: var(--brand-color); opacity: 0.9; hover:opacity: 1;">
-                        <i class="fa-solid fa-download"></i>
-                        Baixar PNG
+                 <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Entrar
                     </button>
                 </div>
-            </div>
-        </nav>
-    </header>
-
-    <main class="flex-grow grid md:grid-cols-2 gap-4 p-4 container mx-auto">
-        <!-- Editor Column -->
-        <div class="flex flex-col h-full">
-            <textarea id="editor" class="w-full h-full bg-slate-800 border border-slate-700 rounded-lg p-4 resize-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900" style="--tw-ring-color: var(--brand-color);" spellcheck="false"></textarea>
+            </form>
         </div>
+    </div>
 
-        <!-- Preview Column -->
-        <div class="flex flex-col h-full gap-4">
-            <div class="flex items-center gap-4 bg-slate-800 border border-slate-700 rounded-lg p-3">
-                 <label for="focus-filter" class="text-sm font-medium text-slate-400 flex-shrink-0">Foco no Componente:</label>
-                 <select id="focus-filter" class="form-select w-full">
-                     <option value="">Ver Todos</option>
-                 </select>
-                 <button id="clear-filter-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Limpar</button>
+    <!-- App View -->
+    <div id="app" class="hidden flex-col h-screen">
+        <header class="bg-slate-800/80 backdrop-blur-sm border-b-2" style="border-color: var(--brand-color);">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <img src="https://www.svgrepo.com/show/153086/pearl.svg" class="h-8 w-8 filter invert" alt="Pearl Logo">
+                        <h1 class="text-2xl font-bold text-white">Pearl</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="copy-svg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                            <i class="fa-solid fa-copy"></i>
+                            Copiar SVG
+                        </button>
+                        <button id="download-png-btn" class="text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors" style="background-color: var(--brand-color); opacity: 0.9; hover:opacity: 1;">
+                            <i class="fa-solid fa-download"></i>
+                            Baixar PNG
+                        </button>
+                         <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="flex-grow grid md:grid-cols-2 gap-4 p-4 container mx-auto">
+            <!-- Editor Column -->
+            <div class="flex flex-col h-full">
+                <textarea id="editor" class="w-full h-full bg-slate-800 border border-slate-700 rounded-lg p-4 resize-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900" style="--tw-ring-color: var(--brand-color);" spellcheck="false"></textarea>
             </div>
-            <div id="preview-container" class="bg-slate-800 border border-slate-700 rounded-lg p-4 flex-grow flex items-center justify-center overflow-auto">
-                <div id="output" class="w-full h-full flex items-center justify-center"></div>
+
+            <!-- Preview Column -->
+            <div class="flex flex-col h-full gap-4">
+                <div class="flex items-center gap-4 bg-slate-800 border border-slate-700 rounded-lg p-3">
+                     <label for="focus-filter" class="text-sm font-medium text-slate-400 flex-shrink-0">Foco no Componente:</label>
+                     <select id="focus-filter" class="form-select w-full">
+                         <option value="">Ver Todos</option>
+                     </select>
+                     <button id="clear-filter-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">Limpar</button>
+                </div>
+                <div id="preview-container" class="bg-slate-800 border border-slate-700 rounded-lg p-4 flex-grow flex items-center justify-center overflow-auto">
+                    <div id="output" class="w-full h-full flex items-center justify-center"></div>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <!-- Hidden canvas for PNG conversion -->
     <canvas id="canvas" class="hidden"></canvas>
@@ -85,6 +117,14 @@
         mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 
         document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const loginViewEl = document.getElementById('login-view');
+            const appViewEl = document.getElementById('app');
+            const loginFormEl = document.getElementById('login-form');
+            const loginErrorEl = document.getElementById('login-error');
+            const loginButtonEl = document.getElementById('login-button');
+            const logoutButtonEl = document.getElementById('logout-button');
+
             const editor = document.getElementById('editor');
             const output = document.getElementById('output');
             const copyBtn = document.getElementById('copy-svg-btn');
@@ -95,6 +135,69 @@
             const clearFilterBtn = document.getElementById('clear-filter-btn');
 
             let fullCode = '';
+
+            // --- N8N WEBHOOK URLS ---
+            const URLS = {
+                login: 'https://work.produ-cloud.com/webhook/envia_login',
+            };
+
+             // --- AUTHENTICATION ---
+            function checkAuth() {
+                // We use sodapop_user to allow a seamless experience between apps
+                const user = sessionStorage.getItem('sodapop_user');
+                if (user) {
+                    loginViewEl.classList.add('hidden');
+                    appViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('flex');
+                } else {
+                    loginViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('hidden');
+                    appViewEl.classList.remove('flex');
+                }
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                loginButtonEl.disabled = true;
+                loginButtonEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+                loginErrorEl.classList.add('hidden');
+
+                const username = loginFormEl.username.value;
+                const password = loginFormEl.password.value;
+
+                try {
+                    const response = await fetch(URLS.login, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
+                    
+                    const result = await response.json();
+                    
+                    const userData = Array.isArray(result) ? result[0] : result;
+
+                    if (userData && userData.id) {
+                        sessionStorage.setItem('sodapop_user', JSON.stringify(userData));
+                        checkAuth();
+                    } else {
+                         throw new Error('Usuário ou senha inválidos.');
+                    }
+                } catch (error) {
+                    loginErrorEl.textContent = error.message;
+                    loginErrorEl.classList.remove('hidden');
+                } finally {
+                    loginButtonEl.disabled = false;
+                    loginButtonEl.textContent = 'Entrar';
+                }
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('sodapop_user');
+                checkAuth();
+            }
+
 
             const exampleCode = `graph LR
 
@@ -140,7 +243,6 @@ TAR --| X X |--- ARE
                 const lines = code.split('\n');
                 const nodes = new Map();
                 const links = [];
-                // Corrected Regex to find node definitions
                 const nodeRegex = /^(\s*)(\w+)(?:\[.*?\]|\(.*?\)|>.*?\]|\{.*?\})?/;
                 const linkRegex = /(\w+)\s*--.*-->?\s*(\w+)/;
                 const linkWithTextRegex = /(\w+)\s*--\|(.*?)\|--\s*(\w+)/;
@@ -151,7 +253,6 @@ TAR --| X X |--- ARE
                     if (line.startsWith('%%') || line === '') return;
 
                     let match = line.match(nodeRegex);
-                    // Check if it's a node definition and not a link
                     if (match && !line.includes('--')) {
                         const id = match[2];
                         if (id !== 'graph' && id !== 'subgraph' && id !== 'end') {
@@ -183,7 +284,6 @@ TAR --| X X |--- ARE
                     if (nodes.has(nodeId)) {
                         filteredCode += `    ${nodes.get(nodeId)}\n`;
                     } else {
-                        // Add node if it only exists in links
                         filteredCode += `    ${nodeId}\n`;
                     }
                 });
@@ -332,6 +432,10 @@ TAR --| X X |--- ARE
                 logoImage.src = logoUrl;
             };
 
+            // --- EVENT LISTENERS ---
+            loginFormEl.addEventListener('submit', handleLogin);
+            logoutButtonEl.addEventListener('click', handleLogout);
+
             editor.addEventListener('input', handleEditorInput);
             focusFilter.addEventListener('change', renderMermaid);
             clearFilterBtn.addEventListener('click', () => {
@@ -342,6 +446,7 @@ TAR --| X X |--- ARE
             downloadBtn.addEventListener('click', downloadAsPng);
 
             // Initial setup
+            checkAuth();
             handleEditorInput();
         });
     </script>
