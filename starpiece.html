@@ -16,12 +16,18 @@
             transition: all 0.2s ease-in-out;
             cursor: pointer;
         }
-        .map-step.active circle, .map-step.active rect, .map-step.active path {
+        .map-step.active .step-icon {
             stroke: var(--brand-color);
-            stroke-width: 4px;
+            stroke-width: 3px;
         }
         .map-line {
-            transition: all 0.2s ease-in-out;
+            stroke-dasharray: 10, 5;
+            animation: dash 80s linear infinite;
+        }
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
         }
     </style>
 </head>
@@ -65,7 +71,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v1.1.0</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.2.0</p>
     </footer>
 
     <script>
@@ -129,7 +135,7 @@
             const rootSteps = state.steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 200;
+            const X_SPACING = 250;
             const Y_SPACING = 150;
 
             levels.forEach((stepIds, level) => {
@@ -206,36 +212,38 @@
                     group.classList.add('active');
                 }
 
-                let shape;
+                let icon;
                 switch(step.type) {
                     case 'Aprovacao':
-                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        shape.setAttribute('x', -25); shape.setAttribute('y', -25); shape.setAttribute('width', 50); shape.setAttribute('height', 50); shape.setAttribute('rx', 4);
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        icon.setAttribute('x', -15); icon.setAttribute('y', -15); icon.setAttribute('width', 30); icon.setAttribute('height', 30); icon.setAttribute('rx', 4);
                         break;
                     case 'Decisao':
-                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        shape.setAttribute('d', 'M 0 -30 L 30 0 L 0 30 L -30 0 Z');
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        icon.setAttribute('d', 'M 0 -20 L 20 0 L 0 20 L -20 0 Z');
                         break;
                     case 'Gatilho':
-                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        shape.setAttribute('r', 30); shape.setAttribute('stroke-width', 4);
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        icon.setAttribute('r', 18); icon.setAttribute('stroke-width', 3);
                         break;
                     default:
-                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        shape.setAttribute('r', 25);
+                        icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        icon.setAttribute('r', 15);
                         break;
                 }
-                shape.setAttribute('fill', '#1e293b');
-                shape.setAttribute('stroke', '#64748b');
+                icon.setAttribute('class', 'step-icon');
+                icon.setAttribute('fill', '#1e293b');
+                icon.setAttribute('stroke', '#64748b');
 
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.textContent = step.name;
                 text.setAttribute('text-anchor', 'middle');
-                text.setAttribute('dy', '0.3em');
+                text.setAttribute('y', '-35');
                 text.setAttribute('fill', '#cbd5e1');
-                text.setAttribute('font-size', '10px');
+                text.setAttribute('font-size', '12px');
+                text.setAttribute('font-weight', '500');
 
-                group.appendChild(shape);
+                group.appendChild(icon);
                 group.appendChild(text);
                 group.addEventListener('click', () => {
                      if (state.isEditMode) {
@@ -322,6 +330,7 @@
                                 <option value="Aprovacao">Aprovação</option>
                                 <option value="Gatilho">Gatilho/Início</option>
                                 <option value="Decisao">Decisão</option>
+                                <option value="Automacao">Automação</option>
                             </select>
                         </div>
                         <div>
