@@ -116,8 +116,8 @@
         </aside>
 
         <!-- Canvas -->
-        <main id="canvas-container" class="flex-grow bg-slate-900 rounded-lg overflow-hidden relative">
-            <svg id="canvas" width="100%" height="100%"></svg>
+        <main id="canvas-container" class="flex-grow bg-slate-900 rounded-lg overflow-auto relative">
+            <svg id="canvas"></svg>
         </main>
     </div>
 
@@ -171,7 +171,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2">
-        <p class="text-xs text-slate-500">Star Piece | v1.0.3</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.0.4</p>
     </footer>
 
     <script>
@@ -194,6 +194,10 @@
         let tempLine = null;
         let nodeBeingEdited = null;
         
+        // Set initial canvas size
+        canvas.setAttribute('width', '1600');
+        canvas.setAttribute('height', '1200');
+
         const actionTypeColors = {
             'Manual': '#38bdf8', // sky-400
             'Automação': '#a855f7', // purple-500
@@ -251,8 +255,9 @@
             e.preventDefault();
             const type = e.dataTransfer.getData('text/plain');
             const rect = canvasContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            // Adjust for scroll position
+            const x = e.clientX - rect.left + canvasContainer.scrollLeft;
+            const y = e.clientY - rect.top + canvasContainer.scrollTop;
             createNode(type, x, y);
         });
 
@@ -321,6 +326,20 @@
             const newY = e.clientY - offset.y;
             selectedNode.setAttribute('transform', `translate(${newX}, ${newY})`);
             updateConnections(selectedNode.id);
+
+            // --- Expansion Logic ---
+            const currentWidth = parseFloat(canvas.getAttribute('width'));
+            const currentHeight = parseFloat(canvas.getAttribute('height'));
+            const nodeBBox = selectedNode.getBBox();
+            const expansionBuffer = 100;
+            const expansionAmount = 400;
+
+            if (newX + nodeBBox.width > currentWidth - expansionBuffer) {
+                canvas.setAttribute('width', currentWidth + expansionAmount);
+            }
+            if (newY + nodeBBox.height > currentHeight - expansionBuffer) {
+                canvas.setAttribute('height', currentHeight + expansionAmount);
+            }
         }
 
         function endDrag() {
