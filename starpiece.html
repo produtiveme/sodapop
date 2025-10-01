@@ -71,7 +71,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v1.2.0</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.2.1</p>
     </footer>
 
     <script>
@@ -135,8 +135,8 @@
             const rootSteps = state.steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 250;
-            const Y_SPACING = 150;
+            const X_SPACING = 200;
+            const Y_SPACING = 120;
 
             levels.forEach((stepIds, level) => {
                 const x = 150 + level * X_SPACING;
@@ -216,29 +216,29 @@
                 switch(step.type) {
                     case 'Aprovacao':
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        icon.setAttribute('x', -15); icon.setAttribute('y', -15); icon.setAttribute('width', 30); icon.setAttribute('height', 30); icon.setAttribute('rx', 4);
+                        icon.setAttribute('x', -12); icon.setAttribute('y', -12); icon.setAttribute('width', 24); icon.setAttribute('height', 24); icon.setAttribute('rx', 3);
                         break;
                     case 'Decisao':
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        icon.setAttribute('d', 'M 0 -20 L 20 0 L 0 20 L -20 0 Z');
+                        icon.setAttribute('d', 'M 0 -15 L 15 0 L 0 15 L -15 0 Z');
                         break;
                     case 'Gatilho':
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        icon.setAttribute('r', 18); icon.setAttribute('stroke-width', 3);
+                        icon.setAttribute('r', 14); icon.setAttribute('stroke-width', 2);
                         break;
                     default:
                         icon = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        icon.setAttribute('r', 15);
+                        icon.setAttribute('r', 12);
                         break;
                 }
                 icon.setAttribute('class', 'step-icon');
-                icon.setAttribute('fill', '#1e293b');
+                icon.setAttribute('fill', '#334155');
                 icon.setAttribute('stroke', '#64748b');
 
                 const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 text.textContent = step.name;
                 text.setAttribute('text-anchor', 'middle');
-                text.setAttribute('y', '-35');
+                text.setAttribute('y', '-30');
                 text.setAttribute('fill', '#cbd5e1');
                 text.setAttribute('font-size', '12px');
                 text.setAttribute('font-weight', '500');
