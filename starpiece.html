@@ -171,7 +171,7 @@
     </div>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2">
-        <p class="text-xs text-slate-500">Star Piece | v1.0.2</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.0.3</p>
     </footer>
 
     <script>
@@ -382,7 +382,7 @@
         cancelPropertiesBtn.addEventListener('click', closePropertiesModal);
         
         function updateNodeVisuals(node) {
-            let shape = node.querySelector('path, rect'); // Use let instead of const
+            let shape = node.querySelector('path, rect'); 
             const textEl = node.querySelector('text');
             const type = node.dataset.type;
 
@@ -394,7 +394,6 @@
             const TAG_HEIGHT = 18;
             const TAG_MARGIN = 5;
 
-            // 1. Wrap text
             textEl.innerHTML = '';
             const words = node.dataset.name.split(' ');
             let tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -417,7 +416,6 @@
                 }
             }
             
-            // 2. Calculate dimensions
             const textBBox = textEl.getBBox();
             let newWidth = Math.max(MIN_WIDTH, textBBox.width + PADDING_X * 2);
             let newHeight = textBBox.height + PADDING_Y * 2;
@@ -431,38 +429,31 @@
                 newHeight = newWidth / 1.5;
             }
 
-
-            // 3. Update shape
-             shape.setAttribute('fill', node.dataset.color);
-            if (type === 'start-end') {
-                shape.tagName === 'rect' || (shape = redrawShape(node, 'rect'));
+            shape.setAttribute('fill', node.dataset.color);
+            if (type === 'start-end' || type === 'action') {
+                shape.tagName.toLowerCase() !== 'rect' && (shape = redrawShape(node, 'rect'));
                 shape.setAttribute('width', newWidth);
                 shape.setAttribute('height', newHeight);
-                shape.setAttribute('rx', newHeight/2);
-                shape.setAttribute('ry', newHeight/2);
-            } else if (type === 'action') {
-                shape.tagName === 'rect' || (shape = redrawShape(node, 'rect'));
-                shape.setAttribute('width', newWidth);
-                shape.setAttribute('height', newHeight);
+                if(type === 'start-end') {
+                    shape.setAttribute('rx', newHeight/2);
+                    shape.setAttribute('ry', newHeight/2);
+                } else {
+                    shape.removeAttribute('rx');
+                    shape.removeAttribute('ry');
+                }
             } else if (type === 'decision') {
-                shape.tagName === 'path' || (shape = redrawShape(node, 'path'));
+                shape.tagName.toLowerCase() !== 'path' && (shape = redrawShape(node, 'path'));
                 shape.setAttribute('d', `M ${newWidth / 2} 0 L ${newWidth} ${newHeight / 2} L ${newWidth / 2} ${newHeight} L 0 ${newHeight / 2} Z`);
             }
             
-             // 4. Reposition text
             const shapeBBox = shape.getBBox();
-            textEl.setAttribute('transform', `translate(${shapeBBox.width/2}, ${PADDING_Y - LINE_HEIGHT / 2})`);
-            
-            // Reposition tspans for vertical centering
             const totalTextHeight = lineCount * LINE_HEIGHT;
             const startY = (shapeBBox.height - totalTextHeight - (node.dataset.actionType !== 'Nenhum' ? TAG_HEIGHT + TAG_MARGIN : 0)) / 2;
             textEl.setAttribute('transform', `translate(${shapeBBox.width/2}, ${startY})`);
             
-            // 5. Update Action Tag
             let actionTag = node.querySelector('.action-tag-group');
             if (actionTag) node.removeChild(actionTag);
             if (node.dataset.actionType !== 'Nenhum') {
-                 // ... (code for creating tag)
                 actionTag = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 actionTag.setAttribute('class', 'action-tag-group');
                 const tagRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -472,6 +463,10 @@
                 tagText.setAttribute('font-size', '10');
                 tagText.setAttribute('fill', 'white');
                 tagText.setAttribute('text-anchor', 'middle');
+                
+                actionTag.appendChild(tagRect);
+                actionTag.appendChild(tagText);
+                node.appendChild(actionTag); // Append to DOM to measure
                 
                 const textBBoxTag = tagText.getBBox(); 
                 const tagWidth = textBBoxTag.width + 12;
@@ -486,15 +481,10 @@
                 tagText.setAttribute('x', shapeBBox.width / 2);
                 tagText.setAttribute('y', shapeBBox.height - TAG_HEIGHT / 2 - TAG_MARGIN);
                 tagText.setAttribute('dy', '.3em');
-
-                actionTag.appendChild(tagRect);
-                actionTag.appendChild(tagText);
-                node.appendChild(actionTag);
             }
             
-            // 6. Update Description Icon
             let infoIcon = node.querySelector('.info-icon-group');
-             if (infoIcon) node.removeChild(infoIcon);
+            if (infoIcon) node.removeChild(infoIcon);
             if (node.dataset.description) {
                 infoIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 infoIcon.setAttribute('class', 'info-icon-group');
