@@ -30,6 +30,25 @@
                 stroke-dashoffset: -1000;
             }
         }
+        #canvas-container {
+            cursor: grab;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 10px;
+            border: 2px solid #1e293b;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #64748b;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300 flex flex-col h-screen overflow-hidden">
@@ -59,6 +78,10 @@
                 <button id="add-problem-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
                     <i class="fa-solid fa-plus"></i>
                 </button>
+            </div>
+             <div id="loading-problemas" class="text-center p-4 hidden">
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-500"></i>
+                <p class="text-sm text-slate-500 mt-2">Carregando...</p>
             </div>
             <ul id="problems-list" class="space-y-2 overflow-y-auto">
                 <!-- Problem items will be injected here -->
@@ -98,16 +121,22 @@
         </div>
     </div>
     
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden transition-opacity duration-300 z-[60]">
+        <p id="toast-message"></p>
+    </div>
+
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-        <p class="text-xs text-slate-500">Star Piece | v2.0.1</p>
+        <p class="text-xs text-slate-500">Star Piece | v2.3.0</p>
     </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+
         const state = {
             isEditMode: false,
             problemas: [
-                { 
+                 { 
                     id: 1, 
                     dor: 'Baixa conversão de leads',
                     causaRaiz: 'O processo de follow-up com os leads é manual e inconsistente. A equipe de vendas perde o timing ideal para contato.',
@@ -121,6 +150,17 @@
                         { id: 106, name: 'Contato Realizado', type: 'Aprovacao', description: 'Vendedor realiza o primeiro contato e marca a tarefa como concluída.', nextStepId: 107 },
                         { id: 107, name: 'Fim do Fluxo Inicial', type: 'Fim', description: 'Lead foi tratado.', nextStepId: null },
                     ]
+                },
+                 { 
+                    id: 2, 
+                    dor: 'Dificuldade no Onboarding de Clientes',
+                    causaRaiz: 'Falta de um checklist padronizado e visibilidade sobre o progresso do onboarding para a equipe e para o cliente.',
+                    solucaoTecnica: 'Criar um portal do cliente com um wizard de setup, checklists interativos e uma barra de progresso visível.',
+                    processoToBe: [
+                         { id: 201, name: 'Cliente Assina', type: 'Inicio', description: 'Contrato é assinado e o projeto começa.', nextStepId: 202 },
+                         { id: 202, name: 'Kick-off Meeting', type: 'Acao', description: 'Reunião de alinhamento com o cliente.', nextStepId: 203 },
+                         { id: 203, name: 'Setup da Conta', type: 'Automacao', description: 'Sistema cria a conta do cliente e envia os acessos.', nextStepId: null }
+                    ]
                 }
             ],
             currentProblemaId: null,
@@ -129,7 +169,7 @@
             editingProblema: null,
         };
 
-        const markdownConverter = new showdown.Converter();
+        const markdownConverter = new showdown.Converter({simplifiedAutoLink: true, strikethrough: true, tables: true});
 
         const processMap = document.getElementById('process-map');
         const detailsModal = document.getElementById('details-modal');
@@ -138,8 +178,55 @@
         const addProblemBtn = document.getElementById('add-problem-btn');
         const addStepBtn = document.getElementById('add-step-btn');
         const problemsList = document.getElementById('problems-list');
+        const loadingProblemasEl = document.getElementById('loading-problemas');
         const causaRaizContent = document.getElementById('causa-raiz-content');
         const solucaoTecnicaContent = document.getElementById('solucao-tecnica-content');
+        const canvasContainer = document.getElementById('canvas-container');
+        const toastEl = document.getElementById('toast');
+        const toastMessageEl = document.getElementById('toast-message');
+
+        // --- Panning logic for the canvas ---
+        let isPanning = false;
+        let startX, startY, scrollLeft, scrollTop;
+
+        canvasContainer.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.map-step') || e.target.closest('button')) return;
+            e.preventDefault();
+            isPanning = true;
+            startX = e.pageX - canvasContainer.offsetLeft;
+            startY = e.pageY - canvasContainer.offsetTop;
+            scrollLeft = canvasContainer.scrollLeft;
+            scrollTop = canvasContainer.scrollTop;
+            canvasContainer.style.cursor = 'grabbing';
+        });
+
+        canvasContainer.addEventListener('mouseleave', () => {
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+
+        canvasContainer.addEventListener('mouseup', () => {
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+
+        canvasContainer.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            e.preventDefault();
+            const x = e.pageX - canvasContainer.offsetLeft;
+            const y = e.pageY - canvasContainer.offsetTop;
+            const walkX = (x - startX);
+            const walkY = (y - startY);
+            canvasContainer.scrollLeft = scrollLeft - walkX;
+            canvasContainer.scrollTop = scrollTop - walkY;
+        });
+
+        const showToast = (message, isError = false) => {
+            toastMessageEl.textContent = message;
+            toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 z-[60] ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            toastEl.classList.remove('hidden');
+            setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
+        };
         
         function render() {
             renderProblemsList();
@@ -151,12 +238,12 @@
             problemsList.innerHTML = '';
             state.problemas.forEach(prob => {
                 const li = document.createElement('li');
-                li.className = `p-3 rounded-md cursor-pointer hover:bg-slate-700 flex justify-between items-center ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : ''}`;
+                li.className = `p-3 rounded-md cursor-pointer transition-colors flex justify-between items-center ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'}`;
                 li.innerHTML = `<span>${prob.dor}</span>`;
                 
                 if(state.isEditMode && prob.id === state.currentProblemaId) {
                     const editBtn = document.createElement('button');
-                    editBtn.className = "text-slate-400 hover:text-white";
+                    editBtn.className = "text-slate-300 hover:text-white ml-2";
                     editBtn.innerHTML = `<i class="fa-solid fa-pencil"></i>`;
                     editBtn.onclick = (e) => {
                         e.stopPropagation();
@@ -165,7 +252,6 @@
                     }
                     li.appendChild(editBtn);
                 }
-
                 li.dataset.id = prob.id;
                 li.addEventListener('click', () => {
                     state.currentProblemaId = prob.id;
@@ -180,14 +266,16 @@
         
         function renderCurrentProblem() {
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+            addStepBtn.classList.toggle('hidden', !state.isEditMode || !problem);
+
             if(problem) {
                 causaRaizContent.innerHTML = markdownConverter.makeHtml(problem.causaRaiz || '_Sem descrição_');
                 solucaoTecnicaContent.innerHTML = markdownConverter.makeHtml(problem.solucaoTecnica || '_Sem descrição_');
                 renderMap(problem.processoToBe);
             } else {
-                causaRaizContent.innerHTML = '';
-                solucaoTecnicaContent.innerHTML = '';
-                processMap.innerHTML = '';
+                causaRaizContent.innerHTML = '_Selecione um problema na lista_';
+                solucaoTecnicaContent.innerHTML = '_Selecione um problema na lista_';
+                processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Nenhum processo a ser exibido.</text>';
             }
         }
         
@@ -219,15 +307,19 @@
             const rootSteps = steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 200; const Y_SPACING = 120;
+            const X_SPACING = 200; 
+            const Y_SPACING = 120;
             levels.forEach((stepIds, level) => {
                 const x = 150 + level * X_SPACING;
-                const totalHeight = (stepIds.length - 1) * Y_SPACING;
-                let y = (parseFloat(processMap.getAttribute('height')) / 2) - (totalHeight / 2);
+                let y = 100; // Aligns the top of the column flow near the top of the canvas
 
                 stepIds.forEach(stepId => {
                     const step = steps.find(s => s.id === stepId);
-                    if (step) { step.x = x; step.y = y; y += Y_SPACING; }
+                    if (step) { 
+                        step.x = x; 
+                        step.y = y; 
+                        y += Y_SPACING; 
+                    }
                 });
             });
         }
@@ -235,7 +327,10 @@
 
         function renderMap(steps) {
             processMap.innerHTML = '';
-            if (!steps) return;
+            if (!steps || steps.length === 0) {
+                 processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Ainda não há etapas no processo. Adicione uma no modo de edição.</text>';
+                 return;
+            }
             autoLayout(steps);
 
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
@@ -339,7 +434,10 @@
         
         function renderViewMode(currentStep, steps) {
             const viewModeContent = document.getElementById('view-mode-content');
-            if (!currentStep) return;
+            if (!currentStep) {
+                detailsModal.classList.add('hidden');
+                return;
+            };
 
             let prevStepId = null;
             steps.forEach(step => {
@@ -349,14 +447,14 @@
             });
 
             viewModeContent.innerHTML = `
-                <div class="p-6">
+                <div class="p-6 overflow-y-auto">
                     <div class="mb-4">
                         <span class="text-sm font-bold uppercase tracking-wider" style="color: var(--brand-color);">${currentStep.type}</span>
                         <h2 class="text-4xl font-bold text-white mt-1">${currentStep.name}</h2>
                     </div>
                     <div class="prose prose-sm prose-invert max-w-none text-slate-300">${markdownConverter.makeHtml(currentStep.description)}</div>
                 </div>
-                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between">
+                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between mt-auto">
                     ${prevStepId ? `<button data-id="${prevStepId}" class="nav-btn bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> Etapa Anterior</button>` : '<div></div>'}
                     ${currentStep.type === 'Decisao' ? `
                         <div class="flex gap-4">
@@ -381,7 +479,7 @@
                  formHTML = `
                      <form id="step-form">
                         <input type="hidden" id="step-id">
-                        <div class="p-6 space-y-6">
+                        <div class="p-6 space-y-6 overflow-y-auto">
                             <div>
                                 <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
                                 <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
@@ -412,13 +510,13 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center mt-auto">
                             <div>
                                ${data.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
                             </div>
                             <div class="flex gap-4">
                                 <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                                <button type="submit" id="save-step-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
                             </div>
                         </div>
                      </form>
@@ -426,7 +524,7 @@
             } else { // problem
                  formHTML = `
                     <form id="problem-form">
-                        <div class="p-6 space-y-6">
+                        <div class="p-6 space-y-6 overflow-y-auto">
                              <div>
                                 <label for="problem-dor" class="block text-sm font-bold text-slate-300 mb-1">Dor (Problema)</label>
                                 <input type="text" id="problem-dor" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
@@ -440,9 +538,14 @@
                                 <textarea id="problem-solucao" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
                             </div>
                         </div>
-                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-4">
-                            <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Problema</button>
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center mt-auto">
+                             <div>
+                               ${data.id ? `<button type="button" id="delete-problem-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
+                            </div>
+                            <div class="flex gap-4">
+                                <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                                <button type="submit" id="save-problem-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Problema</button>
+                            </div>
                         </div>
                     </form>
                 `;
@@ -475,6 +578,18 @@
                  form['problem-causa'].value = data.causaRaiz;
                  form['problem-solucao'].value = data.solucaoTecnica;
                  form.addEventListener('submit', handleProblemFormSubmit);
+                 const deleteBtn = form.querySelector('#delete-problem-btn');
+                 if(deleteBtn) deleteBtn.addEventListener('click', () => {
+                    if(confirm('Tem certeza que deseja apagar este problema e todo o seu processo?')) {
+                        state.problemas = state.problemas.filter(p => p.id !== data.id);
+                        if (state.currentProblemaId === data.id) {
+                            state.currentProblemaId = state.problemas.length > 0 ? state.problemas[0].id : null;
+                        }
+                        state.editingProblema = null;
+                        render();
+                        showToast('Problema apagado localmente!');
+                    }
+                 });
             }
 
              form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
@@ -508,6 +623,7 @@
             }
             state.editingProblema = null;
             render();
+            showToast('Problema salvo localmente!');
         }
 
         function handleStepFormSubmit(e) {
@@ -515,7 +631,7 @@
             const form = e.target;
             const id = parseInt(form['step-id'].value);
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
-            const isNew = !problem.processoToBe.some(s => s.id === id);
+            const isNew = !id || !problem.processoToBe.some(s => s.id === id);
 
             const stepData = {
                 id: isNew ? Date.now() : id,
@@ -530,7 +646,7 @@
             } else {
                  stepData.nextStepId = parseInt(form['step-next'].value) || null;
             }
-
+            
             if (isNew) {
                 stepData.x = 100;
                 stepData.y = 100;
@@ -545,6 +661,7 @@
             state.currentStepId = stepData.id;
             state.editingStep = null;
             render();
+            showToast('Etapa salva localmente!');
         }
 
         function handleDeleteStep(stepIdToDelete) {
@@ -556,12 +673,12 @@
                  if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
                  if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
              });
-
              problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
 
              state.editingStep = null;
              state.currentStepId = null;
              render();
+             showToast('Etapa apagada localmente!');
         }
 
         function handleStepTypeChange(type) {
@@ -579,6 +696,7 @@
         }
         
         function updateNextStepOptions(currentId, steps) {
+            if (!steps) return;
             const sortedSteps = [...steps].sort((a, b) => {
                 if (a.x !== b.x) return a.x - b.x;
                 return a.y - b.y;
@@ -603,7 +721,6 @@
         toggleEditModeBtn.addEventListener('click', () => {
             state.isEditMode = !state.isEditMode;
             addProblemBtn.classList.toggle('hidden', !state.isEditMode);
-            addStepBtn.classList.toggle('hidden', !state.isEditMode || !state.currentProblemaId);
             toggleEditModeBtn.classList.toggle('bg-indigo-600');
             toggleEditModeBtn.classList.toggle('bg-slate-600');
             if (!state.isEditMode) {
@@ -616,15 +733,13 @@
         });
 
         addProblemBtn.addEventListener('click', () => {
-            const newProblem = { 
-                id: Date.now(),
+             const newProblem = { 
+                id: null,
                 dor: 'Novo Problema', 
                 causaRaiz: '',
                 solucaoTecnica: '',
                 processoToBe: []
             };
-            state.problemas.push(newProblem);
-            state.currentProblemaId = newProblem.id;
             state.editingProblema = newProblem;
             render();
         });
@@ -647,10 +762,16 @@
             }
         });
 
-        if (state.problemas.length > 0) {
-            state.currentProblemaId = state.problemas[0].id;
+        // --- INIT ---
+        function initialize() {
+            loadingProblemasEl.classList.add('hidden');
+            problemsList.classList.remove('hidden');
+            if (state.problemas.length > 0) {
+                state.currentProblemaId = state.problemas[0].id;
+            }
+            render();
         }
-        render();
+        initialize();
     });
     </script>
 </body>
