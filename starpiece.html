@@ -33,7 +33,7 @@
         #canvas-container {
             cursor: grab;
         }
-        .form-input {
+        .form-input, .form-select {
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #cbd5e1;
@@ -116,11 +116,11 @@
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
-                <div id="loading-problemas" class="text-center p-4 hidden">
+                <div id="loading-problemas" class="text-center p-4">
                     <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-500"></i>
-                    <p class="text-sm text-slate-500 mt-2">Carregando...</p>
+                    <p class="text-sm text-slate-500 mt-2">Carregando dados...</p>
                 </div>
-                <ul id="problems-list" class="space-y-2 overflow-y-auto">
+                <ul id="problems-list" class="space-y-2 overflow-y-auto hidden">
                     <!-- Problem items will be injected here -->
                 </ul>
             </aside>
@@ -153,7 +153,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.4.0</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.5.1</p>
         </footer>
     </div>
 
@@ -174,39 +174,17 @@
     document.addEventListener('DOMContentLoaded', () => {
         
         const URLS = {
-            login: 'https://work.produ-cloud.com/webhook/envia_login'
+            login: 'https://work.produ-cloud.com/webhook/envia_login',
+            getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
+            getProblemas: 'https://work.produ-cloud.com/webhook/starpiece-get-all',
+            saveProblema: 'https://work.produ-cloud.com/webhook/starpiece-save',
+            deleteProblema: 'https://work.produ-cloud.com/webhook/starpiece-delete'
         };
 
         const state = {
             isEditMode: false,
-            problemas: [
-                 { 
-                    id: 1, 
-                    dor: 'Baixa conversão de leads',
-                    causaRaiz: 'O processo de follow-up com os leads é manual e inconsistente. A equipe de vendas perde o timing ideal para contato.',
-                    solucaoTecnica: 'Implementar um CRM automatizado que dispara lembretes e e-mails de nutrição baseados no tempo de inatividade do lead.',
-                    processoToBe: [
-                        { id: 101, name: 'Lead Entra no Funil', type: 'Inicio', description: 'Lead é capturado via formulário do site.', nextStepId: 102 },
-                        { id: 102, name: 'Automação Qualifica', type: 'Automacao', description: 'Sistema verifica se o lead preenche os critérios mínimos (ex: e-mail corporativo).', nextStepId: 103 },
-                        { id: 103, name: 'Lead Qualificado?', type: 'Decisao', description: 'A automação decide com base nos critérios.', nextStepYesId: 104, nextStepNoId: 105 },
-                        { id: 104, name: 'Atribuir a Vendedor', type: 'Acao', description: 'Lead é adicionado à carteira de um vendedor no CRM.', nextStepId: 106 },
-                        { id: 105, name: 'Nutrição de Marketing', type: 'Automacao', description: 'Lead entra em um fluxo de e-mails para aquecimento.', nextStepId: 107 },
-                        { id: 106, name: 'Contato Realizado', type: 'Aprovacao', description: 'Vendedor realiza o primeiro contato e marca a tarefa como concluída.', nextStepId: 107 },
-                        { id: 107, name: 'Fim do Fluxo Inicial', type: 'Fim', description: 'Lead foi tratado.', nextStepId: null },
-                    ]
-                },
-                 { 
-                    id: 2, 
-                    dor: 'Dificuldade no Onboarding de Clientes',
-                    causaRaiz: 'Falta de um checklist padronizado e visibilidade sobre o progresso do onboarding para a equipe e para o cliente.',
-                    solucaoTecnica: 'Criar um portal do cliente com um wizard de setup, checklists interativos e uma barra de progresso visível.',
-                    processoToBe: [
-                         { id: 201, name: 'Cliente Assina', type: 'Inicio', description: 'Contrato é assinado e o projeto começa.', nextStepId: 202 },
-                         { id: 202, name: 'Kick-off Meeting', type: 'Acao', description: 'Reunião de alinhamento com o cliente.', nextStepId: 203 },
-                         { id: 203, name: 'Setup da Conta', type: 'Automacao', description: 'Sistema cria a conta do cliente e envia os acessos.', nextStepId: null }
-                    ]
-                }
-            ],
+            sistemas: [],
+            problemas: [],
             currentProblemaId: null,
             currentStepId: null,
             editingStep: null,
@@ -292,6 +270,92 @@
             sessionStorage.removeItem('sodapop_user');
             checkAuth();
         }
+        
+        // --- DATA FETCHING ---
+        async function fetchSistemas() {
+            try {
+                const response = await fetch(URLS.getSistemas);
+                if (!response.ok) throw new Error('Falha ao buscar sistemas.');
+                state.sistemas = await response.json();
+            } catch (error) {
+                console.error('Erro ao carregar sistemas:', error);
+                showToast('Erro ao carregar lista de sistemas.', true);
+            }
+        }
+
+        async function fetchProblemas() {
+             try {
+                const response = await fetch(URLS.getProblemas);
+                if (!response.ok) throw new Error('Falha ao buscar problemas.');
+                const data = await response.json();
+                state.problemas = data.map(prob => ({
+                    ...prob,
+                    processoToBe: prob.processoToBe ? JSON.parse(prob.processoToBe) : []
+                }));
+            } catch (error) {
+                console.error('Erro ao carregar problemas:', error);
+                showToast('Erro ao carregar problemas do N8N.', true);
+                 loadingProblemasEl.innerHTML = `<p class="text-red-400 text-sm">Erro ao carregar.</p>`;
+            }
+        }
+        
+        async function saveProblema(problemData) {
+            const isNew = problemData.id === 'NOVO';
+            try {
+                const payload = {
+                    ...problemData,
+                    processoToBe: JSON.stringify(problemData.processoToBe || [])
+                };
+                const response = await fetch(URLS.saveProblema, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
+                const savedProblemRaw = await response.json();
+                const savedProblem = {
+                    ...savedProblemRaw,
+                    processoToBe: savedProblemRaw.processoToBe ? JSON.parse(savedProblemRaw.processoToBe) : []
+                };
+
+                const index = state.problemas.findIndex(p => p.id === (isNew ? problemData.tempId : savedProblem.id));
+                if (index > -1) {
+                    state.problemas[index] = savedProblem;
+                } else {
+                    state.problemas.push(savedProblem);
+                }
+                state.currentProblemaId = savedProblem.id;
+                showToast('Salvo com sucesso!');
+                return savedProblem;
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showToast('Falha ao salvar. Tente novamente.', true);
+                return null;
+            }
+        }
+        
+        async function deleteProblema(problemId) {
+             try {
+                const response = await fetch(URLS.deleteProblema, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: problemId })
+                });
+                 if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
+                 
+                 state.problemas = state.problemas.filter(p => p.id !== problemId);
+                 if (state.currentProblemaId === problemId) {
+                    state.currentProblemaId = state.problemas.length > 0 ? state.problemas[0].id : null;
+                 }
+                 showToast('Problema apagado com sucesso!');
+                 return true;
+             } catch (error) {
+                 console.error('Erro ao apagar:', error);
+                 showToast('Falha ao apagar. Tente novamente.', true);
+                 return false;
+             }
+        }
+
 
         // --- Panning logic for the canvas ---
         let isPanning = false;
@@ -345,13 +409,20 @@
         function renderProblemsList() {
             problemsList.innerHTML = '';
             state.problemas.forEach(prob => {
+                const sistema = state.sistemas.find(s => s.id == prob.sistemaId);
                 const li = document.createElement('li');
-                li.className = `p-3 rounded-md cursor-pointer transition-colors flex justify-between items-center ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'}`;
-                li.innerHTML = `<span>${prob.dor}</span>`;
+                li.className = `p-3 rounded-md cursor-pointer transition-colors flex justify-between items-start ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'}`;
                 
+                li.innerHTML = `
+                    <div>
+                        <span>${prob.dor}</span>
+                        <p class="text-xs ${prob.id === state.currentProblemaId ? 'text-indigo-200' : 'text-slate-400'}">${sistema ? sistema.name : 'Sistema não encontrado'}</p>
+                    </div>
+                `;
+
                 if(state.isEditMode && prob.id === state.currentProblemaId) {
                     const editBtn = document.createElement('button');
-                    editBtn.className = "text-slate-300 hover:text-white ml-2";
+                    editBtn.className = "text-slate-300 hover:text-white ml-2 flex-shrink-0";
                     editBtn.innerHTML = `<i class="fa-solid fa-pencil"></i>`;
                     editBtn.onclick = (e) => {
                         e.stopPropagation();
@@ -393,11 +464,18 @@
             
             function traverse(stepId, level) {
                 if (!stepId || positions.has(stepId)) return;
+                
+                const step = steps.find(s => s.id === stepId);
+
+                if (!step) {
+                    console.warn(`Dangling step reference found for ID: ${stepId}. Skipping.`);
+                    return; 
+                }
+
                 if (!levels.has(level)) levels.set(level, []);
                 levels.get(level).push(stepId);
                 positions.set(stepId, { level });
                 
-                const step = steps.find(s => s.id === stepId);
                 if (step.type === 'Decisao') {
                     traverse(step.nextStepYesId, level + 1);
                     traverse(step.nextStepNoId, level + 1);
@@ -630,9 +708,17 @@
                      </form>
                 `;
             } else { // problem
+                 const sistemasOptions = state.sistemas.map(s => `<option value="${s.id}" ${data.sistemaId == s.id ? 'selected' : ''}>${s.name}</option>`).join('');
                  formHTML = `
                     <form id="problem-form">
                         <div class="p-6 space-y-6 overflow-y-auto">
+                             <div>
+                                <label for="problem-sistema" class="block text-sm font-bold text-slate-300 mb-1">Sistema</label>
+                                <select id="problem-sistema" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white form-select" required>
+                                    <option value="">Selecione um sistema</option>
+                                    ${sistemasOptions}
+                                </select>
+                            </div>
                              <div>
                                 <label for="problem-dor" class="block text-sm font-bold text-slate-300 mb-1">Dor (Problema)</label>
                                 <input type="text" id="problem-dor" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
@@ -682,20 +768,18 @@
                     });
                 }
             } else { // problem
-                 form['problem-dor'].value = data.dor;
-                 form['problem-causa'].value = data.causaRaiz;
-                 form['problem-solucao'].value = data.solucaoTecnica;
+                 form['problem-dor'].value = data.dor || '';
+                 form['problem-causa'].value = data.causaRaiz || '';
+                 form['problem-solucao'].value = data.solucaoTecnica || '';
                  form.addEventListener('submit', handleProblemFormSubmit);
                  const deleteBtn = form.querySelector('#delete-problem-btn');
-                 if(deleteBtn) deleteBtn.addEventListener('click', () => {
+                 if(deleteBtn) deleteBtn.addEventListener('click', async () => {
                     if(confirm('Tem certeza que deseja apagar este problema e todo o seu processo?')) {
-                        state.problemas = state.problemas.filter(p => p.id !== data.id);
-                        if (state.currentProblemaId === data.id) {
-                            state.currentProblemaId = state.problemas.length > 0 ? state.problemas[0].id : null;
+                        const success = await deleteProblema(data.id);
+                        if (success) {
+                            state.editingProblema = null;
+                            render();
                         }
-                        state.editingProblema = null;
-                        render();
-                        showToast('Problema apagado localmente!');
                     }
                  });
             }
@@ -707,31 +791,35 @@
             });
         }
         
-        function handleProblemFormSubmit(e) {
+        async function handleProblemFormSubmit(e) {
             e.preventDefault();
             const form = e.target;
-            const id = state.editingProblema.id;
-            const isNew = !state.problemas.some(p => p.id === id);
+            const saveBtn = form.querySelector('#save-problem-btn');
+            const originalBtnText = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
+            const isNew = !state.editingProblema.id;
 
             const problemData = {
-                id: isNew ? Date.now() : id,
+                id: isNew ? 'NOVO' : state.editingProblema.id,
+                tempId: isNew ? Date.now() : null, // for local state update before getting real ID
+                sistemaId: form['problem-sistema'].value,
                 dor: form['problem-dor'].value,
                 causaRaiz: form['problem-causa'].value,
                 solucaoTecnica: form['problem-solucao'].value,
+                processoToBe: isNew ? [] : state.editingProblema.processoToBe
             };
 
-            if (isNew) {
-                problemData.processoToBe = [];
-                state.problemas.push(problemData);
-                state.currentProblemaId = problemData.id;
-            } else {
-                const index = state.problemas.findIndex(p => p.id === id);
-                problemData.processoToBe = state.problemas[index].processoToBe;
-                state.problemas[index] = problemData;
+            const savedProblem = await saveProblema(problemData);
+            
+            if (savedProblem) {
+                state.editingProblema = null;
+                render();
             }
-            state.editingProblema = null;
-            render();
-            showToast('Problema salvo localmente!');
+
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalBtnText;
         }
 
         function handleStepFormSubmit(e) {
@@ -766,10 +854,11 @@
                 problem.processoToBe[index] = stepData;
             }
             
+            // This is local-only for now, will be part of saveProblema later
             state.currentStepId = stepData.id;
             state.editingStep = null;
             render();
-            showToast('Etapa salva localmente!');
+            showToast('Etapa salva localmente! Salve o problema para persistir.');
         }
 
         function handleDeleteStep(stepIdToDelete) {
@@ -786,7 +875,7 @@
              state.editingStep = null;
              state.currentStepId = null;
              render();
-             showToast('Etapa apagada localmente!');
+             showToast('Etapa apagada localmente! Salve o problema para persistir.');
         }
 
         function handleStepTypeChange(type) {
@@ -847,6 +936,7 @@
         addProblemBtn.addEventListener('click', () => {
              const newProblem = { 
                 id: null,
+                sistemaId: null,
                 dor: 'Novo Problema', 
                 causaRaiz: '',
                 solucaoTecnica: '',
@@ -875,9 +965,16 @@
         });
 
         // --- INIT ---
-        function initialize() {
+        async function initialize() {
+            loadingProblemasEl.classList.remove('hidden');
+            problemsList.classList.add('hidden');
+
+            await fetchSistemas();
+            await fetchProblemas();
+            
             loadingProblemasEl.classList.add('hidden');
             problemsList.classList.remove('hidden');
+            
             if (state.problemas.length > 0) {
                 state.currentProblemaId = state.problemas[0].id;
             }
