@@ -12,63 +12,16 @@
             font-family: 'Inter', sans-serif;
             --brand-color: #FF4E00;
         }
-        .sidebar-node {
-            cursor: grab;
-            transition: transform 0.2s, background-color 0.2s;
+        .map-step {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
         }
-        .sidebar-node:active {
-            cursor: grabbing;
-            transform: scale(1.05);
-        }
-        .sidebar-tool.active {
-            background-color: var(--brand-color) !important;
-            color: white;
-        }
-        #canvas-container.connection-mode {
-            cursor: crosshair;
-        }
-        #canvas-container.delete-mode {
-            cursor: not-allowed;
-        }
-        #canvas-container.delete-mode .fluxo-node {
-            cursor: not-allowed;
-        }
-        #canvas {
-            background-image: radial-gradient(#475569 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-        .fluxo-node {
-            cursor: move;
-        }
-        #canvas-container.connection-mode .fluxo-node {
-            cursor: crosshair;
-        }
-        .fluxo-node text {
-            pointer-events: none;
-            user-select: none;
-        }
-        .connector-line {
-            stroke: #94a3b8;
-            stroke-width: 2;
-            fill: none;
-        }
-        .temp-line {
+        .map-step.active circle, .map-step.active rect, .map-step.active path {
             stroke: var(--brand-color);
-            stroke-width: 2;
-            stroke-dasharray: 5,5;
-            pointer-events: none;
+            stroke-width: 4px;
         }
-        .form-input, .form-select, .form-textarea {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #cbd5e1;
-            border-radius: 0.375rem;
-            padding: 0.5rem 0.75rem;
-            width: 100%;
-        }
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
-            outline: none;
-            border-color: #818cf8;
+        .map-line {
+            transition: all 0.2s ease-in-out;
         }
     </style>
 </head>
@@ -81,553 +34,383 @@
                     <i class="fa-solid fa-star text-2xl" style="color: var(--brand-color);"></i>
                     <h1 class="text-2xl font-bold text-white">Star Piece</h1>
                 </div>
+                <div class="flex items-center space-x-4">
+                    <button id="toggle-edit-mode" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2">
+                        <i class="fa-solid fa-pencil"></i>
+                        <span>Modo Edição</span>
+                    </button>
+                </div>
             </div>
         </nav>
     </header>
 
-    <div class="flex-grow flex container mx-auto p-4 gap-4">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-slate-800 rounded-lg p-4 flex flex-col gap-4 flex-shrink-0">
-            <h2 class="font-bold text-lg text-white">Ferramentas</h2>
-            <div id="connector-tool" class="sidebar-tool bg-slate-700 p-4 rounded-lg text-center cursor-pointer">
-                <p class="font-medium">Conector</p>
-                <i class="fa-solid fa-arrow-pointer mx-auto mt-2 text-2xl"></i>
+    <main class="flex-grow flex p-4 gap-4 container mx-auto">
+        <!-- Left Panel: Process Map -->
+        <div class="w-1/3 bg-slate-800 rounded-lg p-4 flex flex-col">
+             <div id="edit-panel" class="hidden mb-4">
+                <button id="add-step-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i>
+                    Adicionar Etapa
+                </button>
             </div>
-            <div id="delete-tool" class="sidebar-tool bg-slate-700 p-4 rounded-lg text-center cursor-pointer">
-                <p class="font-medium">Apagar</p>
-                <i class="fa-solid fa-trash mx-auto mt-2 text-2xl"></i>
+            <div class="flex-grow overflow-auto">
+                <svg id="process-map" width="100%" height="100%"></svg>
             </div>
-            <div class="border-t border-slate-700 my-2"></div>
-            <h2 class="font-bold text-lg text-white">Blocos</h2>
-            <div class="sidebar-node bg-slate-700 p-4 rounded-lg text-center" draggable="true" data-type="start-end">
-                <p class="font-medium">Início / Fim</p>
-                <div class="w-32 h-8 bg-slate-900 rounded-full mx-auto mt-2"></div>
-            </div>
-            <div class="sidebar-node bg-slate-700 p-4 rounded-lg text-center" draggable="true" data-type="action">
-                <p class="font-medium">Ação</p>
-                <div class="w-32 h-16 bg-slate-900 rounded-md mx-auto mt-2"></div>
-            </div>
-            <div class="sidebar-node bg-slate-700 p-4 rounded-lg text-center" draggable="true" data-type="decision">
-                <p class="font-medium mb-2">Decisão</p>
-                <div class="h-20 flex items-center justify-center">
-                    <div class="w-14 h-14 bg-slate-900 transform rotate-45"></div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Canvas -->
-        <main id="canvas-container" class="flex-grow bg-slate-900 rounded-lg overflow-auto relative">
-            <svg id="canvas"></svg>
-        </main>
-    </div>
-
-    <!-- Properties Modal -->
-    <div id="properties-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
-        <div class="bg-slate-800 rounded-lg shadow-xl w-full max-w-lg">
-            <form id="properties-form">
-                <div class="p-6 border-b border-slate-700">
-                    <h3 class="text-xl font-bold text-white">Propriedades do Bloco</h3>
-                </div>
-                <div class="p-6 space-y-4">
-                    <div>
-                        <label for="prop-name" class="block text-sm font-medium text-slate-400 mb-1">Nome do Bloco</label>
-                        <input type="text" id="prop-name" name="name" class="form-input">
-                    </div>
-                    <div>
-                        <label for="prop-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
-                        <textarea id="prop-description" name="description" rows="3" class="form-textarea"></textarea>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="prop-action-type" class="block text-sm font-medium text-slate-400 mb-1">Tipo de Ação</label>
-                            <select id="prop-action-type" name="actionType" class="form-select">
-                                <option value="Nenhum">Nenhum</option>
-                                <option value="Manual">Manual</option>
-                                <option value="Automação">Automação</option>
-                                <option value="Gatilho">Gatilho</option>
-                                <option value="Outros">Outros</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="prop-color" class="block text-sm font-medium text-slate-400 mb-1">Cor</label>
-                            <select id="prop-color" name="color" class="form-select">
-                                <option value="#1e293b">Padrão</option>
-                                <option value="#ef4444">Vermelho</option>
-                                <option value="#3b82f6">Azul</option>
-                                <option value="#22c55e">Verde</option>
-                                <option value="#eab308">Amarelo</option>
-                                <option value="#8b5cf6">Roxo</option>
-                                <option value="#64748b">Cinza</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3">
-                    <button type="button" id="cancel-properties" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
-                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Salvar</button>
-                </div>
-            </form>
         </div>
-    </div>
+
+        <!-- Right Panel: Step Details -->
+        <div id="details-panel" class="w-2/3 bg-slate-800 rounded-lg p-8 overflow-y-auto">
+            <!-- View Mode -->
+            <div id="view-mode-content">
+                 <div class="text-center text-slate-600">
+                    <i class="fa-solid fa-hand-pointer text-5xl mb-4"></i>
+                    <p>Selecione uma etapa no mapa para ver os detalhes.</p>
+                </div>
+            </div>
+
+            <!-- Edit/Create Mode -->
+            <div id="edit-mode-content" class="hidden">
+                 <form id="step-form">
+                    <input type="hidden" id="step-id">
+                    <div class="space-y-6">
+                        <div>
+                            <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
+                            <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
+                        </div>
+                        <div>
+                            <label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label>
+                            <select id="step-type" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
+                                <option value="Acao">Ação</option>
+                                <option value="Aprovacao">Aprovação</option>
+                                <option value="Gatilho">Gatilho/Início</option>
+                                <option value="Decisao">Decisão</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label>
+                            <textarea id="step-description" rows="5" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
+                        </div>
+                        
+                        <div id="single-next-step-group">
+                            <label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label>
+                            <select id="step-next" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                        </div>
+
+                        <div id="decision-next-step-group" class="hidden grid grid-cols-2 gap-4">
+                             <div>
+                                <label for="step-next-yes" class="block text-sm font-bold text-green-400 mb-1">Caminho "Sim"</label>
+                                <select id="step-next-yes" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                            </div>
+                            <div>
+                                <label for="step-next-no" class="block text-sm font-bold text-red-400 mb-1">Caminho "Não"</label>
+                                <select id="step-next-no" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-4 pt-4 border-t border-slate-700">
+                             <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
+                        </div>
+                    </div>
+                 </form>
+            </div>
+        </div>
+    </main>
     
     <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2">
-        <p class="text-xs text-slate-500">Star Piece | v1.0.4</p>
+        <p class="text-xs text-slate-500">Star Piece | v1.0.0</p>
     </footer>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const canvas = document.getElementById('canvas');
-        const canvasContainer = document.getElementById('canvas-container');
-        const sidebarNodes = document.querySelectorAll('.sidebar-node');
-        const connectorTool = document.getElementById('connector-tool');
-        const deleteTool = document.getElementById('delete-tool');
-        const propertiesModal = document.getElementById('properties-modal');
-        const propertiesForm = document.getElementById('properties-form');
-        const cancelPropertiesBtn = document.getElementById('cancel-properties');
-
-        let selectedNode = null;
-        let offset = { x: 0, y: 0 };
-        let nodeCounter = 0;
-        let connectionMode = false;
-        let deleteMode = false;
-        let startNode = null;
-        let tempLine = null;
-        let nodeBeingEdited = null;
-        
-        // Set initial canvas size
-        canvas.setAttribute('width', '1600');
-        canvas.setAttribute('height', '1200');
-
-        const actionTypeColors = {
-            'Manual': '#38bdf8', // sky-400
-            'Automação': '#a855f7', // purple-500
-            'Gatilho': '#f59e0b', // amber-500
-            'Outros': '#64748b' // slate-500
+        const state = {
+            isEditMode: false,
+            steps: [
+                { id: 1, name: 'Início do Processo', type: 'Gatilho', description: 'Este é o ponto de partida do fluxo.', nextStepId: 2, x: 50, y: 50},
+                { id: 2, name: 'Análise Manual', type: 'Acao', description: 'Uma pessoa da equipe precisa analisar os dados recebidos.', nextStepId: 3, x: 50, y: 150},
+                { id: 3, name: 'Precisa de Aprovação?', type: 'Decisao', description: 'Verificar se o valor ou a complexidade exige aprovação de um superior.', nextStepYesId: 4, nextStepNoId: 5, x: 50, y: 250 },
+                { id: 4, name: 'Enviar para Aprovação', type: 'Aprovacao', description: 'O gestor recebe uma notificação para aprovar ou reprovar.', nextStepId: 5, x: -50, y: 350},
+                { id: 5, name: 'Executar Automação', type: 'Automacao', description: 'O sistema executa a tarefa automaticamente.', nextStepId: 6, x: 50, y: 450},
+                { id: 6, name: 'Fim do Processo', type: 'Gatilho', description: 'O fluxo é concluído com sucesso.', nextStepId: null, x: 50, y: 550},
+            ],
+            currentStepId: null,
+            editingStep: null,
         };
 
-        function deactivateAllTools() {
-            connectionMode = false;
-            connectorTool.classList.remove('active');
-            canvasContainer.classList.remove('connection-mode');
-
-            deleteMode = false;
-            deleteTool.classList.remove('active');
-            canvasContainer.classList.remove('delete-mode');
-
-            if (tempLine) {
-                 canvas.removeChild(tempLine);
-                 tempLine = null;
-                 startNode = null;
-            }
-        }
+        const processMap = document.getElementById('process-map');
+        const detailsPanel = document.getElementById('details-panel');
+        const viewModeContent = document.getElementById('view-mode-content');
+        const editModeContent = document.getElementById('edit-mode-content');
+        const stepForm = document.getElementById('step-form');
+        const toggleEditModeBtn = document.getElementById('toggle-edit-mode');
+        const editPanel = document.getElementById('edit-panel');
+        const addStepBtn = document.getElementById('add-step-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
         
-        connectorTool.addEventListener('click', () => {
-            const wasActive = connectionMode;
-            deactivateAllTools();
-            if (!wasActive) {
-                connectionMode = true;
-                connectorTool.classList.add('active');
-                canvasContainer.classList.add('connection-mode');
-            }
-        });
-
-        deleteTool.addEventListener('click', () => {
-            const wasActive = deleteMode;
-            deactivateAllTools();
-            if (!wasActive) {
-                deleteMode = true;
-                deleteTool.classList.add('active');
-                canvasContainer.classList.add('delete-mode');
-            }
-        });
-
-        sidebarNodes.forEach(node => {
-            node.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', node.dataset.type);
-            });
-        });
-
-        canvasContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-
-        canvasContainer.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const type = e.dataTransfer.getData('text/plain');
-            const rect = canvasContainer.getBoundingClientRect();
-            // Adjust for scroll position
-            const x = e.clientX - rect.left + canvasContainer.scrollLeft;
-            const y = e.clientY - rect.top + canvasContainer.scrollTop;
-            createNode(type, x, y);
-        });
-
-        function createNode(type, x, y) {
-            nodeCounter++;
-            const nodeId = `node-${nodeCounter}`;
-            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            group.setAttribute('class', 'fluxo-node');
-            group.setAttribute('id', nodeId);
-            
-            group.dataset.type = type;
-            group.dataset.name = type;
-            group.dataset.description = "";
-            group.dataset.actionType = "Nenhum";
-            group.dataset.color = "#1e293b";
-            
-            const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            shape.setAttribute('stroke', '#475569');
-            shape.setAttribute('stroke-width', '2');
-
-            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            textEl.setAttribute('text-anchor', 'middle');
-            textEl.setAttribute('fill', '#cbd5e1');
-            textEl.setAttribute('font-size', '14');
-
-            group.appendChild(shape);
-            group.appendChild(textEl);
-            canvas.appendChild(group);
-
-            updateNodeVisuals(group);
-            
-            const bbox = group.getBBox();
-            group.setAttribute('transform', `translate(${x - bbox.width / 2}, ${y - bbox.height / 2})`);
+        const stepTypeSelect = document.getElementById('step-type');
+        const singleNextStepGroup = document.getElementById('single-next-step-group');
+        const decisionNextStepGroup = document.getElementById('decision-next-step-group');
 
 
-            group.addEventListener('mousedown', startDrag);
-            group.addEventListener('click', handleNodeClick);
-            group.addEventListener('dblclick', (e) => {
-                e.stopPropagation(); 
-                editText(e);
-            });
-            
-            openPropertiesModal(group);
+        function render() {
+            renderMap();
+            renderDetails();
         }
 
-        function startDrag(e) {
-            if (connectionMode || deleteMode) return;
-            selectedNode = e.currentTarget;
-            const transform = selectedNode.getAttribute('transform');
-            const translate = /translate\(([^,]+),([^)]+)\)/.exec(transform);
-            const initialX = parseFloat(translate[1]);
-            const initialY = parseFloat(translate[2]);
-            offset = {
-                x: e.clientX - initialX,
-                y: e.clientY - initialY
-            };
-            canvas.addEventListener('mousemove', drag);
-            canvas.addEventListener('mouseup', endDrag);
-            canvas.addEventListener('mouseleave', endDrag);
-        }
+        function renderMap() {
+            processMap.innerHTML = ''; // Clear map
 
-        function drag(e) {
-            if (!selectedNode) return;
-            e.preventDefault();
-            const newX = e.clientX - offset.x;
-            const newY = e.clientY - offset.y;
-            selectedNode.setAttribute('transform', `translate(${newX}, ${newY})`);
-            updateConnections(selectedNode.id);
+            // Create markers
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.innerHTML = `
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                </marker>
+                <marker id="arrow-yes" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
+                </marker>
+                <marker id="arrow-no" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+                </marker>
+            `;
+            processMap.appendChild(defs);
 
-            // --- Expansion Logic ---
-            const currentWidth = parseFloat(canvas.getAttribute('width'));
-            const currentHeight = parseFloat(canvas.getAttribute('height'));
-            const nodeBBox = selectedNode.getBBox();
-            const expansionBuffer = 100;
-            const expansionAmount = 400;
+            const connections = [];
 
-            if (newX + nodeBBox.width > currentWidth - expansionBuffer) {
-                canvas.setAttribute('width', currentWidth + expansionAmount);
-            }
-            if (newY + nodeBBox.height > currentHeight - expansionBuffer) {
-                canvas.setAttribute('height', currentHeight + expansionAmount);
-            }
-        }
+            state.steps.forEach(step => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.setAttribute('class', 'map-step');
+                group.setAttribute('transform', `translate(${step.x}, ${step.y})`);
+                group.dataset.id = step.id;
 
-        function endDrag() {
-            selectedNode = null;
-            canvas.removeEventListener('mousemove', drag);
-            canvas.removeEventListener('mouseup', endDrag);
-            canvas.removeEventListener('mouseleave', endDrag);
-        }
-
-        function editText(e) {
-            if (connectionMode || deleteMode) return;
-            const group = e.currentTarget;
-            const newText = prompt("Editar nome:", group.dataset.name);
-            if (newText !== null) {
-                group.dataset.name = newText;
-                updateNodeVisuals(group);
-            }
-        }
-        
-        function handleNodeClick(e) {
-            const clickedNode = e.currentTarget;
-            if (connectionMode) {
-                handleConnectionClick(clickedNode);
-            } else if (deleteMode) {
-                deleteNode(clickedNode);
-            } else {
-                 openPropertiesModal(clickedNode);
-            }
-        }
-        
-        function openPropertiesModal(node) {
-            nodeBeingEdited = node;
-            propertiesForm.name.value = node.dataset.name;
-            propertiesForm.description.value = node.dataset.description;
-            propertiesForm.actionType.value = node.dataset.actionType;
-            propertiesForm.color.value = node.dataset.color;
-            propertiesModal.classList.remove('hidden');
-            propertiesModal.classList.add('flex');
-        }
-
-        function closePropertiesModal() {
-            nodeBeingEdited = null;
-            propertiesModal.classList.add('hidden');
-            propertiesModal.classList.remove('flex');
-        }
-
-        propertiesForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (nodeBeingEdited) {
-                nodeBeingEdited.dataset.name = propertiesForm.name.value;
-                nodeBeingEdited.dataset.description = propertiesForm.description.value;
-                nodeBeingEdited.dataset.actionType = propertiesForm.actionType.value;
-                nodeBeingEdited.dataset.color = propertiesForm.color.value;
-                updateNodeVisuals(nodeBeingEdited);
-            }
-            closePropertiesModal();
-        });
-
-        cancelPropertiesBtn.addEventListener('click', closePropertiesModal);
-        
-        function updateNodeVisuals(node) {
-            let shape = node.querySelector('path, rect'); 
-            const textEl = node.querySelector('text');
-            const type = node.dataset.type;
-
-            const PADDING_X = 20;
-            const PADDING_Y = 15;
-            const LINE_HEIGHT = 18;
-            const MIN_WIDTH = 150;
-            const MAX_WIDTH = 250;
-            const TAG_HEIGHT = 18;
-            const TAG_MARGIN = 5;
-
-            textEl.innerHTML = '';
-            const words = node.dataset.name.split(' ');
-            let tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-            tspan.setAttribute('x', 0);
-            tspan.setAttribute('dy', `${LINE_HEIGHT}px`);
-            textEl.appendChild(tspan);
-            let lineCount = 1;
-
-            for (const word of words) {
-                const testText = tspan.textContent + (tspan.textContent ? ' ' : '') + word;
-                tspan.textContent = testText;
-                if (tspan.getComputedTextLength() > MAX_WIDTH) {
-                    tspan.textContent = testText.slice(0, -(word.length + 1));
-                    tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-                    tspan.setAttribute('x', 0);
-                    tspan.setAttribute('dy', `${LINE_HEIGHT}px`);
-                    tspan.textContent = word;
-                    textEl.appendChild(tspan);
-                    lineCount++;
+                if (step.id === state.currentStepId) {
+                    group.classList.add('active');
                 }
-            }
-            
-            const textBBox = textEl.getBBox();
-            let newWidth = Math.max(MIN_WIDTH, textBBox.width + PADDING_X * 2);
-            let newHeight = textBBox.height + PADDING_Y * 2;
-            
-            if(node.dataset.actionType !== 'Nenhum') {
-                newHeight += TAG_HEIGHT + TAG_MARGIN;
-            }
-            
-            if (type === 'decision') {
-                newWidth = Math.max(newWidth, newHeight * 1.5);
-                newHeight = newWidth / 1.5;
-            }
 
-            shape.setAttribute('fill', node.dataset.color);
-            if (type === 'start-end' || type === 'action') {
-                shape.tagName.toLowerCase() !== 'rect' && (shape = redrawShape(node, 'rect'));
-                shape.setAttribute('width', newWidth);
-                shape.setAttribute('height', newHeight);
-                if(type === 'start-end') {
-                    shape.setAttribute('rx', newHeight/2);
-                    shape.setAttribute('ry', newHeight/2);
+                let shape;
+                switch(step.type) {
+                    case 'Aprovacao':
+                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        shape.setAttribute('x', -25); shape.setAttribute('y', -25); shape.setAttribute('width', 50); shape.setAttribute('height', 50); shape.setAttribute('rx', 4);
+                        break;
+                    case 'Decisao':
+                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        shape.setAttribute('d', 'M 0 -30 L 30 0 L 0 30 L -30 0 Z');
+                        break;
+                    case 'Gatilho':
+                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        shape.setAttribute('r', 30); shape.setAttribute('stroke-width', 4);
+                        break;
+                    default: // Acao
+                        shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        shape.setAttribute('r', 25);
+                        break;
+                }
+                shape.setAttribute('fill', '#1e293b');
+                shape.setAttribute('stroke', '#64748b');
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.textContent = step.name;
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('dy', '0.3em');
+                text.setAttribute('fill', '#cbd5e1');
+                text.setAttribute('font-size', '10px');
+
+                group.appendChild(shape);
+                group.appendChild(text);
+                group.addEventListener('click', () => {
+                    state.currentStepId = step.id;
+                    state.editingStep = null;
+                    render();
+                });
+                processMap.appendChild(group);
+
+                // Prepare connections
+                 if (step.type === 'Decisao') {
+                    if (step.nextStepYesId) connections.push({ from: step.id, to: step.nextStepYesId, type: 'yes' });
+                    if (step.nextStepNoId) connections.push({ from: step.id, to: step.nextStepNoId, type: 'no' });
                 } else {
-                    shape.removeAttribute('rx');
-                    shape.removeAttribute('ry');
+                    if (step.nextStepId) connections.push({ from: step.id, to: step.nextStepId, type: 'normal' });
                 }
-            } else if (type === 'decision') {
-                shape.tagName.toLowerCase() !== 'path' && (shape = redrawShape(node, 'path'));
-                shape.setAttribute('d', `M ${newWidth / 2} 0 L ${newWidth} ${newHeight / 2} L ${newWidth / 2} ${newHeight} L 0 ${newHeight / 2} Z`);
-            }
+            });
             
-            const shapeBBox = shape.getBBox();
-            const totalTextHeight = lineCount * LINE_HEIGHT;
-            const startY = (shapeBBox.height - totalTextHeight - (node.dataset.actionType !== 'Nenhum' ? TAG_HEIGHT + TAG_MARGIN : 0)) / 2;
-            textEl.setAttribute('transform', `translate(${shapeBBox.width/2}, ${startY})`);
-            
-            let actionTag = node.querySelector('.action-tag-group');
-            if (actionTag) node.removeChild(actionTag);
-            if (node.dataset.actionType !== 'Nenhum') {
-                actionTag = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                actionTag.setAttribute('class', 'action-tag-group');
-                const tagRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                const tagText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                
-                tagText.textContent = node.dataset.actionType;
-                tagText.setAttribute('font-size', '10');
-                tagText.setAttribute('fill', 'white');
-                tagText.setAttribute('text-anchor', 'middle');
-                
-                actionTag.appendChild(tagRect);
-                actionTag.appendChild(tagText);
-                node.appendChild(actionTag); // Append to DOM to measure
-                
-                const textBBoxTag = tagText.getBBox(); 
-                const tagWidth = textBBoxTag.width + 12;
-
-                tagRect.setAttribute('x', (shapeBBox.width - tagWidth) / 2);
-                tagRect.setAttribute('y', shapeBBox.height - TAG_HEIGHT - TAG_MARGIN);
-                tagRect.setAttribute('width', tagWidth);
-                tagRect.setAttribute('height', TAG_HEIGHT);
-                tagRect.setAttribute('rx', '4');
-                tagRect.setAttribute('fill', actionTypeColors[node.dataset.actionType] || '#64748b');
-
-                tagText.setAttribute('x', shapeBBox.width / 2);
-                tagText.setAttribute('y', shapeBBox.height - TAG_HEIGHT / 2 - TAG_MARGIN);
-                tagText.setAttribute('dy', '.3em');
-            }
-            
-            let infoIcon = node.querySelector('.info-icon-group');
-            if (infoIcon) node.removeChild(infoIcon);
-            if (node.dataset.description) {
-                infoIcon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                infoIcon.setAttribute('class', 'info-icon-group');
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', shapeBBox.width - 12);
-                circle.setAttribute('cy', '12');
-                circle.setAttribute('r', '8');
-                circle.setAttribute('fill', '#4f46e5');
-                const i = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                i.setAttribute('x', shapeBBox.width - 12);
-                i.setAttribute('y', '12');
-                i.setAttribute('dy', '.35em');
-                i.setAttribute('text-anchor', 'middle');
-                i.setAttribute('fill', 'white');
-                i.setAttribute('font-size', '10');
-                i.setAttribute('font-weight', 'bold');
-                i.textContent = 'i';
-                infoIcon.appendChild(circle);
-                infoIcon.appendChild(i);
-                node.appendChild(infoIcon);
-            }
-            
-            updateConnections(node.id);
+             // Draw connections
+            connections.forEach(conn => {
+                const fromStep = state.steps.find(s => s.id === conn.from);
+                const toStep = state.steps.find(s => s.id === conn.to);
+                if (fromStep && toStep) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', fromStep.x);
+                    line.setAttribute('y1', fromStep.y);
+                    line.setAttribute('x2', toStep.x);
+                    line.setAttribute('y2', toStep.y);
+                    line.setAttribute('stroke', '#64748b');
+                    line.setAttribute('stroke-width', 2);
+                    line.setAttribute('class', 'map-line');
+                    if(conn.type === 'yes') { line.setAttribute('stroke', '#22c55e'); line.setAttribute('marker-end', 'url(#arrow-yes)');}
+                    else if(conn.type === 'no') { line.setAttribute('stroke', '#ef4444'); line.setAttribute('marker-end', 'url(#arrow-no)');}
+                    else { line.setAttribute('marker-end', 'url(#arrow)'); }
+                    
+                    processMap.insertBefore(line, processMap.firstChild); // Draw lines behind nodes
+                }
+            });
         }
-        
-        function redrawShape(node, newType) {
-            let newShape;
-            const currentShape = node.querySelector('path, rect');
-            if (newType === 'rect') {
-                newShape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+
+        function renderDetails() {
+            if (state.editingStep) {
+                viewModeContent.classList.add('hidden');
+                editModeContent.classList.remove('hidden');
+                renderEditForm(state.editingStep);
             } else {
-                 newShape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                viewModeContent.classList.remove('hidden');
+                editModeContent.classList.add('hidden');
+                renderViewMode();
             }
-            newShape.setAttribute('stroke', '#475569');
-            newShape.setAttribute('stroke-width', '2');
-            node.insertBefore(newShape, node.querySelector('text'));
-            if(currentShape) node.removeChild(currentShape);
-            return newShape;
+        }
+        
+        function renderViewMode() {
+            const currentStep = state.steps.find(s => s.id === state.currentStepId);
+            if (!currentStep) {
+                viewModeContent.innerHTML = `<div class="text-center text-slate-600">
+                    <i class="fa-solid fa-hand-pointer text-5xl mb-4"></i>
+                    <p>Selecione uma etapa no mapa para ver os detalhes.</p>
+                </div>`;
+                return;
+            }
+
+            let prevStepId = null;
+            state.steps.forEach(step => {
+                if(step.nextStepId === currentStep.id || step.nextStepYesId === currentStep.id || step.nextStepNoId === currentStep.id) {
+                    prevStepId = step.id;
+                }
+            });
+
+            viewModeContent.innerHTML = `
+                <div class="mb-4">
+                    <span class="text-sm font-bold uppercase tracking-wider" style="color: var(--brand-color);">${currentStep.type}</span>
+                    <h2 class="text-4xl font-bold text-white mt-1">${currentStep.name}</h2>
+                </div>
+                <div class="prose prose-invert max-w-none text-slate-300">${currentStep.description}</div>
+                <div class="mt-8 pt-6 border-t border-slate-700 flex justify-between">
+                    ${prevStepId ? `<button data-id="${prevStepId}" class="nav-btn bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> Etapa Anterior</button>` : '<div></div>'}
+                    ${currentStep.type === 'Decisao' ? `
+                        <div class="flex gap-4">
+                            ${currentStep.nextStepNoId ? `<button data-id="${currentStep.nextStepNoId}" class="nav-btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Caminho 'Não' <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+                            ${currentStep.nextStepYesId ? `<button data-id="${currentStep.nextStepYesId}" class="nav-btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Caminho 'Sim' <i class="fa-solid fa-arrow-right"></i></button>` : ''}
+                        </div>
+                    `: (currentStep.nextStepId ? `<button data-id="${currentStep.nextStepId}" class="nav-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Próxima Etapa <i class="fa-solid fa-arrow-right"></i></button>` : '<div></div>')}
+                </div>
+            `;
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                state.currentStepId = parseInt(e.currentTarget.dataset.id);
+                render();
+            }));
+        }
+        
+        function renderEditForm(step) {
+            stepForm['step-id'].value = step.id || '';
+            stepForm['step-name'].value = step.name || '';
+            stepForm['step-type'].value = step.type || 'Acao';
+            stepForm['step-description'].value = step.description || '';
+            
+            updateNextStepOptions(step.id);
+            handleStepTypeChange();
+
+            stepForm['step-next'].value = step.nextStepId || '';
+            stepForm['step-next-yes'].value = step.nextStepYesId || '';
+            stepForm['step-next-no'].value = step.nextStepNoId || '';
         }
 
-        function deleteNode(nodeToDelete) {
-            const nodeId = nodeToDelete.id;
-            const lines = canvas.querySelectorAll(`[data-start-node="${nodeId}"], [data-end-node="${nodeId}"]`);
-            lines.forEach(line => canvas.removeChild(line));
-            canvas.removeChild(nodeToDelete);
-        }
-
-        function handleConnectionClick(clickedNode) {
-            if (!startNode) {
-                startNode = clickedNode;
-                tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                tempLine.setAttribute('class', 'temp-line');
-                const startCenter = getNodeCenter(startNode);
-                tempLine.setAttribute('x1', startCenter.x);
-                tempLine.setAttribute('y1', startCenter.y);
-                tempLine.setAttribute('x2', startCenter.x);
-                tempLine.setAttribute('y2', startCenter.y);
-                canvas.insertBefore(tempLine, canvas.firstChild);
-                canvas.addEventListener('mousemove', moveTempLine);
+        function handleStepTypeChange() {
+            if (stepTypeSelect.value === 'Decisao') {
+                singleNextStepGroup.classList.add('hidden');
+                decisionNextStepGroup.classList.remove('hidden');
             } else {
-                createConnection(startNode, clickedNode);
-                deactivateAllTools();
+                singleNextStepGroup.classList.remove('hidden');
+                decisionNextStepGroup.classList.add('hidden');
             }
         }
-
-        function moveTempLine(e) {
-            if (!tempLine) return;
-            const rect = canvas.getBoundingClientRect();
-            tempLine.setAttribute('x2', e.clientX - rect.left);
-            tempLine.setAttribute('y2', e.clientY - rect.top);
-        }
         
-        function getNodeCenter(node) {
-            const transform = node.getAttribute('transform');
-            const translate = /translate\(([^,]+),([^)]+)\)/.exec(transform);
-            const x = parseFloat(translate[1]);
-            const y = parseFloat(translate[2]);
-            const bbox = node.getBBox();
-            return { x: x + bbox.width / 2, y: y + bbox.height / 2 };
+        function updateNextStepOptions(currentId) {
+            const options = state.steps
+                .filter(s => s.id !== currentId)
+                .map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            
+            stepForm['step-next'].innerHTML = '<option value="">Nenhuma</option>' + options;
+            stepForm['step-next-yes'].innerHTML = '<option value="">Nenhuma</option>' + options;
+            stepForm['step-next-no'].innerHTML = '<option value="">Nenhuma</option>' + options;
         }
 
-        function createConnection(start, end) {
-            if (start === end) return;
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            line.setAttribute('class', 'connector-line');
-            line.setAttribute('data-start-node', start.id);
-            line.setAttribute('data-end-node', end.id);
-            line.setAttribute('marker-end', 'url(#arrow)');
-            canvas.insertBefore(line, canvas.firstChild);
-            updateConnection(line);
-        }
-        
-        function updateConnections(nodeId) {
-            const lines = canvas.querySelectorAll(`[data-start-node="${nodeId}"], [data-end-node="${nodeId}"]`);
-            lines.forEach(line => updateConnection(line));
-        }
+        // --- Event Listeners ---
+        toggleEditModeBtn.addEventListener('click', () => {
+            state.isEditMode = !state.isEditMode;
+            editPanel.classList.toggle('hidden', !state.isEditMode);
+            toggleEditModeBtn.classList.toggle('bg-indigo-600', state.isEditMode);
+            toggleEditModeBtn.classList.toggle('bg-slate-600', !state.isEditMode);
+            if (!state.isEditMode) {
+                state.editingStep = null;
+                render();
+            }
+        });
 
-        function updateConnection(line) {
-             const startNode = canvas.querySelector(`#${line.dataset.startNode}`);
-             const endNode = canvas.querySelector(`#${line.dataset.endNode}`);
-             if (!startNode || !endNode) return;
-             
-             const startCenter = getNodeCenter(startNode);
-             const endCenter = getNodeCenter(endNode);
-             
-             line.setAttribute('d', `M ${startCenter.x} ${startCenter.y} L ${endCenter.x} ${endCenter.y}`);
-        }
+        addStepBtn.addEventListener('click', () => {
+            const newStep = { 
+                id: Date.now(), // temporary ID
+                name: 'Nova Etapa', 
+                type: 'Acao',
+                description: '',
+                x: Math.random() * 200,
+                y: Math.random() * 500,
+            };
+            state.editingStep = newStep;
+            render();
+        });
 
-        // --- Define Arrow Marker ---
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        marker.setAttribute('id', 'arrow');
-        marker.setAttribute('viewBox', '0 0 10 10');
-        marker.setAttribute('refX', '10');
-        marker.setAttribute('refY', '5');
-        marker.setAttribute('markerWidth', '6');
-        marker.setAttribute('markerHeight', '6');
-        marker.setAttribute('orient', 'auto-start-reverse');
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-        path.setAttribute('fill', '#94a3b8');
-        marker.appendChild(path);
-        defs.appendChild(marker);
-        canvas.appendChild(defs);
+        cancelEditBtn.addEventListener('click', () => {
+            state.editingStep = null;
+            render();
+        });
+
+        stepTypeSelect.addEventListener('change', handleStepTypeChange);
+
+        stepForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = parseInt(stepForm['step-id'].value);
+            const isNew = !state.steps.some(s => s.id === id);
+
+            const stepData = {
+                id: isNew ? Date.now() : id,
+                name: stepForm['step-name'].value,
+                type: stepForm['step-type'].value,
+                description: stepForm['step-description'].value,
+            };
+            
+            if (stepData.type === 'Decisao') {
+                stepData.nextStepYesId = parseInt(stepForm['step-next-yes'].value) || null;
+                stepData.nextStepNoId = parseInt(stepForm['step-next-no'].value) || null;
+            } else {
+                 stepData.nextStepId = parseInt(stepForm['step-next'].value) || null;
+            }
+
+            if (isNew) {
+                stepData.x = state.editingStep.x;
+                stepData.y = state.editingStep.y;
+                state.steps.push(stepData);
+            } else {
+                const index = state.steps.findIndex(s => s.id === id);
+                // Keep original position
+                stepData.x = state.steps[index].x;
+                stepData.y = state.steps[index].y;
+                state.steps[index] = stepData;
+            }
+            
+            state.currentStepId = stepData.id;
+            state.editingStep = null;
+            render();
+        });
+
+        render();
     });
     </script>
 </body>
