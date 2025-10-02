@@ -70,6 +70,9 @@
                         <h1 class="text-2xl font-bold text-white">Pearl</h1>
                     </div>
                     <div id="main-actions" class="hidden items-center space-x-4">
+                        <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Soda Pop</a>
+                        <a href="starpiece.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Star Piece</a>
+                        <div class="h-8 border-l border-slate-600"></div>
                         <div class="flex items-center gap-2">
                              <label for="sistema-select" class="text-sm font-medium text-slate-400 flex-shrink-0">Sistema:</label>
                              <select id="sistema-select" class="form-select w-64"></select>
@@ -82,16 +85,7 @@
                             <i class="fa-solid fa-save"></i>
                             Salvar
                         </button>
-                        <div class="h-8 border-l border-slate-600"></div>
-                        <button id="copy-svg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
-                            <i class="fa-solid fa-copy"></i>
-                            Copiar SVG
-                        </button>
-                        <button id="download-png-btn" class="text-white font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors" style="background-color: var(--brand-color); opacity: 0.9; hover:opacity: 1;">
-                            <i class="fa-solid fa-download"></i>
-                            Baixar PNG
-                        </button>
-                         <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
                     </div>
                 </div>
             </nav>
@@ -150,10 +144,6 @@
 
             const editor = document.getElementById('editor');
             const output = document.getElementById('output');
-            const copyBtn = document.getElementById('copy-svg-btn');
-            const downloadBtn = document.getElementById('download-png-btn');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
             const focusFilter = document.getElementById('focus-filter');
             const clearFilterBtn = document.getElementById('clear-filter-btn');
             const sistemaSelect = document.getElementById('sistema-select');
@@ -428,93 +418,7 @@
                 renderMermaid();
             };
 
-            const copyToClipboard = () => {
-                const svgElement = output.querySelector('svg');
-                if (svgElement) {
-                    const svgData = new XMLSerializer().serializeToString(svgElement);
-                    const tempTextArea = document.createElement('textarea');
-                    tempTextArea.value = svgData;
-                    document.body.appendChild(tempTextArea);
-                    tempTextArea.select();
-                    try {
-                        document.execCommand('copy');
-                        alert('SVG copiado para a área de transferência!');
-                    } catch (err) {
-                        alert('Falha ao copiar SVG.');
-                    }
-                    document.body.removeChild(tempTextArea);
-                } else {
-                    alert('Nenhum gráfico para copiar.');
-                }
-            };
             
-            const downloadAsPng = () => {
-                const svgElement = output.querySelector('svg');
-                if (!svgElement) {
-                    alert('Nenhum gráfico para baixar.');
-                    return;
-                }
-
-                const svgData = new XMLSerializer().serializeToString(svgElement);
-                const svgDataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-
-                const diagramImage = new Image();
-                const logoImage = new Image();
-                logoImage.crossOrigin = "Anonymous"; 
-                const logoUrl = 'https://static.wixstatic.com/media/8e154d_4a12ed9159714e48b78edd19819bb5a0~mv2.png/v1/fill/w_40,h_40,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Logo_Redondo.png';
-                const footerText = 'www.produtive.me';
-
-                const drawAndDownload = (includeLogo) => {
-                    diagramImage.onload = () => {
-                        const scale = 2;
-                        const margin = 40 * scale; 
-                        const footerHeight = includeLogo ? (60 * scale) : 0;
-                        
-                        const { width, height } = svgElement.viewBox.baseVal;
-                        canvas.width = (width * scale) + (margin * 2);
-                        canvas.height = (height * scale) + (margin * 2) + footerHeight;
-
-                        ctx.fillStyle = 'white';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        
-                        ctx.drawImage(diagramImage, margin, margin, width * scale, height * scale);
-
-                        if (includeLogo) {
-                            const logoSize = 40 * scale;
-                            const footerY = (height * scale) + margin + (margin / 2);
-                            ctx.drawImage(logoImage, margin, footerY + (footerHeight - logoSize) / 2, logoSize, logoSize);
-                            
-                            ctx.fillStyle = '#475569';
-                            ctx.font = `bold ${16 * scale}px Inter`;
-                            ctx.textAlign = 'left';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(footerText, margin + logoSize + (10 * scale), footerY + (footerHeight / 2));
-                        }
-
-                        const pngUrl = canvas.toDataURL('image/png');
-                        const a = document.createElement('a');
-                        a.href = pngUrl;
-                        a.download = 'diagrama-pearl.png';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    };
-                    diagramImage.src = svgDataUri;
-                };
-                
-                logoImage.onload = () => {
-                    drawAndDownload(true);
-                };
-                
-                logoImage.onerror = () => {
-                    console.error("Não foi possível carregar o logo.");
-                    alert("Não foi possível carregar o logo, o download continuará sem ele.");
-                    drawAndDownload(false);
-                };
-
-                logoImage.src = logoUrl;
-            };
-
             // --- EVENT LISTENERS ---
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
@@ -528,8 +432,6 @@
                 focusFilter.value = '';
                 renderMermaid();
             });
-            copyBtn.addEventListener('click', copyToClipboard);
-            downloadBtn.addEventListener('click', downloadAsPng);
 
             // Initial setup
             checkAuth();
