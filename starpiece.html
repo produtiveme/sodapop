@@ -37,6 +37,7 @@
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #cbd5e1;
+            border-radius: 0.375rem; /* rounded-md */
         }
         .pool-rect {
             fill: rgba(30, 41, 59, 0.5); /* bg-slate-800 with opacity */
@@ -121,12 +122,18 @@
         <main class="flex-grow flex p-4 gap-4 container mx-auto">
             <!-- Left Sidebar: Problems List -->
             <aside class="w-1/4 bg-slate-800 rounded-lg p-4 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center mb-2">
                     <h2 class="font-bold text-lg text-white">Problemas</h2>
                     <button id="add-problem-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg hidden">
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
+
+                <div class="mb-4">
+                    <label for="sistema-filter" class="text-xs text-slate-400">Filtrar por Sistema</label>
+                    <select id="sistema-filter" class="form-select w-full mt-1 text-sm p-2"></select>
+                </div>
+
                 <div id="loading-problemas" class="text-center p-4">
                     <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-500"></i>
                     <p class="text-sm text-slate-500 mt-2">Carregando dados...</p>
@@ -164,7 +171,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.6.1</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.6.2</p>
         </footer>
     </div>
 
@@ -196,6 +203,7 @@
             isEditMode: false,
             sistemas: [],
             problemas: [],
+            selectedSistemaFilter: '',
             currentProblemaId: null,
             currentStepId: null,
             editingStep: null,
@@ -232,6 +240,7 @@
         const loginButtonEl = document.getElementById('login-button');
         const logoutButtonEl = document.getElementById('logout-button');
 
+        const sistemaFilterEl = document.getElementById('sistema-filter');
         const processMap = document.getElementById('process-map');
         const detailsModal = document.getElementById('details-modal');
         const modalContentWrapper = document.getElementById('modal-content-wrapper');
@@ -451,10 +460,26 @@
             renderCurrentProblem();
             renderModal();
         }
+        
+        function populateSistemaFilter() {
+            sistemaFilterEl.innerHTML = '<option value="">Todos os Sistemas</option>';
+            state.sistemas.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.id;
+                option.textContent = s.name;
+                sistemaFilterEl.appendChild(option);
+            });
+            sistemaFilterEl.value = state.selectedSistemaFilter;
+        }
 
         function renderProblemsList() {
+            let problemasFiltrados = state.problemas;
+            if (state.selectedSistemaFilter) {
+                problemasFiltrados = state.problemas.filter(p => p.sistemaId == state.selectedSistemaFilter);
+            }
+
             problemsList.innerHTML = '';
-            state.problemas.forEach(prob => {
+            problemasFiltrados.forEach(prob => {
                 const sistema = state.sistemas.find(s => s.id == prob.sistemaId);
                 const li = document.createElement('li');
                 li.className = `p-3 rounded-md cursor-pointer transition-colors flex justify-between items-start ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'}`;
@@ -1081,6 +1106,18 @@
                  render();
             }
         });
+        
+        sistemaFilterEl.addEventListener('change', () => {
+            state.selectedSistemaFilter = sistemaFilterEl.value;
+            const problemasFiltrados = state.problemas.filter(p => !state.selectedSistemaFilter || p.sistemaId == state.selectedSistemaFilter);
+            if (problemasFiltrados.length > 0) {
+                state.currentProblemaId = problemasFiltrados[0].id;
+            } else {
+                state.currentProblemaId = null;
+            }
+            render();
+        });
+
 
         // --- INIT ---
         async function initialize() {
@@ -1088,6 +1125,7 @@
             problemsList.classList.add('hidden');
 
             await fetchSistemas();
+            populateSistemaFilter();
             await fetchProblemas();
             
             loadingProblemasEl.classList.add('hidden');
