@@ -27,6 +27,9 @@
             border-radius: 0.375rem;
             padding: 0.5rem 0.75rem;
         }
+        #editor.invalid {
+            --tw-ring-color: #ef4444 !important; /* red-500 */
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -395,18 +398,23 @@
 
                 if (!codeToRender.trim()) {
                     output.innerHTML = '<p class="text-slate-500">Comece a digitar seu código Mermaid...</p>';
+                    editor.classList.remove('invalid');
                     return;
                 }
 
                 try {
                     const uniqueId = `mermaid-graph-${Date.now()}`;
+                    await mermaid.parse(codeToRender);
                     const { svg } = await mermaid.render(uniqueId, codeToRender);
                     output.innerHTML = svg;
+                    editor.classList.remove('invalid');
                 } catch (error) {
+                    editor.classList.add('invalid');
                     output.innerHTML = `
-                        <div class="text-red-400 bg-red-900/50 border border-red-500 rounded-lg p-4">
-                            <h3 class="font-bold mb-2">Erro de Sintaxe</h3>
-                            <pre class="text-sm whitespace-pre-wrap">${error.message}</pre>
+                        <div class="text-slate-500 flex flex-col items-center justify-center h-full">
+                            <i class="fa-solid fa-triangle-exclamation text-4xl text-yellow-500 mb-4"></i>
+                            <p class="font-semibold">Erro de sintaxe no diagrama.</p>
+                            <p class="text-xs">Corrija o código no editor.</p>
                         </div>
                     `;
                 }
