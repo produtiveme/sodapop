@@ -38,6 +38,17 @@
             border: 1px solid #334155;
             color: #cbd5e1;
         }
+        .pool-rect {
+            fill: rgba(30, 41, 59, 0.5); /* bg-slate-800 with opacity */
+            stroke: #475569; /* slate-600 */
+            stroke-width: 1;
+        }
+        .pool-label {
+            font-size: 14px;
+            font-weight: 700;
+            fill: #94a3b8; /* slate-400 */
+            text-anchor: middle;
+        }
         /* Custom scrollbar for better aesthetics */
         ::-webkit-scrollbar {
             width: 8px;
@@ -153,7 +164,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.5.1</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.6.0</p>
         </footer>
     </div>
 
@@ -190,6 +201,26 @@
             editingStep: null,
             editingProblema: null,
         };
+
+        // Add sample pool data for demonstration
+        const sampleProblemas = [
+             { 
+                id: 1, 
+                sistemaId: "11",
+                dor: 'Baixa conversão de leads',
+                causaRaiz: 'O processo de follow-up com os leads é manual e inconsistente. A equipe de vendas perde o timing ideal para contato.',
+                solucaoTecnica: 'Implementar um CRM automatizado que dispara lembretes e e-mails de nutrição baseados no tempo de inatividade do lead.',
+                processoToBe: [
+                    { id: 101, name: 'Lead Entra no Funil', type: 'Inicio', description: 'Lead é capturado via formulário do site.', nextStepId: 102, pool: 'Marketing' },
+                    { id: 102, name: 'Automação Qualifica', type: 'Automacao', description: 'Sistema verifica se o lead preenche os critérios mínimos.', nextStepId: 103, pool: 'Marketing' },
+                    { id: 103, name: 'Lead Qualificado?', type: 'Decisao', description: 'A automação decide com base nos critérios.', nextStepYesId: 104, nextStepNoId: 105, pool: 'Marketing' },
+                    { id: 104, name: 'Atribuir a Vendedor', type: 'Acao', description: 'Lead é adicionado à carteira de um vendedor no CRM.', nextStepId: 106, pool: 'Vendas' },
+                    { id: 105, name: 'Nutrição de Marketing', type: 'Automacao', description: 'Lead entra em um fluxo de e-mails para aquecimento.', nextStepId: 107, pool: 'Marketing' },
+                    { id: 106, name: 'Contato Realizado', type: 'Aprovacao', description: 'Vendedor realiza o primeiro contato e marca a tarefa como concluída.', nextStepId: 107, pool: 'Vendas' },
+                    { id: 107, name: 'Fim do Fluxo Inicial', type: 'Fim', description: 'Lead foi tratado.', nextStepId: null, pool: null },
+                ]
+            }
+        ];
 
         const markdownConverter = new showdown.Converter({simplifiedAutoLink: true, strikethrough: true, tables: true});
 
@@ -288,14 +319,22 @@
                 const response = await fetch(URLS.getProblemas);
                 if (!response.ok) throw new Error('Falha ao buscar problemas.');
                 const data = await response.json();
-                state.problemas = data.map(prob => ({
-                    ...prob,
-                    processoToBe: prob.processoToBe ? JSON.parse(prob.processoToBe) : []
-                }));
+                
+                if (data && data.length > 0) {
+                     state.problemas = data.map(prob => ({
+                        ...prob,
+                        processoToBe: prob.processoToBe ? JSON.parse(prob.processoToBe) : []
+                    }));
+                } else {
+                    // Fallback to sample data if N8N returns empty
+                    state.problemas = sampleProblemas;
+                    showToast('Dados de exemplo carregados.');
+                }
             } catch (error) {
                 console.error('Erro ao carregar problemas:', error);
-                showToast('Erro ao carregar problemas do N8N.', true);
-                 loadingProblemasEl.innerHTML = `<p class="text-red-400 text-sm">Erro ao carregar.</p>`;
+                showToast('Erro ao carregar do N8N. Carregando dados de exemplo.', true);
+                state.problemas = sampleProblemas;
+                loadingProblemasEl.innerHTML = `<p class="text-yellow-400 text-sm">Falha ao carregar dados. Usando exemplos.</p>`;
             }
         }
         
@@ -458,19 +497,16 @@
             }
         }
         
-        function autoLayout(steps) {
+        function autoLayout(steps, orderedPools) {
             const levels = new Map();
             const positions = new Map();
             
+            const findStep = (id) => steps.find(s => s.id === id);
+
             function traverse(stepId, level) {
                 if (!stepId || positions.has(stepId)) return;
-                
-                const step = steps.find(s => s.id === stepId);
-
-                if (!step) {
-                    console.warn(`Dangling step reference found for ID: ${stepId}. Skipping.`);
-                    return; 
-                }
+                const step = findStep(stepId);
+                if (!step) return;
 
                 if (!levels.has(level)) levels.set(level, []);
                 levels.get(level).push(stepId);
@@ -484,28 +520,53 @@
                 }
             }
 
-            const allNextSteps = new Set();
-            steps.forEach(s => {
-                if (s.nextStepId) allNextSteps.add(s.nextStepId);
-                if (s.nextStepYesId) allNextSteps.add(s.nextStepYesId);
-                if (s.nextStepNoId) allNextSteps.add(s.nextStepNoId);
-            });
+            const allNextSteps = new Set(steps.flatMap(s => [s.nextStepId, s.nextStepYesId, s.nextStepNoId].filter(Boolean)));
             const rootSteps = steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 200; 
-            const Y_SPACING = 120;
-            levels.forEach((stepIds, level) => {
-                const x = 150 + level * X_SPACING;
-                let y = 100; // Aligns the top of the column flow near the top of the canvas
+            const X_SPACING = 220;
+            const Y_SPACING_WITHIN_POOL = 100;
+            const POOL_HEADER_WIDTH = 150;
+            const POOL_LANE_HEIGHT = 180;
+            const NO_POOL_LANE_HEIGHT = 120;
+            const Y_MARGIN = 50;
+            
+            const poolYStarts = {};
+            let currentY = Y_MARGIN;
 
-                stepIds.forEach(stepId => {
-                    const step = steps.find(s => s.id === stepId);
-                    if (step) { 
-                        step.x = x; 
-                        step.y = y; 
-                        y += Y_SPACING; 
-                    }
+            const hasStepsWithoutPool = steps.some(s => !s.pool);
+            if(hasStepsWithoutPool) {
+                poolYStarts['no_pool'] = currentY;
+                currentY += NO_POOL_LANE_HEIGHT;
+            }
+            orderedPools.forEach(pool => {
+                poolYStarts[pool] = currentY;
+                currentY += POOL_LANE_HEIGHT;
+            });
+            
+            levels.forEach((stepIds, level) => {
+                const stepsInLevel = stepIds.map(findStep);
+                
+                const stepsByPool = stepsInLevel.reduce((acc, step) => {
+                    const poolKey = step.pool || 'no_pool';
+                    if(!acc[poolKey]) acc[poolKey] = [];
+                    acc[poolKey].push(step);
+                    return acc;
+                }, {});
+
+                Object.keys(stepsByPool).forEach(poolKey => {
+                    const poolSteps = stepsByPool[poolKey];
+                    const poolBaseY = poolYStarts[poolKey];
+                    const laneHeight = poolKey === 'no_pool' ? NO_POOL_LANE_HEIGHT : POOL_LANE_HEIGHT;
+                    const totalHeightInPool = (poolSteps.length - 1) * Y_SPACING_WITHIN_POOL;
+                    
+                    let y = poolBaseY + (laneHeight / 2) - (totalHeightInPool / 2);
+
+                    poolSteps.forEach(step => {
+                         step.x = POOL_HEADER_WIDTH + (level * X_SPACING) + 50;
+                         step.y = y;
+                         y += Y_SPACING_WITHIN_POOL;
+                    });
                 });
             });
         }
@@ -517,8 +578,51 @@
                  processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Ainda não há etapas no processo. Adicione uma no modo de edição.</text>';
                  return;
             }
-            autoLayout(steps);
 
+            const orderedPools = [];
+            const poolSet = new Set();
+            steps.forEach(step => {
+                if (step.pool && !poolSet.has(step.pool)) {
+                    poolSet.add(step.pool);
+                    orderedPools.push(step.pool);
+                }
+            });
+
+            autoLayout(steps, orderedPools);
+
+            // Draw Pools
+            const POOL_LANE_HEIGHT = 180;
+            const NO_POOL_LANE_HEIGHT = 120;
+            const Y_MARGIN = 50;
+            const POOL_HEADER_WIDTH = 150;
+            let currentY = Y_MARGIN;
+            const mapWidth = parseFloat(processMap.getAttribute('width'));
+
+            const hasStepsWithoutPool = steps.some(s => !s.pool);
+            if (hasStepsWithoutPool) {
+                currentY += NO_POOL_LANE_HEIGHT;
+            }
+            orderedPools.forEach(pool => {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', POOL_HEADER_WIDTH);
+                rect.setAttribute('y', currentY);
+                rect.setAttribute('width', mapWidth - POOL_HEADER_WIDTH);
+                rect.setAttribute('height', POOL_LANE_HEIGHT);
+                rect.setAttribute('class', 'pool-rect');
+                processMap.appendChild(rect);
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('class', 'pool-label');
+                label.setAttribute('x', POOL_HEADER_WIDTH / 2);
+                label.setAttribute('y', currentY + POOL_LANE_HEIGHT / 2);
+                label.setAttribute('transform', `rotate(-90, ${POOL_HEADER_WIDTH/2}, ${currentY + POOL_LANE_HEIGHT / 2})`);
+                label.textContent = pool;
+                processMap.appendChild(label);
+                
+                currentY += POOL_LANE_HEIGHT;
+            });
+
+            // Draw markers and connections
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             defs.innerHTML = `
                 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" /></marker>
@@ -552,6 +656,7 @@
                 }
             });
 
+            // Draw steps
             steps.forEach(step => {
                 const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 group.setAttribute('class', 'map-step');
@@ -665,10 +770,14 @@
                  formHTML = `
                      <form id="step-form">
                         <input type="hidden" id="step-id">
-                        <div class="p-6 space-y-6 overflow-y-auto">
+                        <div class="p-6 space-y-4 overflow-y-auto">
                             <div>
                                 <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
                                 <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
+                            </div>
+                            <div>
+                                <label for="step-pool" class="block text-sm font-bold text-slate-300 mb-1">Pool / Responsável</label>
+                                <input type="text" id="step-pool" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
                             </div>
                             <div>
                                 <label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label>
@@ -679,7 +788,7 @@
                             </div>
                             <div>
                                 <label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label>
-                                <textarea id="step-description" rows="5" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
+                                <textarea id="step-description" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
                             </div>
                             <div id="single-next-step-group">
                                 <label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label>
@@ -752,6 +861,7 @@
                 const typeSelect = form.querySelector('#step-type');
                 form['step-id'].value = data.id || '';
                 form['step-name'].value = data.name || '';
+                form['step-pool'].value = data.pool || '';
                 typeSelect.value = data.type || 'Acao';
                 form['step-description'].value = data.description || '';
                 updateNextStepOptions(data.id, steps);
@@ -833,6 +943,7 @@
                 id: isNew ? Date.now() : id,
                 name: form['step-name'].value,
                 type: form['step-type'].value,
+                pool: form['step-pool'].value.trim(),
                 description: form['step-description'].value,
             };
             
@@ -949,7 +1060,7 @@
         addStepBtn.addEventListener('click', () => {
             const newStep = { 
                 id: null, name: 'Nova Etapa', 
-                type: 'Acao', description: '',
+                type: 'Acao', description: '', pool: ''
             };
             state.editingStep = newStep;
             render();
