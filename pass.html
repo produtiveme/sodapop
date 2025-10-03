@@ -44,6 +44,11 @@
         .calendar-day {
             min-height: 100px;
         }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -133,8 +138,11 @@
                 sistemas: [],
                 funcionalidades: [],
                 eventos: [],
+                pendencias: [], // NOVA: Lista de pendências para o sistema selecionado
                 eventosLoadFailed: false,
                 funcionalidadesLoadFailed: false,
+                pendenciasLoading: false, // NOVA: Estado de loading para pendências
+                pendenciasLoadFailed: false, // NOVA: Estado de erro para pendências
                 currentView: 'sistemas',
                 selectedSistema: null,
                 selectedSistemaTab: 'timeline',
@@ -164,7 +172,8 @@
                 login: 'https://work.produ-cloud.com/webhook/pass-recebe-login',
                 sistemas: 'https://work.produ-cloud.com/webhook/pass-busca-sistema',
                 funcionalidades: 'https://work.produ-cloud.com/webhook/pass-busca-funcionalidade',
-                eventos: 'https://work.produ-cloud.com/webhook/pass-busca-eventos'
+                eventos: 'https://work.produ-cloud.com/webhook/pass-busca-eventos',
+                pendencias: 'https://work.produ-cloud.com/webhook/pass-busca-pendencias' // NOVA URL
             };
             
             // --- UTILITIES ---
@@ -176,6 +185,11 @@
                 'Atualização': { icon: 'fa-info-circle', color: 'text-green-400' },
                 'Marco': { icon: 'fa-flag', color: 'text-amber-400' },
                 'default': { icon: 'fa-calendar-day', color: 'text-slate-400' }
+            };
+             const pendenciaStatusMap = {
+                'Aguardando': { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500' },
+                'Concluído': { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500' },
+                'default': { bg: 'bg-slate-700/10', text: 'text-slate-400', border: 'border-slate-500' }
             };
             const formatDate = (dateString) => {
                 if (!dateString) return 'N/D';
@@ -249,7 +263,7 @@
                 state.isAuthenticated = false;
                 state.currentUser = null;
                 Object.assign(state, {
-                    sistemas: [], funcionalidades: [], eventos: [], currentView: 'sistemas', selectedSistema: null, selectedSistemaTab: 'timeline'
+                    sistemas: [], funcionalidades: [], eventos: [], pendencias: [], currentView: 'sistemas', selectedSistema: null, selectedSistemaTab: 'timeline'
                 });
                 checkAuth();
             }
@@ -300,6 +314,7 @@
                     
                     if (state.sistemas.length === 1) {
                         state.selectedSistema = state.sistemas[0];
+                        await fetchPendencias(state.selectedSistema.id); // Busca pendências para o sistema único
                         state.currentView = 'sistema-detail';
                     } else {
                         state.currentView = 'sistemas';
@@ -313,6 +328,30 @@
                 } finally {
                     views.loading.classList.add('hidden');
                     views.container.classList.remove('hidden');
+                }
+            }
+            
+            // NOVA FUNÇÃO para buscar pendências de um sistema específico
+            async function fetchPendencias(sistemaId) {
+                state.pendenciasLoading = true;
+                state.pendenciasLoadFailed = false;
+                state.pendencias = []; // Limpa pendências antigas
+                render(); // Atualiza a UI para mostrar o loading na aba (se já estiver visível)
+
+                try {
+                     const response = await fetch(URLS.pendencias, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sistema_id: Number(sistemaId) })
+                    });
+                     if (!response.ok) throw new Error(`Status ${response.status}`);
+                     state.pendencias = await response.json();
+                } catch (error) {
+                    console.error('Falha ao buscar pendências:', error);
+                    state.pendenciasLoadFailed = true;
+                } finally {
+                    state.pendenciasLoading = false;
+                    render(); // Re-renderiza para mostrar os dados ou o erro
                 }
             }
             
@@ -366,11 +405,12 @@
                                 <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
                             </div>
                         </div>`;
-                    card.addEventListener('click', () => { 
+                    card.addEventListener('click', async () => { // ATUALIZADO para async
                         state.selectedSistema = sistema; 
                         state.currentView = 'sistema-detail'; 
                         state.selectedSistemaTab = 'timeline'; // Sempre começa na timeline
-                        render(); 
+                        await fetchPendencias(sistema.id); // ATUALIZADO: Busca pendências ao clicar
+                        // render() é chamado dentro do fetchPendencias
                     });
                     grid.appendChild(card);
                 });
@@ -385,6 +425,10 @@
                 if (state.sistemas.length > 1) {
                     backButton = `<button id="back-to-sistemas" class="mb-6 text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar para Projetos</button>`;
                 }
+
+                // Calcula o contador de pendências
+                const pendenciasAbertas = state.pendencias.filter(p => p.status !== 'Concluído').length;
+                const pendenciasCounterHtml = pendenciasAbertas > 0 ? `<span class="ml-2 bg-yellow-500 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">${pendenciasAbertas}</span>` : '';
                 
                 views.sistemaDetail.innerHTML = `
                     ${backButton}
@@ -400,16 +444,21 @@
                     <div class="mt-4 border-b border-slate-700 flex space-x-1">
                         <button id="tab-timeline" class="px-4 py-2 text-sm font-medium border-b-2">Linha do Tempo</button>
                         <button id="tab-overview" class="px-4 py-2 text-sm font-medium border-b-2">Visão Geral</button>
+                        <button id="tab-pendencias" class="flex items-center px-4 py-2 text-sm font-medium border-b-2">Pendências ${pendenciasCounterHtml}</button>
                     </div>
                     <div id="sistema-tab-content" class="mt-6"></div>`;
 
                 const tabs = {
                     timeline: views.sistemaDetail.querySelector('#tab-timeline'),
                     overview: views.sistemaDetail.querySelector('#tab-overview'),
+                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias'), // NOVA: Aba de pendências
                 };
                 
                 Object.keys(tabs).forEach(tabKey => {
                     tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === tabKey ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
+                    if (tabKey === 'pendencias') { // Garante que o contador não afete o estilo
+                        tabs[tabKey].classList.add('flex', 'items-center');
+                    }
                     tabs[tabKey].addEventListener('click', () => { 
                         state.selectedSistemaTab = tabKey; 
                         render(); 
@@ -421,6 +470,8 @@
                     renderTimelineTab(tabContentContainer);
                 } else if (state.selectedSistemaTab === 'overview') {
                     renderOverviewTab(tabContentContainer);
+                } else if (state.selectedSistemaTab === 'pendencias') { // NOVA: Renderiza a tab de pendências
+                    renderPendenciasTab(tabContentContainer);
                 }
 
                 if (state.sistemas.length > 1) {
@@ -492,6 +543,66 @@
 
                 feedBtn.addEventListener('click', () => { state.timelineView = 'feed'; render(); });
                 calendarBtn.addEventListener('click', () => { state.timelineView = 'calendar'; render(); });
+            }
+
+            // NOVA FUNÇÃO para renderizar a aba de pendências
+            function renderPendenciasTab(container) {
+                 if (state.pendenciasLoading) {
+                    container.innerHTML = `<div class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando pendências...</div>`;
+                    return;
+                }
+                if (state.pendenciasLoadFailed) {
+                    container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar as pendências.</p></div>`;
+                    return;
+                }
+                if (state.pendencias.length === 0) {
+                     container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-slate-500">Nenhuma pendência para este projeto.</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Pendências do Projeto</h3>
+                    <div class="space-y-3" id="pendencias-list">
+                        ${state.pendencias.map(p => {
+                            const statusInfo = pendenciaStatusMap[p.status] || pendenciaStatusMap.default;
+                            return `
+                                <div class="bg-slate-800 rounded-lg border ${statusInfo.border} overflow-hidden">
+                                    <button class="w-full p-4 flex justify-between items-center text-left accordion-toggle">
+                                        <div class="flex-grow">
+                                            <div class="flex items-center gap-3">
+                                                <span class="font-semibold text-white">${p.title}</span>
+                                                <span class="text-xs font-bold px-2 py-1 rounded-full ${statusInfo.bg} ${statusInfo.text}">${p.status}</span>
+                                            </div>
+                                            <p class="text-xs text-slate-400 mt-1">Responsável: ${p.responsible || 'N/D'}</p>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-down transition-transform"></i>
+                                    </button>
+                                    <div class="accordion-content">
+                                        <div class="px-4 pb-4 pt-2 border-t border-slate-700">
+                                            <p class="text-sm text-slate-300 prose prose-sm prose-invert max-w-none">${markdownConverter.makeHtml(p.descricao || '_Sem descrição detalhada._')}</p>
+                                            <p class="text-xs text-slate-500 mt-3">Última atualização: ${formatDate(p.updatedAt)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                // Adiciona a lógica do "acordeão"
+                container.querySelectorAll('.accordion-toggle').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const content = button.nextElementSibling;
+                        const icon = button.querySelector('i');
+                        if (content.style.maxHeight) {
+                            content.style.maxHeight = null;
+                            icon.classList.remove('rotate-180');
+                        } else {
+                            content.style.maxHeight = content.scrollHeight + "px";
+                            icon.classList.add('rotate-180');
+                        }
+                    });
+                });
             }
 
             function renderTimelineFeed(container) {
