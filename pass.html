@@ -138,11 +138,11 @@
                 sistemas: [],
                 funcionalidades: [],
                 eventos: [],
-                pendencias: [], // NOVA: Lista de pendências para o sistema selecionado
+                pendencias: [],
                 eventosLoadFailed: false,
                 funcionalidadesLoadFailed: false,
-                pendenciasLoading: false, // NOVA: Estado de loading para pendências
-                pendenciasLoadFailed: false, // NOVA: Estado de erro para pendências
+                pendenciasLoading: false,
+                pendenciasLoadFailed: false,
                 currentView: 'sistemas',
                 selectedSistema: null,
                 selectedSistemaTab: 'timeline',
@@ -173,7 +173,7 @@
                 sistemas: 'https://work.produ-cloud.com/webhook/pass-busca-sistema',
                 funcionalidades: 'https://work.produ-cloud.com/webhook/pass-busca-funcionalidade',
                 eventos: 'https://work.produ-cloud.com/webhook/pass-busca-eventos',
-                pendencias: 'https://work.produ-cloud.com/webhook/pass-busca-pendencias' // NOVA URL
+                pendencias: 'https://work.produ-cloud.com/webhook/pass-busca-pendencias'
             };
             
             // --- UTILITIES ---
@@ -186,10 +186,10 @@
                 'Marco': { icon: 'fa-flag', color: 'text-amber-400' },
                 'default': { icon: 'fa-calendar-day', color: 'text-slate-400' }
             };
-             const pendenciaStatusMap = {
-                'Aguardando': { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500' },
-                'Concluído': { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500' },
-                'default': { bg: 'bg-slate-700/10', text: 'text-slate-400', border: 'border-slate-500' }
+            const pendenciaStatusMap = {
+                'Aguardando': { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30' },
+                'Concluído': { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+                'default': { bg: 'bg-slate-600/20', text: 'text-slate-400', border: 'border-slate-600/30' }
             };
             const formatDate = (dateString) => {
                 if (!dateString) return 'N/D';
@@ -198,10 +198,34 @@
             };
 
 
-            // --- AUTHENTICATION ---
+            // --- AUTHENTICATION & API ---
+            async function authenticatedFetch(url, options = {}) {
+                const token = sessionStorage.getItem('pass_jwt_token');
+                if (!token) {
+                    handleLogout();
+                    return Promise.reject(new Error('Nenhum token de autenticação encontrado.'));
+                }
+
+                const headers = {
+                    ...options.headers,
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
+
+                const response = await fetch(url, { ...options, headers });
+
+                if (response.status === 401) {
+                    handleLogout();
+                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                }
+                
+                return response;
+            }
+
             function checkAuth() {
                 const user = sessionStorage.getItem('pass_user');
-                if (user) {
+                const token = sessionStorage.getItem('pass_jwt_token');
+                if (user && token) {
                     state.isAuthenticated = true;
                     state.currentUser = JSON.parse(user);
                     loginViewEl.classList.add('hidden');
@@ -235,15 +259,18 @@
                     
                     const result = await response.json();
                     
-                    const userData = Array.isArray(result) ? result[0] : result;
+                    const loginData = Array.isArray(result) ? result[0] : result;
 
-                    if (userData && userData.id && userData.sistemas_ids) {
+                    if (loginData && loginData.id && loginData.token) {
+                        const { token, ...userData } = loginData;
+
                         if (typeof userData.sistemas_ids === 'string') {
                             userData.sistemas_ids = JSON.parse(userData.sistemas_ids);
                         }
                         
                         state.isAuthenticated = true;
                         state.currentUser = userData;
+                        sessionStorage.setItem('pass_jwt_token', token);
                         sessionStorage.setItem('pass_user', JSON.stringify(userData));
                         checkAuth();
                     } else {
@@ -260,6 +287,7 @@
 
             function handleLogout() {
                 sessionStorage.removeItem('pass_user');
+                sessionStorage.removeItem('pass_jwt_token');
                 state.isAuthenticated = false;
                 state.currentUser = null;
                 Object.assign(state, {
@@ -269,20 +297,43 @@
             }
 
             // --- DATA OPERATIONS ---
+            async function fetchPendencias(sistemaId) {
+                state.pendenciasLoading = true;
+                state.pendencias = [];
+                state.pendenciasLoadFailed = false;
+                render();
+
+                try {
+                    const response = await authenticatedFetch(URLS.pendencias, {
+                        method: 'POST',
+                        body: JSON.stringify({ sistema_id: sistemaId })
+                    });
+                     if (!response.ok) {
+                        throw new Error(`Servidor respondeu com status ${response.status}`);
+                    }
+                    state.pendencias = await response.json();
+                } catch (error) {
+                    console.error('Falha ao buscar pendências:', error);
+                    state.pendenciasLoadFailed = true;
+                } finally {
+                    state.pendenciasLoading = false;
+                    render();
+                }
+            }
+            
             async function fetchData() {
                 views.loading.classList.remove('hidden');
                 views.container.classList.add('hidden');
                 try {
                     const requestBody = {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ sistemas_ids: state.currentUser.sistemas_ids })
                     };
 
                     const results = await Promise.allSettled([
-                        fetch(URLS.sistemas, requestBody),
-                        fetch(URLS.funcionalidades, requestBody),
-                        fetch(URLS.eventos, requestBody)
+                        authenticatedFetch(URLS.sistemas, requestBody),
+                        authenticatedFetch(URLS.funcionalidades, requestBody),
+                        authenticatedFetch(URLS.eventos, requestBody)
                     ]);
 
                     const [sistemasResult, funcionalidadesResult, eventosResult] = results;
@@ -314,14 +365,13 @@
                     
                     if (state.sistemas.length === 1) {
                         state.selectedSistema = state.sistemas[0];
-                        await fetchPendencias(state.selectedSistema.id); // Busca pendências para o sistema único
                         state.currentView = 'sistema-detail';
+                        await fetchPendencias(state.selectedSistema.id);
                     } else {
                         state.currentView = 'sistemas';
+                        render();
                     }
                     
-                    render();
-
                 } catch (error) {
                     console.error('Erro geral ao carregar dados:', error);
                     views.loading.innerHTML = `<p class="text-red-400">Ocorreu um erro inesperado. Verifique o console.</p>`;
@@ -330,31 +380,8 @@
                     views.container.classList.remove('hidden');
                 }
             }
-            
-            // NOVA FUNÇÃO para buscar pendências de um sistema específico
-            async function fetchPendencias(sistemaId) {
-                state.pendenciasLoading = true;
-                state.pendenciasLoadFailed = false;
-                state.pendencias = []; // Limpa pendências antigas
-                render(); // Atualiza a UI para mostrar o loading na aba (se já estiver visível)
 
-                try {
-                     const response = await fetch(URLS.pendencias, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sistema_id: Number(sistemaId) })
-                    });
-                     if (!response.ok) throw new Error(`Status ${response.status}`);
-                     state.pendencias = await response.json();
-                } catch (error) {
-                    console.error('Falha ao buscar pendências:', error);
-                    state.pendenciasLoadFailed = true;
-                } finally {
-                    state.pendenciasLoading = false;
-                    render(); // Re-renderiza para mostrar os dados ou o erro
-                }
-            }
-            
+
             // --- RENDER FUNCTIONS ---
             function render() {
                 Object.values(views).forEach(v => v.classList.add('hidden'));
@@ -405,12 +432,11 @@
                                 <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
                             </div>
                         </div>`;
-                    card.addEventListener('click', async () => { // ATUALIZADO para async
+                    card.addEventListener('click', async () => {
                         state.selectedSistema = sistema; 
                         state.currentView = 'sistema-detail'; 
-                        state.selectedSistemaTab = 'timeline'; // Sempre começa na timeline
-                        await fetchPendencias(sistema.id); // ATUALIZADO: Busca pendências ao clicar
-                        // render() é chamado dentro do fetchPendencias
+                        state.selectedSistemaTab = 'timeline'; 
+                        await fetchPendencias(sistema.id);
                     });
                     grid.appendChild(card);
                 });
@@ -426,7 +452,6 @@
                     backButton = `<button id="back-to-sistemas" class="mb-6 text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar para Projetos</button>`;
                 }
 
-                // Calcula o contador de pendências
                 const pendenciasAbertas = state.pendencias.filter(p => p.status !== 'Concluído').length;
                 const pendenciasCounterHtml = pendenciasAbertas > 0 ? `<span class="ml-2 bg-yellow-500 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">${pendenciasAbertas}</span>` : '';
                 
@@ -451,12 +476,12 @@
                 const tabs = {
                     timeline: views.sistemaDetail.querySelector('#tab-timeline'),
                     overview: views.sistemaDetail.querySelector('#tab-overview'),
-                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias'), // NOVA: Aba de pendências
+                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias'),
                 };
                 
                 Object.keys(tabs).forEach(tabKey => {
                     tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === tabKey ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
-                    if (tabKey === 'pendencias') { // Garante que o contador não afete o estilo
+                    if (tabKey === 'pendencias') { 
                         tabs[tabKey].classList.add('flex', 'items-center');
                     }
                     tabs[tabKey].addEventListener('click', () => { 
@@ -470,7 +495,7 @@
                     renderTimelineTab(tabContentContainer);
                 } else if (state.selectedSistemaTab === 'overview') {
                     renderOverviewTab(tabContentContainer);
-                } else if (state.selectedSistemaTab === 'pendencias') { // NOVA: Renderiza a tab de pendências
+                } else if (state.selectedSistemaTab === 'pendencias') {
                     renderPendenciasTab(tabContentContainer);
                 }
 
@@ -481,8 +506,6 @@
 
             function renderOverviewTab(container) {
                 const sistema = state.selectedSistema;
-
-                // Calcula o progresso ponderado
                 const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
                 let totalPontos = 0;
                 let pontosConcluidos = 0;
@@ -545,7 +568,6 @@
                 calendarBtn.addEventListener('click', () => { state.timelineView = 'calendar'; render(); });
             }
 
-            // NOVA FUNÇÃO para renderizar a aba de pendências
             function renderPendenciasTab(container) {
                  if (state.pendenciasLoading) {
                     container.innerHTML = `<div class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando pendências...</div>`;
@@ -589,7 +611,6 @@
                     </div>
                 `;
 
-                // Adiciona a lógica do "acordeão"
                 container.querySelectorAll('.accordion-toggle').forEach(button => {
                     button.addEventListener('click', () => {
                         const content = button.nextElementSibling;
