@@ -182,7 +182,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.7.1</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.7.4</p>
         </footer>
     </div>
 
@@ -202,14 +202,13 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         
+        // FIX: Removed non-existent webhooks
         const URLS = {
             login: 'https://work.produ-cloud.com/webhook/envia_login',
             getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
             getProblemas: 'https://work.produ-cloud.com/webhook/starpiece-get-all',
             saveProblema: 'https://work.produ-cloud.com/webhook/starpiece-save',
             deleteProblema: 'https://work.produ-cloud.com/webhook/starpiece-delete',
-            saveStep: 'https://work.produ-cloud.com/webhook/starpiece-save-step',
-            deleteStep: 'https://work.produ-cloud.com/webhook/starpiece-delete-step'
         };
 
         const state = {
@@ -218,6 +217,7 @@
             problemas: [],
             selectedSistemaFilter: '',
             currentProblemaId: null,
+            previousProblemId: null, // To handle cancelling new problem creation
             currentStepId: null,
             editingStep: null,
             editingProblema: null,
@@ -349,38 +349,46 @@
             }
         }
         
-        async function saveProblema(problemData) {
-            const isNew = problemData.id === 'NOVO';
+        async function saveProblema(problemData, showSuccessToast = true) {
+            const isNew = !problemData.id || problemData.id === 'NOVO';
             try {
                 const payload = {
                     ...problemData,
+                    id: isNew ? 'NOVO' : problemData.id, // Ensure "NOVO" is sent for new items
                     processoToBe: JSON.stringify(problemData.processoToBe || [])
                 };
+
                 const response = await fetch(URLS.saveProblema, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
                 });
+
                 if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
                 
                 const result = await response.json();
                 const savedProblemRaw = Array.isArray(result) ? result[0] : result;
 
-                if (!savedProblemRaw) throw new Error('Resposta inválida do servidor ao salvar.');
+                if (!savedProblemRaw || !savedProblemRaw.id) throw new Error('Resposta inválida do servidor ao salvar.');
 
                 const savedProblem = {
                     ...savedProblemRaw,
-                    processoToBe: savedProblemRaw.processoToBe ? JSON.parse(savedProblemRaw.processoToBe) : []
+                    processoToBe: savedProblemRaw.processoToBe && typeof savedProblemRaw.processoToBe === 'string' ? JSON.parse(savedProblemRaw.processoToBe) : []
                 };
-
+                
+                // Update local state
                 const index = state.problemas.findIndex(p => p.id === (isNew ? problemData.tempId : savedProblem.id));
                 if (index > -1) {
                     state.problemas[index] = savedProblem;
                 } else {
                     state.problemas.push(savedProblem);
                 }
-                state.currentProblemaId = savedProblem.id;
-                showToast('Problema salvo com sucesso!');
+                state.currentProblemaId = savedProblem.id; // Ensure current ID is the new, real ID
+                
+                if (showSuccessToast) {
+                    showToast('Problema salvo com sucesso!');
+                }
+                
                 return savedProblem;
             } catch (error) {
                 console.error('Erro ao salvar:', error);
@@ -410,41 +418,6 @@
                  return false;
              }
         }
-        
-        async function saveStep(problemId, stepData) {
-            try {
-                const response = await fetch(URLS.saveStep, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ problemId, stepData })
-                });
-                if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
-                showToast('Etapa salva com sucesso!');
-                return true;
-            } catch (error) {
-                console.error('Erro ao salvar etapa:', error);
-                showToast('Falha ao salvar a etapa.', true);
-                return false;
-            }
-        }
-
-        async function deleteStep(problemId, stepId) {
-             try {
-                const response = await fetch(URLS.deleteStep, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ problemId, stepId })
-                });
-                 if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
-                 showToast('Etapa apagada com sucesso!');
-                 return true;
-             } catch (error) {
-                 console.error('Erro ao apagar etapa:', error);
-                 showToast('Falha ao apagar a etapa.', true);
-                 return false;
-             }
-        }
-
 
         // --- Panning logic for the canvas ---
         let isPanning = false;
@@ -543,7 +516,6 @@
         
         function renderCurrentProblem() {
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
-            // FIX: Hide "Add Step" button if the problem is new and unsaved (has no ID)
             addStepBtn.classList.toggle('hidden', !state.isEditMode || !problem || !problem.id);
 
             if(problem) {
@@ -621,7 +593,6 @@
 
         function renderMap(steps, isNewUnsavedProblem = false) {
             processMap.innerHTML = '';
-            // FIX: Display a message guiding the user to save the new problem first
             if (isNewUnsavedProblem) {
                 processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Salve o problema antes de adicionar etapas ao processo.</text>';
                 return;
@@ -867,9 +838,15 @@
                     }
                  });
             }
-
-             form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
-                state.editingStep = null; state.editingProblema = null; render();
+            
+            const cancelBtn = form.querySelector('#cancel-edit-btn');
+            cancelBtn.addEventListener('click', () => {
+                if (type === 'problem' && !data.id) {
+                    state.currentProblemaId = state.previousProblemId;
+                }
+                state.editingStep = null; 
+                state.editingProblema = null; 
+                render();
             });
         }
         
@@ -894,8 +871,12 @@
             };
 
             const savedProblem = await saveProblema(problemData);
-            if (savedProblem) { state.editingProblema = null; render(); }
-            saveBtn.disabled = false; saveBtn.innerHTML = `Salvar Problema`;
+            if (savedProblem) { 
+                state.editingProblema = null; 
+                render(); 
+            }
+            saveBtn.disabled = false; 
+            saveBtn.innerHTML = `Salvar Problema`;
         }
 
         async function handleStepFormSubmit(e) {
@@ -907,7 +888,6 @@
 
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
             
-            // FIX: Safeguard to prevent saving a step for an unsaved problem
             if (!problem || !problem.id) {
                 showToast('Salve o problema antes de gerenciar suas etapas.', true);
                 saveBtn.disabled = false;
@@ -933,22 +913,30 @@
                  stepData.nextStepId = parseInt(form['step-next'].value) || null;
             }
 
-            if (await saveStep(problem.id, stepData)) {
-                if (isNew) {
-                    stepData.x = 100; stepData.y = 100;
-                    problem.processoToBe.push(stepData);
-                } else {
-                    const index = problem.processoToBe.findIndex(s => s.id === id);
-                    if (index > -1) {
-                       stepData.x = problem.processoToBe[index].x;
-                       stepData.y = problem.processoToBe[index].y;
-                       problem.processoToBe[index] = stepData;
-                    }
+            // FIX: Modify local state first, then save the entire problem
+            if (isNew) {
+                stepData.x = 100; stepData.y = 100;
+                problem.processoToBe.push(stepData);
+            } else {
+                const index = problem.processoToBe.findIndex(s => s.id === id);
+                if (index > -1) {
+                   stepData.x = problem.processoToBe[index].x;
+                   stepData.y = problem.processoToBe[index].y;
+                   problem.processoToBe[index] = stepData;
                 }
+            }
+
+            const updatedProblem = await saveProblema(problem, false); // false to prevent double toast
+
+            if (updatedProblem) {
+                showToast('Etapa salva com sucesso!');
                 state.currentStepId = stepData.id;
                 state.editingStep = null;
                 render();
+            } else {
+                 showToast('Falha ao salvar a etapa.', true);
             }
+
             saveBtn.disabled = false;
             saveBtn.innerHTML = `Salvar Etapa`;
         }
@@ -957,15 +945,26 @@
              const problem = state.problemas.find(p => p.id === state.currentProblemaId);
              if (!problem) return;
 
-             if (await deleteStep(problem.id, stepIdToDelete)) {
-                 problem.processoToBe.forEach(step => {
-                     if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
-                     if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
-                     if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
-                 });
-                 problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
-                 state.editingStep = null; state.currentStepId = null;
+             // FIX: Update local state and then save the entire problem
+             const originalProcess = JSON.parse(JSON.stringify(problem.processoToBe)); // backup
+
+             problem.processoToBe.forEach(step => {
+                 if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
+                 if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
+                 if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
+             });
+             problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
+             
+             const updatedProblem = await saveProblema(problem, false);
+
+             if (updatedProblem) {
+                 showToast('Etapa apagada com sucesso!');
+                 state.editingStep = null; 
+                 state.currentStepId = null;
                  render();
+             } else {
+                showToast('Falha ao apagar a etapa.', true);
+                problem.processoToBe = originalProcess; // Restore on failure
              }
         }
 
@@ -1005,13 +1004,13 @@
         });
 
         addProblemBtn.addEventListener('click', () => {
-             const newProblem = { 
+            const newProblem = { 
                 id: null, sistemaId: state.selectedSistemaFilter || null, dor: 'Novo Problema', 
                 status: 'Investigando', asIs: '', toBe: '', causaRaiz: '', solucaoTecnica: '', processoToBe: []
             };
-            state.editingProblema = newProblem;
-            // FIX: Clear current problem ID to correctly reflect the "new problem" state
+            state.previousProblemId = state.currentProblemaId; 
             state.currentProblemaId = null; 
+            state.editingProblema = newProblem;
             render();
         });
         
@@ -1024,6 +1023,9 @@
         detailsModal.addEventListener('click', (e) => {
             if(e.target === detailsModal) {
                  state.editingStep = null; state.currentStepId = null; state.editingProblema = null;
+                 if (!state.currentProblemaId && state.previousProblemId) {
+                     state.currentProblemaId = state.previousProblemId;
+                 }
                  render();
             }
         });
