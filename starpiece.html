@@ -33,7 +33,7 @@
         #canvas-container {
             cursor: grab;
         }
-        .form-input, .form-select {
+        .form-input, .form-select, .form-textarea {
             background-color: #1e293b;
             border: 1px solid #334155;
             color: #cbd5e1;
@@ -149,12 +149,20 @@
             <!-- Right Content Area -->
             <div class="w-3/4 flex flex-col gap-4">
                 <!-- Context Panel -->
-                <div id="context-panel" class="grid grid-cols-2 gap-4 flex-shrink-0">
-                    <div class="bg-slate-800 p-4 rounded-lg relative">
+                <div id="context-panel" class="grid grid-cols-2 grid-rows-2 gap-4 flex-shrink-0">
+                     <div class="bg-slate-800 p-4 rounded-lg relative overflow-y-auto max-h-40">
+                        <h3 class="font-bold text-white mb-2">AS-IS</h3>
+                        <div id="as-is-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-lg relative overflow-y-auto max-h-40">
+                        <h3 class="font-bold text-white mb-2">TO-BE</h3>
+                        <div id="to-be-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-lg relative overflow-y-auto max-h-40">
                         <h3 class="font-bold text-white mb-2">Causa Raiz</h3>
                         <div id="causa-raiz-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
                     </div>
-                    <div class="bg-slate-800 p-4 rounded-lg relative">
+                    <div class="bg-slate-800 p-4 rounded-lg relative overflow-y-auto max-h-40">
                         <h3 class="font-bold text-white mb-2">Solução Técnica</h3>
                         <div id="solucao-tecnica-content" class="prose prose-sm prose-invert max-w-none text-slate-400"></div>
                     </div>
@@ -174,7 +182,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.6.3</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.7.0</p>
         </footer>
     </div>
 
@@ -199,7 +207,9 @@
             getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
             getProblemas: 'https://work.produ-cloud.com/webhook/starpiece-get-all',
             saveProblema: 'https://work.produ-cloud.com/webhook/starpiece-save',
-            deleteProblema: 'https://work.produ-cloud.com/webhook/starpiece-delete'
+            deleteProblema: 'https://work.produ-cloud.com/webhook/starpiece-delete',
+            saveStep: 'https://work.produ-cloud.com/webhook/starpiece-save-step',
+            deleteStep: 'https://work.produ-cloud.com/webhook/starpiece-delete-step'
         };
 
         const state = {
@@ -211,27 +221,15 @@
             currentStepId: null,
             editingStep: null,
             editingProblema: null,
+            problemStatuses: ['Investigando', 'Implementando', 'Testando', 'Ativo']
         };
-
-        // Add sample pool data for demonstration
-        const sampleProblemas = [
-             { 
-                id: 1, 
-                sistemaId: "11",
-                dor: 'Baixa conversão de leads',
-                causaRaiz: 'O processo de follow-up com os leads é manual e inconsistente. A equipe de vendas perde o timing ideal para contato.',
-                solucaoTecnica: 'Implementar um CRM automatizado que dispara lembretes e e-mails de nutrição baseados no tempo de inatividade do lead.',
-                processoToBe: [
-                    { id: 101, name: 'Lead Entra no Funil', type: 'Inicio', description: 'Lead é capturado via formulário do site.', nextStepId: 102, pool: 'Marketing' },
-                    { id: 102, name: 'Automação Qualifica', type: 'Automacao', description: 'Sistema verifica se o lead preenche os critérios mínimos.', nextStepId: 103, pool: 'Marketing' },
-                    { id: 103, name: 'Lead Qualificado?', type: 'Decisao', description: 'A automação decide com base nos critérios.', nextStepYesId: 104, nextStepNoId: 105, pool: 'Marketing' },
-                    { id: 104, name: 'Atribuir a Vendedor', type: 'Acao', description: 'Lead é adicionado à carteira de um vendedor no CRM.', nextStepId: 106, pool: 'Vendas' },
-                    { id: 105, name: 'Nutrição de Marketing', type: 'Automacao', description: 'Lead entra em um fluxo de e-mails para aquecimento.', nextStepId: 107, pool: 'Marketing' },
-                    { id: 106, name: 'Contato Realizado', type: 'Aprovacao', description: 'Vendedor realiza o primeiro contato e marca a tarefa como concluída.', nextStepId: 107, pool: 'Vendas' },
-                    { id: 107, name: 'Fim do Fluxo Inicial', type: 'Fim', description: 'Lead foi tratado.', nextStepId: null, pool: null },
-                ]
-            }
-        ];
+        
+        const statusColors = {
+            'Investigando': 'bg-yellow-500/20 text-yellow-300',
+            'Implementando': 'bg-blue-500/20 text-blue-300',
+            'Testando': 'bg-purple-500/20 text-purple-300',
+            'Ativo': 'bg-green-500/20 text-green-300',
+        };
 
         const markdownConverter = new showdown.Converter({simplifiedAutoLink: true, strikethrough: true, tables: true});
 
@@ -252,6 +250,8 @@
         const addStepBtn = document.getElementById('add-step-btn');
         const problemsList = document.getElementById('problems-list');
         const loadingProblemasEl = document.getElementById('loading-problemas');
+        const asIsContent = document.getElementById('as-is-content');
+        const toBeContent = document.getElementById('to-be-content');
         const causaRaizContent = document.getElementById('causa-raiz-content');
         const solucaoTecnicaContent = document.getElementById('solucao-tecnica-content');
         const canvasContainer = document.getElementById('canvas-container');
@@ -314,7 +314,7 @@
             checkAuth();
         }
         
-        // --- DATA FETCHING ---
+        // --- DATA FETCHING & SAVING ---
         async function fetchSistemas() {
             try {
                 const response = await fetch(URLS.getSistemas);
@@ -335,18 +335,17 @@
                 if (data && data.length > 0) {
                      state.problemas = data.map(prob => ({
                         ...prob,
-                        processoToBe: prob.processoToBe ? JSON.parse(prob.processoToBe) : []
+                        processoToBe: prob.processoToBe && typeof prob.processoToBe === 'string' ? JSON.parse(prob.processoToBe) : []
                     }));
                 } else {
-                    // Fallback to sample data if N8N returns empty
-                    state.problemas = sampleProblemas;
-                    showToast('Dados de exemplo carregados.');
+                    state.problemas = [];
+                    showToast('Nenhum problema encontrado. Crie um novo.');
                 }
             } catch (error) {
                 console.error('Erro ao carregar problemas:', error);
-                showToast('Erro ao carregar do N8N. Carregando dados de exemplo.', true);
-                state.problemas = sampleProblemas;
-                loadingProblemasEl.innerHTML = `<p class="text-yellow-400 text-sm">Falha ao carregar dados. Usando exemplos.</p>`;
+                showToast('Erro ao carregar do N8N.', true);
+                state.problemas = [];
+                loadingProblemasEl.innerHTML = `<p class="text-yellow-400 text-sm">Falha ao carregar dados.</p>`;
             }
         }
         
@@ -367,9 +366,7 @@
                 const result = await response.json();
                 const savedProblemRaw = Array.isArray(result) ? result[0] : result;
 
-                if (!savedProblemRaw) {
-                    throw new Error('Resposta inválida do servidor ao salvar.');
-                }
+                if (!savedProblemRaw) throw new Error('Resposta inválida do servidor ao salvar.');
 
                 const savedProblem = {
                     ...savedProblemRaw,
@@ -383,11 +380,11 @@
                     state.problemas.push(savedProblem);
                 }
                 state.currentProblemaId = savedProblem.id;
-                showToast('Salvo com sucesso!');
+                showToast('Problema salvo com sucesso!');
                 return savedProblem;
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                showToast('Falha ao salvar. Tente novamente.', true);
+                showToast('Falha ao salvar problema. Tente novamente.', true);
                 return null;
             }
         }
@@ -413,6 +410,40 @@
                  return false;
              }
         }
+        
+        async function saveStep(problemId, stepData) {
+            try {
+                const response = await fetch(URLS.saveStep, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ problemId, stepData })
+                });
+                if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
+                showToast('Etapa salva com sucesso!');
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar etapa:', error);
+                showToast('Falha ao salvar a etapa.', true);
+                return false;
+            }
+        }
+
+        async function deleteStep(problemId, stepId) {
+             try {
+                const response = await fetch(URLS.deleteStep, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ problemId, stepId })
+                });
+                 if (!response.ok) throw new Error(`Servidor respondeu com status ${response.status}`);
+                 showToast('Etapa apagada com sucesso!');
+                 return true;
+             } catch (error) {
+                 console.error('Erro ao apagar etapa:', error);
+                 showToast('Falha ao apagar a etapa.', true);
+                 return false;
+             }
+        }
 
 
         // --- Panning logic for the canvas ---
@@ -430,25 +461,15 @@
             canvasContainer.style.cursor = 'grabbing';
         });
 
-        canvasContainer.addEventListener('mouseleave', () => {
-            isPanning = false;
-            canvasContainer.style.cursor = 'grab';
-        });
-
-        canvasContainer.addEventListener('mouseup', () => {
-            isPanning = false;
-            canvasContainer.style.cursor = 'grab';
-        });
-
+        canvasContainer.addEventListener('mouseleave', () => { isPanning = false; canvasContainer.style.cursor = 'grab'; });
+        canvasContainer.addEventListener('mouseup', () => { isPanning = false; canvasContainer.style.cursor = 'grab'; });
         canvasContainer.addEventListener('mousemove', (e) => {
             if (!isPanning) return;
             e.preventDefault();
             const x = e.pageX - canvasContainer.offsetLeft;
             const y = e.pageY - canvasContainer.offsetTop;
-            const walkX = (x - startX);
-            const walkY = (y - startY);
-            canvasContainer.scrollLeft = scrollLeft - walkX;
-            canvasContainer.scrollTop = scrollTop - walkY;
+            canvasContainer.scrollLeft = scrollLeft - (x - startX);
+            canvasContainer.scrollTop = scrollTop - (y - startY);
         });
 
         const showToast = (message, isError = false) => {
@@ -488,9 +509,12 @@
                 li.className = `p-3 rounded-md cursor-pointer transition-colors flex justify-between items-start ${prob.id === state.currentProblemaId ? 'bg-indigo-600 text-white' : 'hover:bg-slate-700'}`;
                 
                 li.innerHTML = `
-                    <div>
+                    <div class="flex-grow">
                         <span>${prob.dor}</span>
-                        <p class="text-xs ${prob.id === state.currentProblemaId ? 'text-indigo-200' : 'text-slate-400'}">${sistema ? sistema.name : 'Sistema não encontrado'}</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <p class="text-xs ${prob.id === state.currentProblemaId ? 'text-indigo-200' : 'text-slate-400'}">${sistema ? sistema.name : 'Sistema não encontrado'}</p>
+                            ${prob.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColors[prob.status] || 'bg-slate-600'}">${prob.status}</span>` : ''}
+                        </div>
                     </div>
                 `;
 
@@ -522,10 +546,14 @@
             addStepBtn.classList.toggle('hidden', !state.isEditMode || !problem);
 
             if(problem) {
+                asIsContent.innerHTML = markdownConverter.makeHtml(problem.asIs || '_Sem descrição_');
+                toBeContent.innerHTML = markdownConverter.makeHtml(problem.toBe || '_Sem descrição_');
                 causaRaizContent.innerHTML = markdownConverter.makeHtml(problem.causaRaiz || '_Sem descrição_');
                 solucaoTecnicaContent.innerHTML = markdownConverter.makeHtml(problem.solucaoTecnica || '_Sem descrição_');
                 renderMap(problem.processoToBe);
             } else {
+                asIsContent.innerHTML = '_Selecione um problema na lista_';
+                toBeContent.innerHTML = '_Selecione um problema na lista_';
                 causaRaizContent.innerHTML = '_Selecione um problema na lista_';
                 solucaoTecnicaContent.innerHTML = '_Selecione um problema na lista_';
                 processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Nenhum processo a ser exibido.</text>';
@@ -535,7 +563,6 @@
         function autoLayout(steps, orderedPools) {
             const levels = new Map();
             const positions = new Map();
-            
             const findStep = (id) => steps.find(s => s.id === id);
 
             function traverse(stepId, level) {
@@ -559,29 +586,16 @@
             const rootSteps = steps.filter(s => !allNextSteps.has(s.id));
             rootSteps.forEach(root => traverse(root.id, 0));
 
-            const X_SPACING = 220;
-            const Y_SPACING_WITHIN_POOL = 100;
-            const POOL_HEADER_WIDTH = 150;
-            const POOL_LANE_HEIGHT = 180;
-            const NO_POOL_LANE_HEIGHT = 120;
-            const Y_MARGIN = 50;
+            const X_SPACING = 220, Y_SPACING_WITHIN_POOL = 100, POOL_HEADER_WIDTH = 150;
+            const POOL_LANE_HEIGHT = 180, NO_POOL_LANE_HEIGHT = 120, Y_MARGIN = 50;
             
             const poolYStarts = {};
             let currentY = Y_MARGIN;
-
-            const hasStepsWithoutPool = steps.some(s => !s.pool);
-            if(hasStepsWithoutPool) {
-                poolYStarts['no_pool'] = currentY;
-                currentY += NO_POOL_LANE_HEIGHT;
-            }
-            orderedPools.forEach(pool => {
-                poolYStarts[pool] = currentY;
-                currentY += POOL_LANE_HEIGHT;
-            });
+            if(steps.some(s => !s.pool)) { poolYStarts['no_pool'] = currentY; currentY += NO_POOL_LANE_HEIGHT; }
+            orderedPools.forEach(pool => { poolYStarts[pool] = currentY; currentY += POOL_LANE_HEIGHT; });
             
             levels.forEach((stepIds, level) => {
                 const stepsInLevel = stepIds.map(findStep);
-                
                 const stepsByPool = stepsInLevel.reduce((acc, step) => {
                     const poolKey = step.pool || 'no_pool';
                     if(!acc[poolKey]) acc[poolKey] = [];
@@ -591,11 +605,9 @@
 
                 Object.keys(stepsByPool).forEach(poolKey => {
                     const poolSteps = stepsByPool[poolKey];
-                    const poolBaseY = poolYStarts[poolKey];
                     const laneHeight = poolKey === 'no_pool' ? NO_POOL_LANE_HEIGHT : POOL_LANE_HEIGHT;
                     const totalHeightInPool = (poolSteps.length - 1) * Y_SPACING_WITHIN_POOL;
-                    
-                    let y = poolBaseY + (laneHeight / 2) - (totalHeightInPool / 2);
+                    let y = poolYStarts[poolKey] + (laneHeight / 2) - (totalHeightInPool / 2);
 
                     poolSteps.forEach(step => {
                          step.x = POOL_HEADER_WIDTH + (level * X_SPACING) + 50;
@@ -606,7 +618,6 @@
             });
         }
 
-
         function renderMap(steps) {
             processMap.innerHTML = '';
             if (!steps || steps.length === 0) {
@@ -614,46 +625,28 @@
                  return;
             }
 
-            const orderedPools = [];
-            const poolSet = new Set();
-            steps.forEach(step => {
-                if (step.pool && !poolSet.has(step.pool)) {
-                    poolSet.add(step.pool);
-                    orderedPools.push(step.pool);
-                }
-            });
-
+            const orderedPools = [...new Set(steps.map(s => s.pool).filter(Boolean))];
             autoLayout(steps, orderedPools);
 
             // Draw Pools
-            const POOL_LANE_HEIGHT = 180;
-            const NO_POOL_LANE_HEIGHT = 120;
-            const Y_MARGIN = 50;
-            const POOL_HEADER_WIDTH = 150;
+            const POOL_LANE_HEIGHT = 180, NO_POOL_LANE_HEIGHT = 120, Y_MARGIN = 50, POOL_HEADER_WIDTH = 150;
             let currentY = Y_MARGIN;
             const mapWidth = parseFloat(processMap.getAttribute('width'));
+            if (steps.some(s => !s.pool)) { currentY += NO_POOL_LANE_HEIGHT; }
 
-            const hasStepsWithoutPool = steps.some(s => !s.pool);
-            if (hasStepsWithoutPool) {
-                currentY += NO_POOL_LANE_HEIGHT;
-            }
             orderedPools.forEach(pool => {
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                rect.setAttribute('x', POOL_HEADER_WIDTH);
-                rect.setAttribute('y', currentY);
-                rect.setAttribute('width', mapWidth - POOL_HEADER_WIDTH);
-                rect.setAttribute('height', POOL_LANE_HEIGHT);
+                rect.setAttribute('x', POOL_HEADER_WIDTH); rect.setAttribute('y', currentY);
+                rect.setAttribute('width', mapWidth - POOL_HEADER_WIDTH); rect.setAttribute('height', POOL_LANE_HEIGHT);
                 rect.setAttribute('class', 'pool-rect');
                 processMap.appendChild(rect);
 
                 const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                label.setAttribute('class', 'pool-label');
-                label.setAttribute('x', POOL_HEADER_WIDTH / 2);
+                label.setAttribute('class', 'pool-label'); label.setAttribute('x', POOL_HEADER_WIDTH / 2);
                 label.setAttribute('y', currentY + POOL_LANE_HEIGHT / 2);
                 label.setAttribute('transform', `rotate(-90, ${POOL_HEADER_WIDTH/2}, ${currentY + POOL_LANE_HEIGHT / 2})`);
                 label.textContent = pool;
                 processMap.appendChild(label);
-                
                 currentY += POOL_LANE_HEIGHT;
             });
 
@@ -666,29 +659,23 @@
             `;
             processMap.appendChild(defs);
 
-            const connections = [];
             steps.forEach(step => {
-                if (step.type === 'Decisao') {
-                    if (step.nextStepYesId) connections.push({ from: step.id, to: step.nextStepYesId, type: 'yes' });
-                    if (step.nextStepNoId) connections.push({ from: step.id, to: step.nextStepNoId, type: 'no' });
-                } else {
-                    if (step.nextStepId) connections.push({ from: step.id, to: step.nextStepId, type: 'normal' });
-                }
-            });
-            
-            connections.forEach(conn => {
-                const fromStep = steps.find(s => s.id === conn.from);
-                const toStep = steps.find(s => s.id === conn.to);
-                if (fromStep && toStep) {
+                const connect = (from, to, type) => {
+                    const fromStep = steps.find(s => s.id === from); const toStep = steps.find(s => s.id === to);
+                    if (!fromStep || !toStep) return;
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', fromStep.x); line.setAttribute('y1', fromStep.y);
                     line.setAttribute('x2', toStep.x); line.setAttribute('y2', toStep.y);
                     line.setAttribute('stroke-width', 2); line.setAttribute('class', 'map-line');
-                    if(conn.type === 'yes') { line.setAttribute('stroke', '#22c55e'); line.setAttribute('marker-end', 'url(#arrow-yes)');}
-                    else if(conn.type === 'no') { line.setAttribute('stroke', '#ef4444'); line.setAttribute('marker-end', 'url(#arrow-no)');}
+                    if(type === 'yes') { line.setAttribute('stroke', '#22c55e'); line.setAttribute('marker-end', 'url(#arrow-yes)'); }
+                    else if(type === 'no') { line.setAttribute('stroke', '#ef4444'); line.setAttribute('marker-end', 'url(#arrow-no)'); }
                     else { line.setAttribute('stroke', '#64748b'); line.setAttribute('marker-end', 'url(#arrow)'); }
                     processMap.appendChild(line);
-                }
+                };
+                if (step.type === 'Decisao') {
+                    if (step.nextStepYesId) connect(step.id, step.nextStepYesId, 'yes');
+                    if (step.nextStepNoId) connect(step.id, step.nextStepNoId, 'no');
+                } else if (step.nextStepId) { connect(step.id, step.nextStepId, 'normal'); }
             });
 
             // Draw steps
@@ -719,8 +706,7 @@
                 text.setAttribute('fill', '#cbd5e1'); text.setAttribute('font-size', '12px');
                 text.setAttribute('font-weight', '500');
 
-                group.appendChild(icon);
-                group.appendChild(text);
+                group.appendChild(icon); group.appendChild(text);
                 group.addEventListener('click', () => {
                      if (state.isEditMode) state.editingStep = steps.find(s => s.id === step.id);
                      else state.currentStepId = step.id;
@@ -767,9 +753,7 @@
 
             let prevStepId = null;
             steps.forEach(step => {
-                if(step.nextStepId === currentStep.id || step.nextStepYesId === currentStep.id || step.nextStepNoId === currentStep.id) {
-                    prevStepId = step.id;
-                }
+                if(step.nextStepId === currentStep.id || step.nextStepYesId === currentStep.id || step.nextStepNoId === currentStep.id) { prevStepId = step.id; }
             });
 
             viewModeContent.innerHTML = `
@@ -806,48 +790,16 @@
                      <form id="step-form">
                         <input type="hidden" id="step-id">
                         <div class="p-6 space-y-4 overflow-y-auto">
-                            <div>
-                                <label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label>
-                                <input type="text" id="step-name" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
-                            </div>
-                            <div>
-                                <label for="step-pool" class="block text-sm font-bold text-slate-300 mb-1">Pool / Responsável</label>
-                                <input type="text" id="step-pool" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
-                            </div>
-                            <div>
-                                <label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label>
-                                <select id="step-type" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white">
-                                    <option value="Inicio">Início</option> <option value="Acao">Ação</option> <option value="Aprovacao">Aprovação</option>
-                                    <option value="Automacao">Automação</option> <option value="Decisao">Decisão</option> <option value="Fim">Fim</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label>
-                                <textarea id="step-description" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
-                            </div>
-                            <div id="single-next-step-group">
-                                <label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label>
-                                <select id="step-next" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
-                            </div>
-                            <div id="decision-next-step-group" class="hidden grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="step-next-yes" class="block text-sm font-bold text-green-400 mb-1">Caminho "Sim"</label>
-                                    <select id="step-next-yes" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
-                                </div>
-                                <div>
-                                    <label for="step-next-no" class="block text-sm font-bold text-red-400 mb-1">Caminho "Não"</label>
-                                    <select id="step-next-no" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></select>
-                                </div>
-                            </div>
+                            <div><label for="step-name" class="block text-sm font-bold text-slate-300 mb-1">Nome da Etapa</label><input type="text" id="step-name" class="w-full form-input" required></div>
+                            <div><label for="step-pool" class="block text-sm font-bold text-slate-300 mb-1">Pool / Responsável</label><input type="text" id="step-pool" class="w-full form-input"></div>
+                            <div><label for="step-type" class="block text-sm font-bold text-slate-300 mb-1">Tipo</label><select id="step-type" class="w-full form-select"><option value="Inicio">Início</option> <option value="Acao">Ação</option> <option value="Aprovacao">Aprovação</option><option value="Automacao">Automação</option> <option value="Decisao">Decisão</option> <option value="Fim">Fim</option></select></div>
+                            <div><label for="step-description" class="block text-sm font-bold text-slate-300 mb-1">Descrição</label><textarea id="step-description" rows="4" class="w-full form-textarea"></textarea></div>
+                            <div id="single-next-step-group"><label for="step-next" class="block text-sm font-bold text-slate-300 mb-1">Próxima Etapa</label><select id="step-next" class="w-full form-select"></select></div>
+                            <div id="decision-next-step-group" class="hidden grid grid-cols-2 gap-4"><div><label for="step-next-yes" class="block text-sm font-bold text-green-400 mb-1">Caminho "Sim"</label><select id="step-next-yes" class="w-full form-select"></select></div><div><label for="step-next-no" class="block text-sm font-bold text-red-400 mb-1">Caminho "Não"</label><select id="step-next-no" class="w-full form-select"></select></div></div>
                         </div>
                         <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center mt-auto">
-                            <div>
-                               ${data.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
-                            </div>
-                            <div class="flex gap-4">
-                                <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                                <button type="submit" id="save-step-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button>
-                            </div>
+                            <div>${data.id ? `<button type="button" id="delete-step-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}</div>
+                            <div class="flex gap-4"><button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" id="save-step-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Etapa</button></div>
                         </div>
                      </form>
                 `;
@@ -855,35 +807,20 @@
                  const sistemasOptions = state.sistemas.map(s => `<option value="${s.id}" ${data.sistemaId == s.id ? 'selected' : ''}>${s.name}</option>`).join('');
                  formHTML = `
                     <form id="problem-form">
-                        <div class="p-6 space-y-6 overflow-y-auto">
-                             <div>
-                                <label for="problem-sistema" class="block text-sm font-bold text-slate-300 mb-1">Sistema</label>
-                                <select id="problem-sistema" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white form-select" required>
-                                    <option value="">Selecione um sistema</option>
-                                    ${sistemasOptions}
-                                </select>
+                        <div class="p-6 space-y-4 overflow-y-auto" style="max-height: 70vh;">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label for="problem-sistema" class="block text-sm font-bold text-slate-300 mb-1">Sistema</label><select id="problem-sistema" class="w-full form-select" required><option value="">Selecione um sistema</option>${sistemasOptions}</select></div>
+                                <div><label for="problem-status" class="block text-sm font-bold text-slate-300 mb-1">Status</label><select id="problem-status" class="w-full form-select" required>${state.problemStatuses.map(s => `<option value="${s}" ${data.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
                             </div>
-                             <div>
-                                <label for="problem-dor" class="block text-sm font-bold text-slate-300 mb-1">Dor (Problema)</label>
-                                <input type="text" id="problem-dor" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white" required>
-                            </div>
-                            <div>
-                                <label for="problem-causa" class="block text-sm font-bold text-slate-300 mb-1">Causa Raiz</label>
-                                <textarea id="problem-causa" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
-                            </div>
-                            <div>
-                                <label for="problem-solucao" class="block text-sm font-bold text-slate-300 mb-1">Solução Técnica</label>
-                                <textarea id="problem-solucao" rows="4" class="w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white"></textarea>
-                            </div>
+                            <div><label for="problem-dor" class="block text-sm font-bold text-slate-300 mb-1">Dor (Problema)</label><input type="text" id="problem-dor" class="w-full form-input" required></div>
+                            <div><label for="problem-as-is" class="block text-sm font-bold text-slate-300 mb-1">AS-IS</label><textarea id="problem-as-is" rows="3" class="w-full form-textarea"></textarea></div>
+                            <div><label for="problem-to-be" class="block text-sm font-bold text-slate-300 mb-1">TO-BE</label><textarea id="problem-to-be" rows="3" class="w-full form-textarea"></textarea></div>
+                            <div><label for="problem-causa" class="block text-sm font-bold text-slate-300 mb-1">Causa Raiz</label><textarea id="problem-causa" rows="3" class="w-full form-textarea"></textarea></div>
+                            <div><label for="problem-solucao" class="block text-sm font-bold text-slate-300 mb-1">Solução Técnica</label><textarea id="problem-solucao" rows="3" class="w-full form-textarea"></textarea></div>
                         </div>
                         <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center mt-auto">
-                             <div>
-                               ${data.id ? `<button type="button" id="delete-problem-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}
-                            </div>
-                            <div class="flex gap-4">
-                                <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                                <button type="submit" id="save-problem-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Problema</button>
-                            </div>
+                             <div>${data.id ? `<button type="button" id="delete-problem-btn" class="text-red-500 hover:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-trash"></i> Apagar</button>`: ''}</div>
+                             <div class="flex gap-4"><button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" id="save-problem-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salvar Problema</button></div>
                         </div>
                     </form>
                 `;
@@ -907,32 +844,25 @@
                 typeSelect.addEventListener('change', () => handleStepTypeChange(typeSelect.value));
                 form.addEventListener('submit', handleStepFormSubmit);
                 const deleteBtn = form.querySelector('#delete-step-btn');
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', () => {
-                        handleDeleteStep(data.id);
-                    });
-                }
+                if (deleteBtn) { deleteBtn.addEventListener('click', () => { handleDeleteStep(data.id); }); }
             } else { // problem
                  form['problem-dor'].value = data.dor || '';
+                 form['problem-status'].value = data.status || 'Investigando';
+                 form['problem-as-is'].value = data.asIs || '';
+                 form['problem-to-be'].value = data.toBe || '';
                  form['problem-causa'].value = data.causaRaiz || '';
                  form['problem-solucao'].value = data.solucaoTecnica || '';
                  form.addEventListener('submit', handleProblemFormSubmit);
                  const deleteBtn = form.querySelector('#delete-problem-btn');
                  if(deleteBtn) deleteBtn.addEventListener('click', async () => {
                     if(confirm('Tem certeza que deseja apagar este problema e todo o seu processo?')) {
-                        const success = await deleteProblema(data.id);
-                        if (success) {
-                            state.editingProblema = null;
-                            render();
-                        }
+                        if (await deleteProblema(data.id)) { state.editingProblema = null; render(); }
                     }
                  });
             }
 
              form.querySelector('#cancel-edit-btn').addEventListener('click', () => {
-                state.editingStep = null;
-                state.editingProblema = null;
-                render();
+                state.editingStep = null; state.editingProblema = null; render();
             });
         }
         
@@ -940,38 +870,35 @@
             e.preventDefault();
             const form = e.target;
             const saveBtn = form.querySelector('#save-problem-btn');
-            const originalBtnText = saveBtn.innerHTML;
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+            saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
             const isNew = !state.editingProblema.id;
-
             const problemData = {
                 id: isNew ? 'NOVO' : state.editingProblema.id,
-                tempId: isNew ? Date.now() : null, // for local state update before getting real ID
+                tempId: isNew ? Date.now() : null,
                 sistemaId: form['problem-sistema'].value,
                 dor: form['problem-dor'].value,
+                status: form['problem-status'].value,
+                asIs: form['problem-as-is'].value,
+                toBe: form['problem-to-be'].value,
                 causaRaiz: form['problem-causa'].value,
                 solucaoTecnica: form['problem-solucao'].value,
                 processoToBe: isNew ? [] : state.editingProblema.processoToBe
             };
 
             const savedProblem = await saveProblema(problemData);
-            
-            if (savedProblem) {
-                state.editingProblema = null;
-                render();
-            }
-
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = originalBtnText;
+            if (savedProblem) { state.editingProblema = null; render(); }
+            saveBtn.disabled = false; saveBtn.innerHTML = `Salvar Problema`;
         }
 
-        function handleStepFormSubmit(e) {
+        async function handleStepFormSubmit(e) {
             e.preventDefault();
             const form = e.target;
-            const id = parseInt(form['step-id'].value);
+            const saveBtn = form.querySelector('#save-step-btn');
+            saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+            const id = parseInt(form['step-id'].value);
             const isNew = !id || !problem.processoToBe.some(s => s.id === id);
 
             const stepData = {
@@ -988,40 +915,40 @@
             } else {
                  stepData.nextStepId = parseInt(form['step-next'].value) || null;
             }
-            
-            if (isNew) {
-                stepData.x = 100;
-                stepData.y = 100;
-                problem.processoToBe.push(stepData);
-            } else {
-                const index = problem.processoToBe.findIndex(s => s.id === id);
-                stepData.x = problem.processoToBe[index].x;
-                stepData.y = problem.processoToBe[index].y;
-                problem.processoToBe[index] = stepData;
+
+            if (await saveStep(problem.id, stepData)) {
+                if (isNew) {
+                    stepData.x = 100; stepData.y = 100;
+                    problem.processoToBe.push(stepData);
+                } else {
+                    const index = problem.processoToBe.findIndex(s => s.id === id);
+                    if (index > -1) {
+                       stepData.x = problem.processoToBe[index].x;
+                       stepData.y = problem.processoToBe[index].y;
+                       problem.processoToBe[index] = stepData;
+                    }
+                }
+                state.currentStepId = stepData.id;
+                state.editingStep = null;
+                render();
             }
-            
-            // This is local-only for now, will be part of saveProblema later
-            state.currentStepId = stepData.id;
-            state.editingStep = null;
-            render();
-            showToast('Etapa salva localmente! Salve o problema para persistir.');
+            saveBtn.disabled = false; saveBtn.innerHTML = `Salvar Etapa`;
         }
 
-        function handleDeleteStep(stepIdToDelete) {
+        async function handleDeleteStep(stepIdToDelete) {
              const problem = state.problemas.find(p => p.id === state.currentProblemaId);
              if (!problem) return;
 
-             problem.processoToBe.forEach(step => {
-                 if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
-                 if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
-                 if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
-             });
-             problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
-
-             state.editingStep = null;
-             state.currentStepId = null;
-             render();
-             showToast('Etapa apagada localmente! Salve o problema para persistir.');
+             if (await deleteStep(problem.id, stepIdToDelete)) {
+                 problem.processoToBe.forEach(step => {
+                     if (step.nextStepId === stepIdToDelete) step.nextStepId = null;
+                     if (step.nextStepYesId === stepIdToDelete) step.nextStepYesId = null;
+                     if (step.nextStepNoId === stepIdToDelete) step.nextStepNoId = null;
+                 });
+                 problem.processoToBe = problem.processoToBe.filter(step => step.id !== stepIdToDelete);
+                 state.editingStep = null; state.currentStepId = null;
+                 render();
+             }
         }
 
         function handleStepTypeChange(type) {
@@ -1029,36 +956,19 @@
             const decisionGroup = modalContentWrapper.querySelector('#decision-next-step-group');
             if(!singleGroup || !decisionGroup) return;
             
-            if (type === 'Decisao') {
-                singleGroup.classList.add('hidden');
-                decisionGroup.classList.remove('hidden');
-            } else {
-                singleGroup.classList.remove('hidden');
-                decisionGroup.classList.add('hidden');
-            }
+            singleGroup.classList.toggle('hidden', type === 'Decisao');
+            decisionGroup.classList.toggle('hidden', type !== 'Decisao');
         }
         
         function updateNextStepOptions(currentId, steps) {
             if (!steps) return;
-            const sortedSteps = [...steps].sort((a, b) => {
-                if (a.x !== b.x) return a.x - b.x;
-                return a.y - b.y;
+            const sortedSteps = [...steps].sort((a,b) => (a.x - b.x) || (a.y - b.y));
+            const options = sortedSteps.filter(s => s.id !== currentId).map((s, index) => `<option value="${s.id}">${String(index + 1).padStart(2, '0')} - ${s.name}</option>`).join('');
+            
+            ['#step-next', '#step-next-yes', '#step-next-no'].forEach(selector => {
+                const selectEl = modalContentWrapper.querySelector(selector);
+                if(selectEl) selectEl.innerHTML = '<option value="">Nenhuma</option>' + options;
             });
-
-            const options = sortedSteps
-                .filter(s => s.id !== currentId)
-                .map((s, index) => {
-                    const stepNumber = String(index + 1).padStart(2, '0');
-                    return `<option value="${s.id}">${stepNumber} - ${s.name}</option>`;
-                }).join('');
-            
-            const nextSelect = modalContentWrapper.querySelector('#step-next');
-            const yesSelect = modalContentWrapper.querySelector('#step-next-yes');
-            const noSelect = modalContentWrapper.querySelector('#step-next-no');
-            
-            if(nextSelect) nextSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
-            if(yesSelect) yesSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
-            if(noSelect) noSelect.innerHTML = '<option value="">Nenhuma</option>' + options;
         }
 
         // --- Event Listeners ---
@@ -1071,41 +981,29 @@
             toggleEditModeBtn.classList.toggle('bg-indigo-600');
             toggleEditModeBtn.classList.toggle('bg-slate-600');
             if (!state.isEditMode) {
-                state.editingStep = null;
-                state.editingProblema = null;
-            } else {
-                state.currentStepId = null;
-            }
+                state.editingStep = null; state.editingProblema = null;
+            } else { state.currentStepId = null; }
             render();
         });
 
         addProblemBtn.addEventListener('click', () => {
              const newProblem = { 
-                id: null,
-                sistemaId: null,
-                dor: 'Novo Problema', 
-                causaRaiz: '',
-                solucaoTecnica: '',
-                processoToBe: []
+                id: null, sistemaId: state.selectedSistemaFilter || null, dor: 'Novo Problema', 
+                status: 'Investigando', asIs: '', toBe: '', causaRaiz: '', solucaoTecnica: '', processoToBe: []
             };
             state.editingProblema = newProblem;
             render();
         });
         
         addStepBtn.addEventListener('click', () => {
-            const newStep = { 
-                id: null, name: 'Nova Etapa', 
-                type: 'Acao', description: '', pool: ''
-            };
+            const newStep = { id: null, name: 'Nova Etapa', type: 'Acao', description: '', pool: '' };
             state.editingStep = newStep;
             render();
         });
         
         detailsModal.addEventListener('click', (e) => {
             if(e.target === detailsModal) {
-                 state.editingStep = null;
-                 state.currentStepId = null;
-                 state.editingProblema = null;
+                 state.editingStep = null; state.currentStepId = null; state.editingProblema = null;
                  render();
             }
         });
@@ -1113,11 +1011,7 @@
         sistemaFilterEl.addEventListener('change', () => {
             state.selectedSistemaFilter = sistemaFilterEl.value;
             const problemasFiltrados = state.problemas.filter(p => !state.selectedSistemaFilter || p.sistemaId == state.selectedSistemaFilter);
-            if (problemasFiltrados.length > 0) {
-                state.currentProblemaId = problemasFiltrados[0].id;
-            } else {
-                state.currentProblemaId = null;
-            }
+            state.currentProblemaId = problemasFiltrados.length > 0 ? problemasFiltrados[0].id : null;
             render();
         });
 
@@ -1126,11 +1020,9 @@
         async function initialize() {
             loadingProblemasEl.classList.remove('hidden');
             problemsList.classList.add('hidden');
-
             await fetchSistemas();
             populateSistemaFilter();
             await fetchProblemas();
-            
             loadingProblemasEl.classList.add('hidden');
             problemsList.classList.remove('hidden');
             
