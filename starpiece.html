@@ -182,7 +182,7 @@
         </main>
 
         <footer class="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700 flex-shrink-0 text-center py-2 z-10">
-            <p class="text-xs text-slate-500">Star Piece | v2.7.0</p>
+            <p class="text-xs text-slate-500">Star Piece | v2.7.1</p>
         </footer>
     </div>
 
@@ -543,14 +543,15 @@
         
         function renderCurrentProblem() {
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
-            addStepBtn.classList.toggle('hidden', !state.isEditMode || !problem);
+            // FIX: Hide "Add Step" button if the problem is new and unsaved (has no ID)
+            addStepBtn.classList.toggle('hidden', !state.isEditMode || !problem || !problem.id);
 
             if(problem) {
                 asIsContent.innerHTML = markdownConverter.makeHtml(problem.asIs || '_Sem descrição_');
                 toBeContent.innerHTML = markdownConverter.makeHtml(problem.toBe || '_Sem descrição_');
                 causaRaizContent.innerHTML = markdownConverter.makeHtml(problem.causaRaiz || '_Sem descrição_');
                 solucaoTecnicaContent.innerHTML = markdownConverter.makeHtml(problem.solucaoTecnica || '_Sem descrição_');
-                renderMap(problem.processoToBe);
+                renderMap(problem.processoToBe, !problem.id);
             } else {
                 asIsContent.innerHTML = '_Selecione um problema na lista_';
                 toBeContent.innerHTML = '_Selecione um problema na lista_';
@@ -618,8 +619,14 @@
             });
         }
 
-        function renderMap(steps) {
+        function renderMap(steps, isNewUnsavedProblem = false) {
             processMap.innerHTML = '';
+            // FIX: Display a message guiding the user to save the new problem first
+            if (isNewUnsavedProblem) {
+                processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Salve o problema antes de adicionar etapas ao processo.</text>';
+                return;
+            }
+
             if (!steps || steps.length === 0) {
                  processMap.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle">Ainda não há etapas no processo. Adicione uma no modo de edição.</text>';
                  return;
@@ -895,9 +902,19 @@
             e.preventDefault();
             const form = e.target;
             const saveBtn = form.querySelector('#save-step-btn');
-            saveBtn.disabled = true; saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
             const problem = state.problemas.find(p => p.id === state.currentProblemaId);
+            
+            // FIX: Safeguard to prevent saving a step for an unsaved problem
+            if (!problem || !problem.id) {
+                showToast('Salve o problema antes de gerenciar suas etapas.', true);
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = 'Salvar Etapa';
+                return;
+            }
+
             const id = parseInt(form['step-id'].value);
             const isNew = !id || !problem.processoToBe.some(s => s.id === id);
 
@@ -932,7 +949,8 @@
                 state.editingStep = null;
                 render();
             }
-            saveBtn.disabled = false; saveBtn.innerHTML = `Salvar Etapa`;
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `Salvar Etapa`;
         }
 
         async function handleDeleteStep(stepIdToDelete) {
@@ -992,6 +1010,8 @@
                 status: 'Investigando', asIs: '', toBe: '', causaRaiz: '', solucaoTecnica: '', processoToBe: []
             };
             state.editingProblema = newProblem;
+            // FIX: Clear current problem ID to correctly reflect the "new problem" state
+            state.currentProblemaId = null; 
             render();
         });
         
@@ -1026,7 +1046,7 @@
             loadingProblemasEl.classList.add('hidden');
             problemsList.classList.remove('hidden');
             
-            if (state.problemas.length > 0) {
+            if (state.problemas.length > 0 && !state.currentProblemaId) {
                 state.currentProblemaId = state.problemas[0].id;
             }
             render();
