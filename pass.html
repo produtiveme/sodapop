@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pass - Portal do Cliente</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
+        .main-content { transition: background-color 0.5s ease-in-out; }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .form-input {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #312e81;
+        }
+        .prose p { margin-bottom: 0.5rem; }
+        .prose ul { margin-left: 1.5rem; list-style-type: disc; }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+        .calendar-day {
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                 <svg class="h-12 w-12 text-indigo-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                </svg>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Pass</h2>
+                <p class="mt-2 text-sm text-slate-400">Acompanhe seus projetos em tempo real.</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="email" class="sr-only">Email</label>
+                        <input id="email" name="email" type="email" autocomplete="email" required class="form-input rounded-t-md" placeholder="Seu email">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" autocomplete="current-password" required class="form-input rounded-b-md" placeholder="Sua senha">
+                    </div>
+                </div>
+                 <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <div id="app" class="hidden flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-20">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-4">
+                        <svg class="h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+                        </svg>
+                        <h1 class="text-xl font-bold text-white">Pass</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="user-name" class="text-sm font-medium text-white"></span>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 main-content">
+            <!-- Loading Indicator -->
+            <div id="loading" class="flex items-center justify-center h-full">
+                 <div class="flex items-center justify-center space-x-2">
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400"></div>
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400" style="animation-delay: 0.2s;"></div>
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400" style="animation-delay: 0.4s;"></div>
+                    <p class="ml-4 text-slate-400">Carregando seus projetos...</p>
+                </div>
+            </div>
+
+            <!-- Content Views -->
+            <div id="views-container" class="hidden">
+                <div id="sistemas-view"></div>
+                <div id="sistema-detail-view" class="hidden"></div>
+            </div>
+        </main>
+        
+        <!-- Footer -->
+        <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
+            <p class="text-xs text-slate-500">ProdutiveMe | Pass v1.8</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            const state = {
+                isAuthenticated: false,
+                currentUser: null,
+                sistemas: [],
+                funcionalidades: [],
+                eventos: [],
+                eventosLoadFailed: false,
+                funcionalidadesLoadFailed: false,
+                currentView: 'sistemas',
+                selectedSistema: null,
+                selectedSistemaTab: 'timeline',
+                timelineView: 'feed', // 'feed' or 'calendar'
+                timelineCalendarDate: new Date(),
+            };
+
+            // --- DOM ELEMENTS ---
+            const loginViewEl = document.getElementById('login-view');
+            const appViewEl = document.getElementById('app');
+            const loginFormEl = document.getElementById('login-form');
+            const loginErrorEl = document.getElementById('login-error');
+            const loginButtonEl = document.getElementById('login-button');
+            const logoutButtonEl = document.getElementById('logout-button');
+            const userNameEl = document.getElementById('user-name');
+            
+            const views = {
+                loading: document.getElementById('loading'),
+                container: document.getElementById('views-container'),
+                sistemas: document.getElementById('sistemas-view'),
+                sistemaDetail: document.getElementById('sistema-detail-view'),
+            };
+            const mainContentEl = document.getElementById('main-content');
+            
+            // --- N8N WEBHOOK URLS ---
+            const URLS = {
+                login: 'https://work.produ-cloud.com/webhook/pass-recebe-login',
+                sistemas: 'https://work.produ-cloud.com/webhook/pass-busca-sistema',
+                funcionalidades: 'https://work.produ-cloud.com/webhook/pass-busca-funcionalidade',
+                eventos: 'https://work.produ-cloud.com/webhook/pass-busca-eventos'
+            };
+            
+            // --- UTILITIES ---
+            const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true, strikethrough: true });
+            const colorMap = { blue: { bg: 'bg-blue-900/10', border: 'border-blue-500', text: 'text-blue-400' }, green: { bg: 'bg-green-900/10', border: 'border-green-500', text: 'text-green-400' }, pink: { bg: 'bg-pink-900/10', border: 'border-pink-500', text: 'text-pink-400' }, gray: { bg: 'bg-slate-700/10', border: 'border-slate-500', text: 'text-slate-400' }, orange: { bg: 'bg-orange-900/10', border: 'border-orange-500', text: 'text-orange-400' }, default: { bg: 'bg-slate-800', border: 'border-slate-700', text: 'text-slate-300' } };
+            const complexityPoints = { 'P': 1, 'M': 3, 'G': 7, 'GG': 15, 'XGG': 50 };
+            const eventTypeMap = {
+                'Reunião': { icon: 'fa-users', color: 'text-sky-400' },
+                'Atualização': { icon: 'fa-info-circle', color: 'text-green-400' },
+                'Marco': { icon: 'fa-flag', color: 'text-amber-400' },
+                'default': { icon: 'fa-calendar-day', color: 'text-slate-400' }
+            };
+            const formatDate = (dateString) => {
+                if (!dateString) return 'N/D';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+            };
+
+
+            // --- AUTHENTICATION ---
+            function checkAuth() {
+                const user = sessionStorage.getItem('pass_user');
+                if (user) {
+                    state.isAuthenticated = true;
+                    state.currentUser = JSON.parse(user);
+                    loginViewEl.classList.add('hidden');
+                    appViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('flex');
+                    userNameEl.textContent = `Olá, ${state.currentUser.nome.split(' ')[0]}`;
+                    fetchData();
+                } else {
+                    loginViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('hidden');
+                }
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                loginButtonEl.disabled = true;
+                loginButtonEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+                loginErrorEl.classList.add('hidden');
+
+                const email = loginFormEl.email.value;
+                const password = loginFormEl.password.value;
+
+                try {
+                    const response = await fetch(URLS.login, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    
+                    if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
+                    
+                    const result = await response.json();
+                    
+                    const userData = Array.isArray(result) ? result[0] : result;
+
+                    if (userData && userData.id && userData.sistemas_ids) {
+                        if (typeof userData.sistemas_ids === 'string') {
+                            userData.sistemas_ids = JSON.parse(userData.sistemas_ids);
+                        }
+                        
+                        state.isAuthenticated = true;
+                        state.currentUser = userData;
+                        sessionStorage.setItem('pass_user', JSON.stringify(userData));
+                        checkAuth();
+                    } else {
+                         throw new Error('Email ou senha inválidos.');
+                    }
+                } catch (error) {
+                    loginErrorEl.textContent = error.message;
+                    loginErrorEl.classList.remove('hidden');
+                } finally {
+                    loginButtonEl.disabled = false;
+                    loginButtonEl.textContent = 'Entrar';
+                }
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('pass_user');
+                state.isAuthenticated = false;
+                state.currentUser = null;
+                Object.assign(state, {
+                    sistemas: [], funcionalidades: [], eventos: [], currentView: 'sistemas', selectedSistema: null, selectedSistemaTab: 'timeline'
+                });
+                checkAuth();
+            }
+
+            // --- DATA OPERATIONS ---
+            async function fetchData() {
+                views.loading.classList.remove('hidden');
+                views.container.classList.add('hidden');
+                try {
+                    const requestBody = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sistemas_ids: state.currentUser.sistemas_ids })
+                    };
+
+                    const results = await Promise.allSettled([
+                        fetch(URLS.sistemas, requestBody),
+                        fetch(URLS.funcionalidades, requestBody),
+                        fetch(URLS.eventos, requestBody)
+                    ]);
+
+                    const [sistemasResult, funcionalidadesResult, eventosResult] = results;
+
+                    if (sistemasResult.status === 'fulfilled' && sistemasResult.value.ok) {
+                        state.sistemas = await sistemasResult.value.json();
+                    } else {
+                        console.error('Falha ao buscar sistemas:', sistemasResult.reason || `Status: ${sistemasResult.value?.status}`);
+                        state.sistemas = [];
+                    }
+
+                    if (funcionalidadesResult.status === 'fulfilled' && funcionalidadesResult.value.ok) {
+                        state.funcionalidades = await funcionalidadesResult.value.json();
+                        state.funcionalidadesLoadFailed = false;
+                    } else {
+                        console.error('Falha ao buscar funcionalidades:', funcionalidadesResult.reason || `Status: ${funcionalidadesResult.value?.status}`);
+                        state.funcionalidades = [];
+                        state.funcionalidadesLoadFailed = true;
+                    }
+
+                    if (eventosResult.status === 'fulfilled' && eventosResult.value.ok) {
+                        state.eventos = await eventosResult.value.json();
+                        state.eventosLoadFailed = false;
+                    } else {
+                        console.error('Falha ao buscar eventos:', eventosResult.reason || `Status: ${eventosResult.value?.status}`);
+                        state.eventos = [];
+                        state.eventosLoadFailed = true;
+                    }
+                    
+                    if (state.sistemas.length === 1) {
+                        state.selectedSistema = state.sistemas[0];
+                        state.currentView = 'sistema-detail';
+                    } else {
+                        state.currentView = 'sistemas';
+                    }
+                    
+                    render();
+
+                } catch (error) {
+                    console.error('Erro geral ao carregar dados:', error);
+                    views.loading.innerHTML = `<p class="text-red-400">Ocorreu um erro inesperado. Verifique o console.</p>`;
+                } finally {
+                    views.loading.classList.add('hidden');
+                    views.container.classList.remove('hidden');
+                }
+            }
+            
+            // --- RENDER FUNCTIONS ---
+            function render() {
+                Object.values(views).forEach(v => v.classList.add('hidden'));
+                views.container.classList.remove('hidden');
+
+                mainContentEl.className = 'flex-grow container mx-auto p-4 sm:p-6 lg:p-8 main-content';
+                if(state.currentView === 'sistema-detail' && state.selectedSistema) {
+                    const color = colorMap[state.selectedSistema.color] || colorMap.default;
+                    mainContentEl.classList.add(color.bg);
+                }
+                
+                if (state.currentView === 'sistemas') renderSistemasList();
+                else if (state.currentView === 'sistema-detail') renderSistemaDetail();
+            }
+
+            function renderSistemasList() {
+                views.sistemas.classList.remove('hidden');
+                views.sistemas.innerHTML = `<h2 class="text-2xl font-bold text-white mb-6">Seus Projetos</h2><div id="sistemas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>`;
+                const grid = views.sistemas.querySelector('#sistemas-grid');
+                state.sistemas.forEach(sistema => {
+                    const color = colorMap[sistema.color] || colorMap.default;
+                    const card = document.createElement('div');
+                    
+                    const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                    let totalPontos = 0;
+                    let pontosConcluidos = 0;
+
+                    sistemaFuncs.forEach(func => {
+                        const pontos = complexityPoints[func.complexidade] || 0;
+                        totalPontos += pontos;
+                        pontosConcluidos += pontos * ((func.progress || 0) / 100);
+                    });
+
+                    const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
+
+                    card.className = `border ${color.border} bg-slate-800 rounded-lg p-5 flex flex-col justify-between hover:border-indigo-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10`;
+                    card.innerHTML = `
+                        <div>
+                            <span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span>
+                            <h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3>
+                        </div>
+                         <div class="mt-4">
+                            <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                <span>Progresso Geral</span>
+                                <span>${Math.round(progressoPonderado)}%</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-1.5">
+                                <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
+                            </div>
+                        </div>`;
+                    card.addEventListener('click', () => { 
+                        state.selectedSistema = sistema; 
+                        state.currentView = 'sistema-detail'; 
+                        state.selectedSistemaTab = 'timeline'; // Sempre começa na timeline
+                        render(); 
+                    });
+                    grid.appendChild(card);
+                });
+            }
+
+            function renderSistemaDetail() {
+                views.sistemaDetail.classList.remove('hidden');
+                const sistema = state.selectedSistema;
+                const color = colorMap[sistema.color] || colorMap.default;
+                
+                let backButton = '';
+                if (state.sistemas.length > 1) {
+                    backButton = `<button id="back-to-sistemas" class="mb-6 text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar para Projetos</button>`;
+                }
+                
+                views.sistemaDetail.innerHTML = `
+                    ${backButton}
+                    <div class="flex items-center space-x-4 mb-8">
+                        <div class="w-4 h-10 rounded-full" style="background-color: var(--tw-color-${color.border.replace('border-','')}-500)"></div>
+                        <div>
+                            <h2 class="text-3xl font-bold text-white">${sistema.name}</h2>
+                            <p class="text-slate-400">${sistema.type||'Projeto'}</p>
+                        </div>
+                    </div>
+
+                    <!-- TABS -->
+                    <div class="mt-4 border-b border-slate-700 flex space-x-1">
+                        <button id="tab-timeline" class="px-4 py-2 text-sm font-medium border-b-2">Linha do Tempo</button>
+                        <button id="tab-overview" class="px-4 py-2 text-sm font-medium border-b-2">Visão Geral</button>
+                    </div>
+                    <div id="sistema-tab-content" class="mt-6"></div>`;
+
+                const tabs = {
+                    timeline: views.sistemaDetail.querySelector('#tab-timeline'),
+                    overview: views.sistemaDetail.querySelector('#tab-overview'),
+                };
+                
+                Object.keys(tabs).forEach(tabKey => {
+                    tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === tabKey ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
+                    tabs[tabKey].addEventListener('click', () => { 
+                        state.selectedSistemaTab = tabKey; 
+                        render(); 
+                    });
+                });
+                
+                const tabContentContainer = views.sistemaDetail.querySelector('#sistema-tab-content');
+                if (state.selectedSistemaTab === 'timeline') {
+                    renderTimelineTab(tabContentContainer);
+                } else if (state.selectedSistemaTab === 'overview') {
+                    renderOverviewTab(tabContentContainer);
+                }
+
+                if (state.sistemas.length > 1) {
+                    views.sistemaDetail.querySelector('#back-to-sistemas').addEventListener('click', () => { state.currentView = 'sistemas'; render(); });
+                }
+            }
+
+            function renderOverviewTab(container) {
+                const sistema = state.selectedSistema;
+
+                // Calcula o progresso ponderado
+                const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                let totalPontos = 0;
+                let pontosConcluidos = 0;
+                sistemaFuncs.forEach(func => {
+                    const pontos = complexityPoints[func.complexidade] || 0;
+                    totalPontos += pontos;
+                    pontosConcluidos += pontos * ((func.progress || 0) / 100);
+                });
+                const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
+                
+                const descriptionHtml = sistema.description ? markdownConverter.makeHtml(sistema.description) : '';
+
+                container.innerHTML = `
+                    ${descriptionHtml ? `<div class="prose prose-sm prose-invert max-w-none text-slate-300 mb-8">${descriptionHtml}</div>` : ''}
+                    <div class="my-8 border-b border-slate-700 pb-8">
+                        <div class="flex justify-between text-sm text-slate-300 mb-1">
+                            <span>Progresso Geral do Projeto</span>
+                            <span>${Math.round(progressoPonderado)}%</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2.5">
+                            <div class="bg-indigo-400 h-2.5 rounded-full" style="width: ${progressoPonderado}%"></div>
+                        </div>
+                    </div>
+                    <div id="overview-content" class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        <div id="hill-chart-container"></div>
+                        <div id="funcionalidades-container"></div>
+                    </div>
+                `;
+
+                renderSistemaHillChartView(container.querySelector('#hill-chart-container'));
+                renderSistemaFuncionalidadeList(container.querySelector('#funcionalidades-container'));
+            }
+
+            function renderTimelineTab(container) {
+                container.innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-semibold text-white">Linha do Tempo do Projeto</h3>
+                        <div class="flex items-center bg-slate-800 p-1 rounded-lg">
+                            <button id="timeline-feed-btn" class="px-3 py-1 text-sm rounded-md"><i class="fa-solid fa-list-ul mr-2"></i>Feed</button>
+                            <button id="timeline-calendar-btn" class="px-3 py-1 text-sm rounded-md"><i class="fa-solid fa-calendar-days mr-2"></i>Calendário</button>
+                        </div>
+                    </div>
+                    <div id="timeline-content"></div>
+                `;
+
+                const feedBtn = container.querySelector('#timeline-feed-btn');
+                const calendarBtn = container.querySelector('#timeline-calendar-btn');
+
+                if (state.timelineView === 'feed') {
+                    feedBtn.classList.add('bg-indigo-600', 'text-white');
+                    calendarBtn.classList.add('text-slate-400', 'hover:bg-slate-700');
+                    renderTimelineFeed(container.querySelector('#timeline-content'));
+                } else {
+                    calendarBtn.classList.add('bg-indigo-600', 'text-white');
+                    feedBtn.classList.add('text-slate-400', 'hover:bg-slate-700');
+                    renderTimelineCalendar(container.querySelector('#timeline-content'));
+                }
+
+                feedBtn.addEventListener('click', () => { state.timelineView = 'feed'; render(); });
+                calendarBtn.addEventListener('click', () => { state.timelineView = 'calendar'; render(); });
+            }
+
+            function renderTimelineFeed(container) {
+                if (state.eventosLoadFailed) {
+                    container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-yellow-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar os eventos.</p></div>`;
+                    return;
+                }
+                const eventosSistema = state.eventos
+                    .filter(e => e.sistema_id == state.selectedSistema.id)
+                    .sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+
+                if (eventosSistema.length === 0) {
+                     container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-slate-500">Nenhum evento registrado para este projeto ainda.</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="flow-root">
+                        <ul role="list" class="-mb-8">
+                            ${eventosSistema.map((event, eventIdx) => `
+                                <li>
+                                    <div class="relative pb-8">
+                                        ${eventIdx !== eventosSistema.length - 1 ? '<span class="absolute left-5 top-5 -ml-px h-full w-0.5 bg-slate-700" aria-hidden="true"></span>' : ''}
+                                        <div class="relative flex items-start space-x-3">
+                                            <div>
+                                                <div class="relative px-1">
+                                                    <div class="h-10 w-10 bg-slate-800 rounded-full ring-8 ring-slate-900 flex items-center justify-center">
+                                                        <i class="fa-solid ${eventTypeMap[event.type]?.icon || eventTypeMap.default.icon} ${eventTypeMap[event.type]?.color || eventTypeMap.default.color}"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="min-w-0 flex-1 py-1.5">
+                                                <div class="text-sm text-slate-400">
+                                                    <span class="font-medium text-white">${event.title}</span>
+                                                    <span class="whitespace-nowrap ml-2 text-xs">(${formatDate(event.event_date)})</span>
+                                                </div>
+                                                <div class="mt-2 text-sm text-slate-300 prose prose-sm prose-invert max-w-none">
+                                                    ${markdownConverter.makeHtml(event.description)}
+                                                </div>
+                                                ${event.participants ? `<div class="mt-2 text-xs text-slate-500"><strong>Participantes:</strong> ${event.participants}</div>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            function renderTimelineCalendar(container) {
+                const date = state.timelineCalendarDate;
+                const year = date.getFullYear(), month = date.getMonth();
+                const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+                
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                const eventosSistema = state.eventos.filter(e => e.sistema_id == state.selectedSistema.id);
+
+                let calendarHtml = `
+                    <div class="bg-slate-800/50 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-white">${monthNames[month]} ${year}</h4>
+                            <div class="flex space-x-2">
+                                <button id="timeline-prev-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-left"></i></button>
+                                <button id="timeline-next-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="calendar-grid bg-slate-700 rounded-lg overflow-hidden border border-slate-700">
+                            ${dayNames.map(day => `<div class="text-center font-semibold text-xs py-2 bg-slate-800 text-slate-400">${day}</div>`).join('')}
+                `;
+
+                for (let i = 0; i < firstDayOfMonth; i++) { calendarHtml += `<div class="bg-slate-800/50"></div>`; }
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const fullDate = new Date(year, month, day);
+                    const dateStr = fullDate.toISOString().split('T')[0];
+                    const todaysEvents = eventosSistema.filter(e => e.event_date && e.event_date.startsWith(dateStr));
+
+                    calendarHtml += `<div class="calendar-day bg-slate-800 p-2 relative"><span class="text-sm font-semibold">${day}</span><div class="mt-1 space-y-1 overflow-y-auto max-h-20">`;
+                    todaysEvents.forEach(event => {
+                        const eventInfo = eventTypeMap[event.type] || eventTypeMap.default;
+                        calendarHtml += `<div class="text-xs p-1 rounded-md cursor-pointer bg-slate-700 hover:bg-slate-600" title="${event.title}"><i class="fa-solid ${eventInfo.icon} ${eventInfo.color} mr-1.5"></i><span class="truncate">${event.title}</span></div>`;
+                    });
+                    calendarHtml += `</div></div>`;
+                }
+                calendarHtml += `</div></div>`;
+                container.innerHTML = calendarHtml;
+
+                document.getElementById('timeline-prev-month').addEventListener('click', () => { state.timelineCalendarDate.setMonth(state.timelineCalendarDate.getMonth() - 1); render(); });
+                document.getElementById('timeline-next-month').addEventListener('click', () => { state.timelineCalendarDate.setMonth(state.timelineCalendarDate.getMonth() + 1); render(); });
+            }
+            
+            function renderSistemaHillChartView(container) {
+                if (state.funcionalidadesLoadFailed) {
+                    container.innerHTML = `
+                        <h3 class="text-xl font-semibold text-white mb-4">Hill Chart do Projeto</h3>
+                        <div class="bg-slate-800/50 p-6 rounded-lg text-center">
+                            <p class="text-yellow-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar os dados do gráfico.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const funcionalidades = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
+                
+                container.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Hill Chart do Projeto</h3>
+                    <div class="bg-slate-800/50 p-6 rounded-lg">
+                        <svg id="hill-chart-svg" width="100%" viewBox="0 0 800 300"></svg>
+                    </div>
+                `;
+
+                const svg = container.querySelector('#hill-chart-svg');
+                const width = 800;
+                const height = 300;
+                const margin = { top: 60, right: 40, bottom: 40, left: 40 };
+                const chartWidth = width - margin.left - margin.right;
+                const chartHeight = height - margin.top - margin.bottom;
+
+                const chartGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                chartGroup.setAttribute('transform', `translate(${margin.left}, ${margin.top})`);
+                svg.appendChild(chartGroup);
+                
+                const hillHeight = chartHeight * 0.8;
+                const hillTopY = 0;
+                const hillBottomY = hillHeight;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M 0 ${hillBottomY} C ${chartWidth * 0.25} ${hillTopY}, ${chartWidth * 0.75} ${hillTopY}, ${chartWidth} ${hillBottomY}`);
+                path.setAttribute('stroke', '#334155');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                chartGroup.appendChild(path);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', chartWidth / 2);
+                line.setAttribute('y1', hillTopY - 10);
+                line.setAttribute('x2', chartWidth / 2);
+                line.setAttribute('y2', hillBottomY + 10);
+                line.setAttribute('stroke', '#334155');
+                line.setAttribute('stroke-width', '1');
+                line.setAttribute('stroke-dasharray', '4');
+                chartGroup.appendChild(line);
+
+                const upHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                upHillLabel.setAttribute('x', chartWidth / 4);
+                upHillLabel.setAttribute('y', chartHeight);
+                upHillLabel.setAttribute('text-anchor', 'middle');
+                upHillLabel.setAttribute('fill', '#94a3b8');
+                upHillLabel.textContent = 'Planejamento';
+                chartGroup.appendChild(upHillLabel);
+
+                const downHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                downHillLabel.setAttribute('x', chartWidth * 3 / 4);
+                downHillLabel.setAttribute('y', chartHeight);
+                downHillLabel.setAttribute('text-anchor', 'middle');
+                downHillLabel.setAttribute('fill', '#94a3b8');
+                downHillLabel.textContent = 'Execução';
+                chartGroup.appendChild(downHillLabel);
+                
+                const points = [];
+                const p0 = { x: 0, y: hillBottomY };
+                const p1 = { x: chartWidth * 0.25, y: hillTopY };
+                const p2 = { x: chartWidth * 0.75, y: hillTopY };
+                const p3 = { x: chartWidth, y: hillBottomY };
+
+                funcionalidades.forEach(func => {
+                    const t = (func.progress || 0) / 100;
+                    const x = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
+                    const y = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
+                    points.push({ x, y, text: func.text });
+                });
+
+                const labelPositions = [];
+                const labelHeight = 18;
+                const labelPadding = 4;
+
+                points.sort((a, b) => a.x - b.x).forEach(point => {
+                    let labelY = point.y - 15;
+                    const textWidth = point.text.length * 6;
+                    let placed = false;
+                    let attempts = 0;
+                    let moveUp = true;
+
+                    while (!placed && attempts < 20) {
+                        let overlapping = false;
+                        for (const pos of labelPositions) {
+                            if (Math.abs(labelY - pos.y) < labelHeight && Math.abs(point.x - pos.x) < (textWidth / 2 + (pos.text.length * 6) / 2) ) {
+                                overlapping = true;
+                                break;
+                            }
+                        }
+                        if (!overlapping && labelY > -margin.top + labelHeight && labelY < chartHeight) {
+                            labelPositions.push({ x: point.x, y: labelY, text: point.text });
+                            placed = true;
+                        } else {
+                            if (moveUp) {
+                                labelY -= (labelHeight + labelPadding);
+                                if (labelY < -margin.top + labelHeight) {
+                                    moveUp = false;
+                                    labelY = point.y + 25;
+                                }
+                            } else {
+                                labelY += (labelHeight + labelPadding);
+                            }
+                        }
+                        attempts++;
+                    }
+                    point.labelY = placed ? labelY : point.y - 20;
+                });
+                
+                points.forEach(point => {
+                     const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    connector.setAttribute('x1', point.x);
+                    connector.setAttribute('y1', point.y - 5);
+                    connector.setAttribute('x2', point.x);
+                    connector.setAttribute('y2', point.labelY + 8);
+                    connector.setAttribute('stroke', '#475569');
+                    connector.setAttribute('stroke-width', '1');
+                    chartGroup.appendChild(connector);
+
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', point.x);
+                    text.setAttribute('y', point.labelY);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('fill', '#cbd5e1');
+                    text.setAttribute('font-size', '12');
+                    text.textContent = point.text;
+                    chartGroup.appendChild(text);
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', point.x);
+                    circle.setAttribute('cy', point.y);
+                    circle.setAttribute('r', '5');
+                    circle.setAttribute('fill', '#818cf8');
+                    circle.setAttribute('stroke', '#1e293b');
+                    circle.setAttribute('stroke-width', '2');
+                    chartGroup.appendChild(circle);
+                });
+            }
+
+            function renderSistemaFuncionalidadeList(container) {
+                if (state.funcionalidadesLoadFailed) {
+                     container.innerHTML = `
+                        <h3 class="text-xl font-semibold text-white mb-4">Funcionalidades</h3>
+                         <div class="bg-slate-800 p-4 rounded-md text-center">
+                            <p class="text-yellow-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar as funcionalidades.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const funcs = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
+                const colorClass = (colorMap[state.selectedSistema.color] || colorMap.default).text;
+
+                const funcsHtml = funcs.length > 0 ? funcs.map(f => {
+                    const progress = f.progress || 0;
+                    const circumference = 16 * 2 * Math.PI;
+                    
+                    return `
+                        <li class="bg-slate-800 p-3 rounded-md flex items-center justify-between">
+                            <div class="flex-grow flex items-center">
+                                <span class="pr-4">${f.text}</span>
+                                <span class="bg-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">${f.type || 'Funcionalidade'}</span>
+                            </div>
+                            <div class="flex items-center flex-shrink-0">
+                                <div class="relative w-10 h-10">
+                                    <svg class="w-full h-full" viewBox="0 0 36 36">
+                                        <circle class="text-slate-700" stroke-width="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18"/>
+                                        <circle class="progress-ring__circle ${colorClass}" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - progress / 100 * circumference}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18"/>
+                                    </svg>
+                                    <span class="absolute inset-0 flex items-center justify-center text-xs font-bold">${progress}%</span>
+                                </div>
+                            </div>
+                        </li>`;
+                }).join('') : '<li class="text-slate-500 text-center py-4">Nenhuma funcionalidade para este projeto.</li>';
+
+                container.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Funcionalidades</h3>
+                    <ul class="space-y-2">${funcsHtml}</ul>
+                `;
+            }
+
+            // --- EVENT LISTENERS ---
+            loginFormEl.addEventListener('submit', handleLogin);
+            logoutButtonEl.addEventListener('click', handleLogout);
+
+            // --- INITIALIZATION ---
+            checkAuth();
+        });
+    </script>
+</body>
+</html>
