@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom Lens - Mapa Mental</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
+        .form-input, .form-select {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #c084fc; /* purple-400 */
+            box-shadow: 0 0 0 2px #5b21b6; /* violet-800 */
+        }
+        .node circle {
+            cursor: pointer;
+            stroke-width: 3px;
+        }
+        .node text {
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            paint-order: stroke;
+            stroke: #1e293b;
+            stroke-width: 3px;
+            stroke-linecap: butt;
+            stroke-linejoin: miter;
+        }
+        .link {
+            fill: none;
+            stroke: #475569; /* slate-600 */
+            stroke-width: 1.5px;
+        }
+        /* New styles for progress ring */
+        .progress-ring {
+            transition: stroke-dashoffset 0.35s, stroke 0.35s;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                <i class="fa-solid fa-magnifying-glass-chart text-5xl text-purple-400 mx-auto"></i>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Zoom Lens</h2>
+                <p class="mt-2 text-sm text-slate-400">Faça login para visualizar os mapas mentais.</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                    </div>
+                </div>
+                <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- App View -->
+    <div id="app" class="hidden flex-col h-screen">
+        <header class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-4">
+                        <i class="fa-solid fa-magnifying-glass-chart text-3xl text-purple-400"></i>
+                        <h1 class="text-xl font-bold text-white">Zoom Lens</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">SodaPop</a>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col h-[calc(100vh-8rem)]">
+            <div class="flex-shrink-0 flex justify-end items-center mb-4">
+                <select id="sistema-filter" class="form-select w-72">
+                    <option value="">Todos os sistemas</option>
+                </select>
+            </div>
+            <div id="chart-container" class="flex-grow bg-slate-800 rounded-lg overflow-hidden relative">
+                <svg id="mind-map" class="w-full h-full"></svg>
+                <button id="reset-zoom-btn" class="absolute top-4 left-4 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 rounded-lg" title="Resetar Visualização">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+                <div id="legend" class="absolute bottom-4 right-4 bg-slate-900/70 p-3 rounded-lg text-xs backdrop-blur-sm">
+                    <!-- Legend items are injected here by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <!-- Content is injected here -->
+        </div>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const state = {
+            isAuthenticated: false,
+            sistemas: [],
+            funcionalidades: [],
+            filterSistemaId: '',
+        };
+
+        const URLS = {
+            login: 'https://work.produ-cloud.com/webhook/envia_login',
+            sistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
+            funcionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
+        };
+
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        
+        const sistemaFilter = document.getElementById('sistema-filter');
+        const chartContainer = document.getElementById('chart-container');
+        const svg = d3.select("#mind-map");
+        const modal = document.getElementById('details-modal');
+        const modalContent = document.getElementById('modal-content');
+        const resetZoomBtn = document.getElementById('reset-zoom-btn');
+        const legend = document.getElementById('legend');
+        
+        const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true });
+        let root;
+        let i = 0;
+        let initialTransform = d3.zoomIdentity;
+
+        const progressColor = d3.scaleLinear()
+            .domain([0, 50, 100])
+            .range(["#ef4444", "#facc15", "#4ade80"]) // red-500, yellow-400, green-500
+            .clamp(true);
+
+        const typeIconMap = {
+            'Funcionalidade': { icon: '✨', color: '#60a5fa' }, // sparkles, blue-400
+            'Melhoria': { icon: '🚀', color: '#facc15' }, // rocket, yellow-400
+            'Correção': { icon: '🐞', color: '#4ade80' }, // bug, green-400
+            'default': { icon: '❓', color: '#94a3b8' } // question mark, slate-400
+        };
+
+        function renderLegend() {
+            let legendHTML = '<h4 class="font-bold mb-2 text-slate-300">Legenda</h4><ul class="space-y-1.5">';
+            for (const type in typeIconMap) {
+                if (type !== 'default') {
+                    const { icon, color } = typeIconMap[type];
+                    legendHTML += `<li class="flex items-center gap-2"><span style="color:${color}; width: 1.25em; text-align: center;" class="font-bold">${icon}</span><span class="text-slate-400">${type}</span></li>`;
+                }
+            }
+            legendHTML += '</ul>';
+            legend.innerHTML = legendHTML;
+        }
+
+
+        function checkAuth() {
+            const user = sessionStorage.getItem('sodapop_user');
+            if (user) {
+                state.isAuthenticated = true;
+                loginView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                appView.classList.add('flex');
+                fetchInitialData();
+            } else {
+                loginView.classList.remove('hidden');
+                appView.classList.add('hidden');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            loginButton.disabled = true;
+            loginButton.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+            loginError.classList.add('hidden');
+
+            try {
+                const response = await fetch(URLS.login, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: loginForm.username.value, password: loginForm.password.value })
+                });
+                if (!response.ok) throw new Error('Falha na autenticação.');
+                const userData = await response.json();
+                const user = Array.isArray(userData) ? userData[0] : userData;
+
+                if (user && user.id) {
+                    sessionStorage.setItem('sodapop_user', JSON.stringify(user));
+                    renderLegend();
+                    checkAuth();
+                } else {
+                    throw new Error('Usuário ou senha inválidos.');
+                }
+            } catch (error) {
+                loginError.textContent = error.message;
+                loginError.classList.remove('hidden');
+            } finally {
+                loginButton.disabled = false;
+                loginButton.textContent = 'Entrar';
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('sodapop_user');
+            state.isAuthenticated = false;
+            checkAuth();
+        }
+
+        async function fetchInitialData() {
+            try {
+                const [sistemasRes, funcsRes] = await Promise.all([
+                    fetch(URLS.sistemas),
+                    fetch(URLS.funcionalidades)
+                ]);
+                if (!sistemasRes.ok || !funcsRes.ok) throw new Error('Falha ao carregar dados.');
+                state.sistemas = await sistemasRes.json();
+                state.funcionalidades = await funcsRes.json();
+                
+                // Garante que apenas um sistema seja carregado inicialmente
+                if (state.sistemas.length > 0 && !state.filterSistemaId) {
+                    state.filterSistemaId = state.sistemas[0].id;
+                }
+
+                render();
+            } catch (error) {
+                chartContainer.innerHTML = `<p class="text-red-400 text-center p-8">${error.message}</p>`;
+            }
+        }
+
+        function transformData() {
+            let filteredSistemas = state.sistemas;
+            if (state.filterSistemaId) {
+                filteredSistemas = state.sistemas.filter(s => s.id == state.filterSistemaId);
+            }
+
+            const data = {
+                name: filteredSistemas.length > 1 ? "Projetos" : filteredSistemas[0]?.name || "Projetos",
+                type: 'root',
+                children: (filteredSistemas.length > 1 ? filteredSistemas : state.funcionalidades.filter(f => f.sistema_id == state.filterSistemaId))
+                .map(item => {
+                    if (filteredSistemas.length > 1) { // Multi-system view
+                         return {
+                            name: item.name,
+                            type: 'system',
+                            children: state.funcionalidades
+                                .filter(f => f.sistema_id == item.id)
+                                .map(func => ({ name: func.text, type: 'functionality', data: func }))
+                        };
+                    } else { // Single-system view
+                        return { name: item.text, type: 'functionality', data: item };
+                    }
+                })
+            };
+             if(filteredSistemas.length === 1){
+                data.type = 'system';
+            }
+            return data;
+        }
+
+        function render() {
+            g.selectAll("*").remove(); // Clear previous render
+            renderSystemsDropdowns();
+            const data = transformData();
+            
+            if (!data.children || data.children.length === 0) {
+                g.append("text")
+                 .attr("x", chartContainer.clientWidth / 2)
+                 .attr("y", chartContainer.clientHeight / 2)
+                 .attr("text-anchor", "middle")
+                 .style("fill", "#64748b")
+                 .text("Nenhum dado para exibir.");
+                return;
+            }
+            
+            root = d3.hierarchy(data, d => d.children);
+            root.x0 = chartContainer.clientHeight / 2;
+            root.y0 = 0;
+            
+            root.descendants().forEach((d,i)=>{
+                d.id = i;
+                d._children = d.children;
+                if (d.depth > 0 && d.data.type !== 'system') d.children = null;
+            });
+            
+            // Set initial zoom
+            initialTransform = d3.zoomIdentity.translate(80, chartContainer.clientHeight / 2).scale(0.8);
+            svg.call(zoom.transform, initialTransform);
+
+            update(root);
+        }
+        
+        const duration = 750;
+        const g = svg.append("g");
+        
+        const zoom = d3.zoom().scaleExtent([0.1, 3]).on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+        svg.call(zoom);
+
+
+        function update(source) {
+            const width = chartContainer.clientWidth;
+            let nodes = root.descendants();
+            const height = Math.max(500, nodes.length * 25); // Dynamic height
+            
+            const layout = d3.cluster().size([height, width - 300]);
+            const treeData = layout(root);
+            
+            nodes = treeData.descendants();
+            const links = treeData.descendants().slice(1);
+            
+            // NODES
+            const node = g.selectAll("g.node")
+                .data(nodes, d => d.id);
+
+            const nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${source.y0},${source.x0})`)
+                .on("click", click);
+            
+            // Progress Ring Background
+            nodeEnter.append("circle")
+                .attr("class", "progress-bg")
+                .attr("r", d => d.data.type === 'functionality' ? 10 : 0)
+                .style("fill", "none")
+                .style("stroke", "#334155") // slate-700
+                .style("stroke-width", 2.5);
+
+            // Progress Ring Foreground
+            const progressRingRadius = 10;
+            const circumference = 2 * Math.PI * progressRingRadius;
+            nodeEnter.append("circle")
+                .attr("class", "progress-ring")
+                .attr("r", progressRingRadius)
+                .style("fill", "none")
+                .style("stroke", d => {
+                    if (d.data.type !== 'functionality' || d.data.data.progress === undefined) return 'none';
+                    return progressColor(d.data.data.progress);
+                })
+                .style("stroke-width", 2.5)
+                .style("stroke-linecap", "round")
+                .attr("transform", "rotate(-90)")
+                .attr("stroke-dasharray", `${circumference} ${circumference}`)
+                .attr("stroke-dashoffset", d => {
+                    if (d.data.type !== 'functionality' || !d.data.data.progress) return circumference;
+                    const progress = d.data.data.progress / 100;
+                    return circumference * (1 - progress);
+                });
+
+            // Main node circle
+            nodeEnter.append("circle")
+                .attr("class", "main-circle")
+                .attr("r", 1e-6)
+                .style("stroke", d => d.data.type === 'system' ? '#a855f7' : '#818cf8')
+                .style("fill", d => d._children ? (d.data.type === 'system' ? '#a855f7' : '#818cf8') : "#1e293b");
+
+            // Node text
+            nodeEnter.append("text")
+                .attr("dy", "0.31em")
+                .attr("x", d => d._children ? -18 : 18) // Adjusted for progress ring
+                .attr("text-anchor", d => d._children ? "end" : "start")
+                .style("fill", "#e2e8f0")
+                .each(function(d) {
+                    const el = d3.select(this);
+                    if (d.data.type === 'functionality' && d.data.data.type) {
+                        const typeInfo = typeIconMap[d.data.data.type] || typeIconMap.default;
+                        el.append('tspan') // Icon Tspan
+                            .style('font-family', 'sans-serif')
+                            .text(typeInfo.icon + ' ');
+                    }
+                    el.append('tspan') // Text Tspan
+                        .text(d.data.name);
+                });
+
+            const nodeUpdate = nodeEnter.merge(node);
+
+            nodeUpdate.transition()
+                .duration(duration)
+                .attr("transform", d => `translate(${d.y},${d.x})`);
+
+            // Update main circle on transition
+            nodeUpdate.select("circle.main-circle")
+                .attr("r", 7)
+                .style("fill", d => d._children ? (d.data.type === 'system' ? '#a855f7' : '#818cf8') : "#1e293b");
+            
+            // Update progress ring on transition
+            nodeUpdate.select("circle.progress-ring").transition().duration(duration)
+                .style("stroke", d => {
+                    if (d.data.type !== 'functionality' || d.data.data.progress === undefined) return 'none';
+                    return progressColor(d.data.data.progress);
+                })
+                .attr("stroke-dashoffset", d => {
+                    if (d.data.type !== 'functionality' || !d.data.data.progress) return circumference;
+                    const progress = d.data.data.progress / 100;
+                    return circumference * (1 - progress);
+                });
+
+
+            const nodeExit = node.exit().transition()
+                .duration(duration)
+                .attr("transform", d => `translate(${source.y},${source.x})`)
+                .remove();
+
+            nodeExit.selectAll("circle").attr("r", 1e-6);
+            nodeExit.select("text").style("fill-opacity", 1e-6);
+
+            // LINKS
+            const link = g.selectAll("path.link")
+                .data(links, d => d.id);
+
+            const linkEnter = link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("d", d => {
+                    const o = {x: source.x0, y: source.y0};
+                    return diagonal(o, o);
+                });
+
+            const linkUpdate = linkEnter.merge(link);
+
+            linkUpdate.transition()
+                .duration(duration)
+                .attr("d", d => diagonal(d, d.parent));
+
+            link.exit().transition()
+                .duration(duration)
+                .attr("d", d => {
+                    const o = {x: source.x, y: source.y};
+                    return diagonal(o, o);
+                })
+                .remove();
+
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        function click(event, d) {
+            if (d.data.type === 'functionality') {
+                showFuncionalidadeDetails(d.data.data);
+                return;
+            }
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else {
+                d.children = d._children;
+                d._children = null;
+            }
+            update(d);
+        }
+        
+        function diagonal(s, d) {
+            return `M ${s.y} ${s.x}
+                    C ${(s.y + d.y) / 2} ${s.x},
+                      ${(s.y + d.y) / 2} ${d.x},
+                      ${d.y} ${d.x}`;
+        }
+
+        function renderSystemsDropdowns() {
+            const optionsHtml = state.sistemas.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            sistemaFilter.innerHTML = `<option value="">Todos os sistemas</option>${optionsHtml}`;
+            sistemaFilter.value = state.filterSistemaId;
+        }
+        
+        function showFuncionalidadeDetails(func) {
+            const pColor = progressColor(func.progress || 0);
+            modalContent.innerHTML = `
+                <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-white">${func.text}</h2>
+                    <button id="close-modal-btn" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="p-6 overflow-y-auto flex-grow">
+                     <div class="mb-6">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-slate-300">Progresso</span>
+                            <span class="text-sm font-bold" style="color: ${pColor}">${func.progress || 0}%</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2.5">
+                            <div class="h-2.5 rounded-full" style="width: ${func.progress || 0}%; background-color: ${pColor};"></div>
+                        </div>
+                    </div>
+                    <div class="prose prose-sm prose-invert max-w-none text-slate-300">
+                        ${markdownConverter.makeHtml(func.description || 'Nenhuma descrição fornecida.')}
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('close-modal-btn').addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+        }
+
+        function resetZoom() {
+            svg.transition().duration(750).call(
+                zoom.transform, 
+                initialTransform
+            );
+        }
+
+        loginForm.addEventListener('submit', handleLogin);
+        logoutButton.addEventListener('click', handleLogout);
+        sistemaFilter.addEventListener('change', (e) => {
+            state.filterSistemaId = e.target.value;
+            render();
+            setTimeout(() => resetZoom(), 100); // Reset zoom after render
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+        resetZoomBtn.addEventListener('click', resetZoom);
+
+        checkAuth();
+    });
+    </script>
+</body>
+</html>
