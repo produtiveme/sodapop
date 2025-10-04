@@ -135,9 +135,10 @@
                         body: JSON.stringify({ token: token, new_password: newPassword })
                     });
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Ocorreu um erro ao definir sua senha.');
+                    const responseData = await response.json();
+
+                    if (!response.ok || (responseData.Message && responseData.Message.includes("Token não foi localizado"))) {
+                        throw new Error(responseData.Message || 'Ocorreu um erro ao definir sua senha.');
                     }
                     
                     showMessage('success', 'Senha Definida!', 'Sua senha foi criada com sucesso. Você já pode acessar o portal Key.', true);
