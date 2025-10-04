@@ -28,6 +28,14 @@
             border-color: #fbbf24; /* amber-400 */
             box-shadow: 0 0 0 2px #78350f; /* amber-900 */
         }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+        .calendar-day {
+            min-height: 120px;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -80,93 +88,41 @@
         </header>
 
         <!-- Main Content -->
-        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex gap-8 h-[calc(100vh-8rem)]">
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col h-[calc(100vh-8rem)]">
             
-            <!-- Left Column: Events List -->
-            <div class="w-1/3 flex flex-col bg-slate-800/50 rounded-lg p-4">
-                <div class="flex-shrink-0 mb-4">
-                    <h2 class="text-lg font-bold text-white mb-2">Eventos Registrados</h2>
-                    <select id="sistema-filter" class="form-select">
-                        <option value="">Filtrar por sistema...</option>
+            <!-- Controls -->
+            <div class="flex-shrink-0 flex justify-between items-center mb-6">
+                <div class="flex items-center gap-4">
+                    <select id="sistema-filter" class="form-select w-64">
+                        <option value="">Todos os sistemas</option>
                     </select>
+                    <div class="flex items-center bg-slate-800 p-1 rounded-lg">
+                        <button id="view-list-btn" class="px-3 py-1 text-sm rounded-md"><i class="fa-solid fa-list-ul mr-2"></i>Lista</button>
+                        <button id="view-calendar-btn" class="px-3 py-1 text-sm rounded-md"><i class="fa-solid fa-calendar-days mr-2"></i>Calendário</button>
+                    </div>
                 </div>
-                <div id="events-list-container" class="overflow-y-auto">
-                    <!-- Events will be rendered here -->
-                </div>
+                <button id="new-event-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Novo Evento
+                </button>
             </div>
 
-            <!-- Right Column: Form -->
-            <div class="w-2/3 flex flex-col bg-slate-800/50 rounded-lg p-6">
-                <form id="event-form" class="flex flex-col h-full">
-                    <div class="flex-shrink-0 flex justify-between items-center mb-6">
-                        <h2 id="form-title" class="text-lg font-bold text-white">Criar Novo Evento</h2>
-                        <button type="button" id="new-event-btn" class="text-sm text-amber-400 hover:text-amber-300">
-                            <i class="fa-solid fa-plus mr-2"></i>Limpar Formulário
-                        </button>
-                    </div>
-                    
-                    <div class="flex-grow overflow-y-auto pr-4 space-y-4">
-                        <input type="hidden" id="event-id">
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="event-sistema" class="block text-sm font-medium text-slate-400 mb-1">Sistema *</label>
-                                <select id="event-sistema" class="form-select" required></select>
-                            </div>
-                            <div>
-                                <label for="event-date" class="block text-sm font-medium text-slate-400 mb-1">Data do Evento *</label>
-                                <input type="date" id="event-date" class="form-input" required>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label for="event-title" class="block text-sm font-medium text-slate-400 mb-1">Título *</label>
-                            <input type="text" id="event-title" class="form-input" required>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="event-type" class="block text-sm font-medium text-slate-400 mb-1">Tipo *</label>
-                                <select id="event-type" class="form-select" required>
-                                    <option>Reunião</option>
-                                    <option>Marco</option>
-                                    <option>Atualização</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="event-participants" class="block text-sm font-medium text-slate-400 mb-1">Participantes</label>
-                                <input type="text" id="event-participants" class="form-input">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="event-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
-                            <textarea id="event-description" rows="6" class="form-textarea"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="flex-shrink-0 pt-6 flex justify-between items-center">
-                        <button type="button" id="delete-event-btn" class="hidden text-sm text-red-500 hover:text-red-400 flex items-center gap-2">
-                            <i class="fa-solid fa-trash"></i>Apagar Evento
-                        </button>
-                        <button type="submit" id="save-event-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg">
-                            <i class="fa-solid fa-save mr-2"></i>Salvar Evento
-                        </button>
-                    </div>
-                </form>
+            <!-- View Container -->
+            <div id="view-container" class="flex-grow overflow-y-auto">
+                <!-- Content (List or Calendar) is rendered here -->
             </div>
+
         </main>
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-2">
-            <p class="text-xs text-slate-500">ProdutiveMe | Lemonade v1.0</p>
+            <p class="text-xs text-slate-500">ProdutiveMe | Lemonade v1.1</p>
         </footer>
     </div>
     
     <!-- Modal -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
-        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6">
-            <!-- Modal content goes here -->
+        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <!-- Modal content (form) goes here -->
         </div>
     </div>
     
@@ -181,8 +137,9 @@
             isAuthenticated: false,
             sistemas: [],
             events: [],
-            selectedEventId: null,
             filterSistemaId: '',
+            activeView: 'list', // 'list' or 'calendar'
+            calendarDate: new Date(),
         };
 
         const URLS = {
@@ -201,14 +158,11 @@
         const loginButton = document.getElementById('login-button');
         const logoutButton = document.getElementById('logout-button');
         
-        const eventsListContainer = document.getElementById('events-list-container');
         const sistemaFilter = document.getElementById('sistema-filter');
-        const eventForm = document.getElementById('event-form');
-        const formTitle = document.getElementById('form-title');
+        const viewListBtn = document.getElementById('view-list-btn');
+        const viewCalendarBtn = document.getElementById('view-calendar-btn');
         const newEventBtn = document.getElementById('new-event-btn');
-        const deleteEventBtn = document.getElementById('delete-event-btn');
-        const saveEventBtn = document.getElementById('save-event-btn');
-        const eventIdInput = document.getElementById('event-id');
+        const viewContainer = document.getElementById('view-container');
 
         const modal = document.getElementById('modal');
         const modalContent = document.getElementById('modal-content');
@@ -224,7 +178,10 @@
             if (isNaN(date)) return '';
             
             if (forInput) {
-                return date.toISOString().split('T')[0];
+                // Adjust for timezone offset to get correct date in YYYY-MM-DD for input
+                const tzOffset = date.getTimezoneOffset() * 60000;
+                const localDate = new Date(date.getTime() - tzOffset);
+                return localDate.toISOString().split('T')[0];
             }
             return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
         };
@@ -280,8 +237,6 @@
                 });
                 if (!response.ok) throw new Error('Falha na autenticação.');
                 const userData = await response.json();
-                
-                // CORREÇÃO: Trata a resposta do n8n como objeto ou array
                 const user = Array.isArray(userData) ? userData[0] : userData;
 
                 if (user && user.id) {
@@ -308,7 +263,6 @@
         // --- DATA ---
         async function fetchInitialData() {
             try {
-                // CORREÇÃO: Carrega os dados em sequência para melhor tratamento de erro
                 const sistemasRes = await fetch(URLS.sistemas);
                 if (!sistemasRes.ok) throw new Error('Falha ao carregar os sistemas.');
                 const sistemasData = await sistemasRes.json();
@@ -329,7 +283,7 @@
                 const eventsRes = await fetch(URLS.getEvents);
                 if (!eventsRes.ok) throw new Error('Falha ao recarregar eventos.');
                 state.events = await eventsRes.json();
-                renderEventsList();
+                render();
             } catch (error) {
                 showToast(error.message, true);
             }
@@ -337,19 +291,34 @@
 
         // --- RENDER ---
         function render() {
+            updateViewToggleButtons();
             renderSystemsDropdowns();
-            renderEventsList();
-            clearForm();
+
+            if(state.activeView === 'list') {
+                renderListView();
+            } else {
+                renderCalendarView();
+            }
+        }
+        
+        function updateViewToggleButtons() {
+            if (state.activeView === 'list') {
+                viewListBtn.classList.add('bg-amber-600', 'text-white');
+                viewCalendarBtn.classList.remove('bg-amber-600', 'text-white');
+            } else {
+                viewCalendarBtn.classList.add('bg-amber-600', 'text-white');
+                viewListBtn.classList.remove('bg-amber-600', 'text-white');
+            }
         }
 
         function renderSystemsDropdowns() {
             const optionsHtml = state.sistemas.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            sistemaFilter.innerHTML = `<option value="">Filtrar por sistema...</option>${optionsHtml}`;
-            document.getElementById('event-sistema').innerHTML = `<option value="">Selecione um sistema...</option>${optionsHtml}`;
+            sistemaFilter.innerHTML = `<option value="">Todos os sistemas</option>${optionsHtml}`;
+            sistemaFilter.value = state.filterSistemaId;
         }
         
-        function renderEventsList() {
-            eventsListContainer.innerHTML = '<p class="text-slate-500 text-center py-4">Carregando...</p>';
+        function renderListView() {
+            viewContainer.innerHTML = '<p class="text-slate-500 text-center py-4">Carregando...</p>';
             let filteredEvents = state.events;
             if (state.filterSistemaId) {
                 filteredEvents = state.events.filter(e => e.sistema_id == state.filterSistemaId);
@@ -358,78 +327,192 @@
             filteredEvents.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
 
             if (filteredEvents.length === 0) {
-                eventsListContainer.innerHTML = '<p class="text-slate-500 text-center py-4">Nenhum evento encontrado.</p>';
+                viewContainer.innerHTML = '<p class="text-slate-500 text-center py-4">Nenhum evento encontrado.</p>';
                 return;
             }
 
-            eventsListContainer.innerHTML = `
-                <ul class="space-y-2">
-                    ${filteredEvents.map(event => {
-                        const sistema = state.sistemas.find(s => s.id == event.sistema_id);
-                        return `
-                        <li data-id="${event.id}" class="event-item cursor-pointer p-3 rounded-md transition-colors ${state.selectedEventId == event.id ? 'bg-amber-600/20' : 'hover:bg-slate-700/50'}">
-                            <p class="font-semibold text-white truncate">${event.title}</p>
-                            <div class="text-xs text-slate-400 mt-1 flex justify-between">
-                                <span>${sistema ? sistema.name : 'Sistema desconhecido'}</span>
-                                <span>${formatDate(event.event_date)}</span>
-                            </div>
-                        </li>
-                        `
-                    }).join('')}
-                </ul>
+            viewContainer.innerHTML = `
+                <div class="bg-slate-800/50 rounded-lg overflow-hidden">
+                    <table class="w-full text-sm text-left text-slate-400">
+                        <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Título</th>
+                                <th scope="col" class="px-6 py-3">Sistema</th>
+                                <th scope="col" class="px-6 py-3">Tipo</th>
+                                <th scope="col" class="px-6 py-3">Data</th>
+                                <th scope="col" class="px-6 py-3"><span class="sr-only">Editar</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredEvents.map(event => {
+                                const sistema = state.sistemas.find(s => s.id == event.sistema_id);
+                                return `
+                                <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                    <th scope="row" class="px-6 py-4 font-medium text-white">${event.title}</th>
+                                    <td class="px-6 py-4">${sistema ? sistema.name : 'N/A'}</td>
+                                    <td class="px-6 py-4">${event.type}</td>
+                                    <td class="px-6 py-4">${formatDate(event.event_date)}</td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button data-id="${event.id}" class="edit-event-btn font-medium text-amber-400 hover:underline">Editar</button>
+                                    </td>
+                                </tr>
+                                `
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
             
-            document.querySelectorAll('.event-item').forEach(item => {
-                item.addEventListener('click', () => populateForm(item.dataset.id));
+            document.querySelectorAll('.edit-event-btn').forEach(button => {
+                button.addEventListener('click', () => openEventModal(button.dataset.id));
             });
         }
         
-        // --- FORM LOGIC ---
-        function populateForm(eventId) {
-            const event = state.events.find(e => e.id == eventId);
-            if (!event) return;
+        function renderCalendarView() {
+            const date = state.calendarDate;
+            const year = date.getFullYear(), month = date.getMonth();
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
             
-            state.selectedEventId = eventId;
-            
-            eventIdInput.value = event.id;
-            document.getElementById('event-sistema').value = event.sistema_id;
-            document.getElementById('event-date').value = formatDate(event.event_date, true);
-            document.getElementById('event-title').value = event.title;
-            document.getElementById('event-type').value = event.type;
-            document.getElementById('event-participants').value = event.participants || '';
-            document.getElementById('event-description').value = event.description || '';
-            
-            formTitle.textContent = 'Editando Evento';
-            saveEventBtn.innerHTML = `<i class="fa-solid fa-save mr-2"></i>Atualizar Evento`;
-            deleteEventBtn.classList.remove('hidden');
-            renderEventsList();
-        }
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        function clearForm() {
-            state.selectedEventId = null;
-            eventForm.reset();
-            eventIdInput.value = '';
-            formTitle.textContent = 'Criar Novo Evento';
-            saveEventBtn.innerHTML = `<i class="fa-solid fa-save mr-2"></i>Salvar Evento`;
-            deleteEventBtn.classList.add('hidden');
-            if (document.querySelector('.event-item')) renderEventsList();
+            let filteredEvents = state.events;
+            if (state.filterSistemaId) {
+                filteredEvents = state.events.filter(e => e.sistema_id == state.filterSistemaId);
+            }
+
+            let calendarHtml = `
+                <div class="bg-slate-800/50 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-white">${monthNames[month]} ${year}</h2>
+                        <div class="flex space-x-2">
+                            <button id="calendar-prev-month" class="bg-slate-700 hover:bg-slate-600 w-8 h-8 rounded-md"><i class="fa-solid fa-chevron-left"></i></button>
+                            <button id="calendar-next-month" class="bg-slate-700 hover:bg-slate-600 w-8 h-8 rounded-md"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid bg-slate-700 rounded-lg overflow-hidden border border-slate-700">
+                        ${dayNames.map(day => `<div class="text-center font-semibold text-xs py-2 bg-slate-800 text-slate-400">${day}</div>`).join('')}
+            `;
+
+            for (let i = 0; i < firstDayOfMonth; i++) { calendarHtml += `<div class="bg-slate-800/50"></div>`; }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const fullDate = new Date(Date.UTC(year, month, day));
+                const todaysEvents = filteredEvents.filter(e => formatDate(e.event_date, true) === formatDate(fullDate, true));
+
+                calendarHtml += `<div class="calendar-day bg-slate-800 p-2 relative"><span class="text-sm font-semibold">${day}</span><div class="mt-1 space-y-1 overflow-y-auto max-h-24">`;
+                todaysEvents.forEach(event => {
+                    calendarHtml += `<div data-id="${event.id}" class="edit-event-btn text-xs p-1 rounded-md cursor-pointer bg-amber-600/20 hover:bg-amber-600/40 border-l-2 border-amber-500">
+                                         <p class="font-semibold text-white truncate">${event.title}</p>
+                                     </div>`;
+                });
+                calendarHtml += `</div></div>`;
+            }
+            calendarHtml += `</div></div>`;
+            viewContainer.innerHTML = calendarHtml;
+
+            document.getElementById('calendar-prev-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); render(); });
+            document.getElementById('calendar-next-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); render(); });
+            document.querySelectorAll('.edit-event-btn').forEach(button => {
+                button.addEventListener('click', () => openEventModal(button.dataset.id));
+            });
+        }
+        
+        
+        // --- FORM LOGIC ---
+        function openEventModal(eventId = null) {
+            const isEditing = eventId !== null;
+            const event = isEditing ? state.events.find(e => e.id == eventId) : {};
+            const title = isEditing ? 'Editando Evento' : 'Criar Novo Evento';
+            
+            const sistemasOptions = state.sistemas.map(s => `<option value="${s.id}" ${s.id == event.sistema_id ? 'selected':''}>${s.name}</option>`).join('');
+
+            const formHtml = `
+                <form id="event-form" class="flex flex-col h-full">
+                    <div class="flex-shrink-0 flex justify-between items-center p-6 border-b border-slate-700">
+                        <h2 id="form-title" class="text-lg font-bold text-white">${title}</h2>
+                        <button type="button" class="close-modal-btn text-slate-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    
+                    <div class="flex-grow overflow-y-auto p-6 space-y-4">
+                        <input type="hidden" id="event-id" value="${event.id || ''}">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="event-sistema" class="block text-sm font-medium text-slate-400 mb-1">Sistema *</label>
+                                <select id="event-sistema" class="form-select" required>${sistemasOptions}</select>
+                            </div>
+                            <div>
+                                <label for="event-date" class="block text-sm font-medium text-slate-400 mb-1">Data do Evento *</label>
+                                <input type="date" id="event-date" class="form-input" value="${formatDate(event.event_date, true)}" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="event-title" class="block text-sm font-medium text-slate-400 mb-1">Título *</label>
+                            <input type="text" id="event-title" class="form-input" value="${event.title || ''}" required>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="event-type" class="block text-sm font-medium text-slate-400 mb-1">Tipo *</label>
+                                <select id="event-type" class="form-select" required>
+                                    <option ${event.type === 'Reunião' ? 'selected' : ''}>Reunião</option>
+                                    <option ${event.type === 'Marco' ? 'selected' : ''}>Marco</option>
+                                    <option ${event.type === 'Atualização' ? 'selected' : ''}>Atualização</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="event-participants" class="block text-sm font-medium text-slate-400 mb-1">Participantes</label>
+                                <input type="text" id="event-participants" class="form-input" value="${event.participants || ''}">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="event-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
+                            <textarea id="event-description" rows="6" class="form-textarea">${event.description || ''}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-shrink-0 p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+                        <button type="button" id="delete-event-btn" class="${isEditing ? '' : 'hidden'} text-sm text-red-500 hover:text-red-400 flex items-center gap-2">
+                            <i class="fa-solid fa-trash"></i>Apagar Evento
+                        </button>
+                        <button type="submit" id="save-event-btn" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg">
+                            <i class="fa-solid fa-save mr-2"></i>${isEditing ? 'Atualizar' : 'Salvar'} Evento
+                        </button>
+                    </div>
+                </form>
+            `;
+
+            openModal(formHtml);
+
+            document.getElementById('event-form').addEventListener('submit', handleFormSubmit);
+            if(isEditing) {
+                document.getElementById('delete-event-btn').addEventListener('click', confirmDelete);
+            }
+            document.querySelector('.close-modal-btn').addEventListener('click', closeModal);
         }
 
         async function handleFormSubmit(e) {
             e.preventDefault();
-            const id = eventIdInput.value;
+            const form = e.target;
+            const id = form.querySelector('#event-id').value;
+            
             const eventData = {
                 id: id || "NOVO",
-                sistema_id: document.getElementById('event-sistema').value,
-                event_date: new Date(document.getElementById('event-date').value).toISOString(),
-                title: document.getElementById('event-title').value,
-                type: document.getElementById('event-type').value,
-                participants: document.getElementById('event-participants').value,
-                description: document.getElementById('event-description').value,
+                sistema_id: form.querySelector('#event-sistema').value,
+                event_date: new Date(form.querySelector('#event-date').value).toISOString(),
+                title: form.querySelector('#event-title').value,
+                type: form.querySelector('#event-type').value,
+                participants: form.querySelector('#event-participants').value,
+                description: form.querySelector('#event-description').value,
             };
-            
-            saveEventBtn.disabled = true;
-            saveEventBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
+            const saveBtn = form.querySelector('#save-event-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
             try {
                 const response = await fetch(URLS.saveEvent, {
@@ -441,28 +524,30 @@
                 
                 showToast(`Evento ${id ? 'atualizado' : 'criado'} com sucesso!`);
                 await refetchEvents();
-                clearForm();
+                closeModal();
             } catch (error) {
                 showToast(error.message, true);
             } finally {
-                saveEventBtn.disabled = false;
+                saveBtn.disabled = false;
             }
         }
 
         function confirmDelete() {
-            const eventId = eventIdInput.value;
+            const eventId = modalContent.querySelector('#event-id').value;
             if (!eventId) return;
 
-            openModal(`
+            const originalModalContent = modalContent.innerHTML;
+
+            modalContent.innerHTML =`
                 <h3 class="text-lg font-bold text-white mb-4">Confirmar Exclusão</h3>
                 <p class="text-sm text-slate-300 mb-6">Tem certeza que deseja apagar este evento? Esta ação não pode ser desfeita.</p>
                 <div class="flex justify-end gap-4">
                     <button id="cancel-delete" class="px-4 py-2 rounded-lg text-sm bg-slate-600 hover:bg-slate-500">Cancelar</button>
                     <button id="confirm-delete" class="px-4 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white">Apagar</button>
                 </div>
-            `);
+            `;
             
-            document.getElementById('cancel-delete').addEventListener('click', closeModal);
+            document.getElementById('cancel-delete').addEventListener('click', () => modalContent.innerHTML = originalModalContent);
             document.getElementById('confirm-delete').addEventListener('click', async () => {
                 try {
                     const response = await fetch(URLS.deleteEvent, {
@@ -474,26 +559,35 @@
                     
                     showToast('Evento apagado com sucesso.');
                     await refetchEvents();
-                    clearForm();
+                    closeModal();
                 } catch(error) {
                     showToast(error.message, true);
-                } finally {
-                    closeModal();
+                    modalContent.innerHTML = originalModalContent;
                 }
             });
         }
 
-
         // --- EVENT LISTENERS ---
         loginForm.addEventListener('submit', handleLogin);
         logoutButton.addEventListener('click', handleLogout);
+        
         sistemaFilter.addEventListener('change', (e) => {
             state.filterSistemaId = e.target.value;
-            renderEventsList();
+            render();
         });
-        eventForm.addEventListener('submit', handleFormSubmit);
-        newEventBtn.addEventListener('click', clearForm);
-        deleteEventBtn.addEventListener('click', confirmDelete);
+        
+        viewListBtn.addEventListener('click', () => {
+            state.activeView = 'list';
+            render();
+        });
+        
+        viewCalendarBtn.addEventListener('click', () => {
+            state.activeView = 'calendar';
+            render();
+        });
+
+        newEventBtn.addEventListener('click', () => openEventModal());
+        
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
