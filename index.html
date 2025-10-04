@@ -78,6 +78,13 @@
             transform-origin: 50% 50%;
         }
 
+        /* Accordion style for Pendências tab */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
         /* Light Theme Styles - V2 (Correction) */
         .light-theme {
             --bg-primary: #ffffff;
@@ -297,7 +304,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.7.9</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.0</p>
         </footer>
     </div>
 
@@ -310,6 +317,7 @@
                 sistemas: [],
                 funcionalidades: [],
                 changes: [],
+                pendencias: [], // <-- ADDED: State for pendências
                 responsaveis: [],
                 allStatuses: [],
                 allChangeTypes: ['Added', 'Changed', 'Deprecated', 'Fixed', 'Removed', 'Security', 'Task'],
@@ -372,6 +380,7 @@
                 sistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
                 funcionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
                 changes: 'https://work.produ-cloud.com/webhook/carrega-todos-change',
+                pendencias: 'https://work.produ-cloud.com/webhook/upgrade-busca-pendencias', // <-- ADDED: Webhook for pendências
                 updateChange: 'https://work.produ-cloud.com/webhook/atualiza_change',
                 createChange: 'https://work.produ-cloud.com/webhook/cria_change',
                 createFuncionalidade: 'https://work.produ-cloud.com/webhook/cria_funcionalidade',
@@ -475,7 +484,7 @@
                 state.isAuthenticated = false;
                 state.currentUser = null;
                 Object.assign(state, {
-                    sistemas: [], funcionalidades: [], changes: [], responsaveis: [], allStatuses: [],
+                    sistemas: [], funcionalidades: [], changes: [], pendencias: [], responsaveis: [], allStatuses: [],
                     currentView: 'sistemas', selectedSistema: null, selectedResponsible: null,
                     meusChangesFilters: { sistema: '', status: [] }, calendarFilters: { status: [], responsible: [], sistema: [] },
                     overdueFilters: { responsible: [], status: [], sistema: [] }, kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
@@ -488,12 +497,20 @@
                 views.loading.classList.remove('hidden');
                 views.container.classList.add('hidden');
                 try {
-                    const [sistemasRes, funcionalidadesRes, changesRes] = await Promise.all([ fetch(URLS.sistemas), fetch(URLS.funcionalidades), fetch(URLS.changes) ]);
-                    if (!sistemasRes.ok || !funcionalidadesRes.ok || !changesRes.ok) throw new Error('Falha ao buscar dados do N8N.');
+                    const [sistemasRes, funcionalidadesRes, changesRes, pendenciasRes] = await Promise.all([
+                        fetch(URLS.sistemas), 
+                        fetch(URLS.funcionalidades), 
+                        fetch(URLS.changes),
+                        fetch(URLS.pendencias) // <-- ADDED: Fetch pendências data
+                    ]);
+                    if (!sistemasRes.ok || !funcionalidadesRes.ok || !changesRes.ok || !pendenciasRes.ok) throw new Error('Falha ao buscar dados do N8N.');
+                    
                     state.sistemas = await sistemasRes.json();
                     state.funcionalidades = await funcionalidadesRes.json();
                     const rawChanges = await changesRes.json();
                     state.changes = rawChanges.map(c => ({ ...c, prazo: c.prazo?.replace(/"/g, ''), data_encerramento: c.data_encerramento?.replace(/"/g, '') }));
+                    state.pendencias = await pendenciasRes.json(); // <-- ADDED: Store pendências in state
+                    
                     state.responsaveis = [...new Set(state.changes.map(c => c.responsible).filter(Boolean))].sort();
                     state.allStatuses = [...new Set(state.changes.map(c => c.status).filter(Boolean))].sort();
                     updateUI();
@@ -719,6 +736,11 @@
             function renderSistemaDetail() {
                 views.sistemaDetail.classList.remove('hidden');
                 const sistema = state.selectedSistema, color = colorMap[sistema.color] || colorMap.default;
+                
+                // <-- ADDED: Calculate pendências counter
+                const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == sistema.id && p.status !== 'Concluído');
+                const pendenciasCounterHtml = sistemaPendencias.length > 0 ? `<span class="ml-2 bg-yellow-500 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">${sistemaPendencias.length}</span>` : '';
+
                 views.sistemaDetail.innerHTML = `
                     <button id="back-to-sistemas" class="mb-6 text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar para Sistemas</button>
                     <div class="flex items-center space-x-4 mb-2"><div class="w-4 h-10 rounded-full" style="background-color: var(--tw-color-${color.border.replace('border-','')}-500)"></div><div><h2 class="text-3xl font-bold text-white">${sistema.name}</h2><p class="text-slate-400">${sistema.type||'Projeto'}</p></div></div>
@@ -727,15 +749,22 @@
                         <button id="tab-calendario" class="px-4 py-2 text-sm font-medium border-b-2">Por Calendário</button>
                         <button id="tab-kanban" class="px-4 py-2 text-sm font-medium border-b-2">Kanban</button>
                         <button id="tab-hillchart" class="px-4 py-2 text-sm font-medium border-b-2">Hill Chart</button>
+                        <button id="tab-pendencias" class="flex items-center px-4 py-2 text-sm font-medium border-b-2">Pendências ${pendenciasCounterHtml}</button>
                     </div><div id="sistema-tab-content" class="mt-6"></div>`;
+
                 const tabs = {
                     funcionalidade: views.sistemaDetail.querySelector('#tab-funcionalidade'),
                     calendario: views.sistemaDetail.querySelector('#tab-calendario'),
                     kanban: views.sistemaDetail.querySelector('#tab-kanban'),
-                    hillchart: views.sistemaDetail.querySelector('#tab-hillchart')
+                    hillchart: views.sistemaDetail.querySelector('#tab-hillchart'),
+                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias') // <-- ADDED: Pendências tab
                 };
                 Object.keys(tabs).forEach(tabKey => {
                     tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === tabKey ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
+                    // <-- ADDED: Style for pendências tab counter
+                    if (tabKey === 'pendencias') {
+                        tabs[tabKey].classList.add('flex', 'items-center');
+                    }
                     tabs[tabKey].addEventListener('click', () => { state.selectedSistemaTab = tabKey; render(); });
                 });
                 
@@ -743,8 +772,67 @@
                 else if (state.selectedSistemaTab === 'calendario') renderSistemaCalendarioView();
                 else if (state.selectedSistemaTab === 'kanban') renderSistemaKanbanView();
                 else if (state.selectedSistemaTab === 'hillchart') renderSistemaHillChartView();
+                else if (state.selectedSistemaTab === 'pendencias') renderSistemaPendenciasView(); // <-- ADDED: Call new render function
 
                 views.sistemaDetail.querySelector('#back-to-sistemas').addEventListener('click', () => { state.currentView = 'sistemas'; render(); });
+            }
+
+            // <-- ADDED: New function to render the Pendências tab content -->
+            function renderSistemaPendenciasView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == state.selectedSistema.id);
+
+                if (sistemaPendencias.length === 0) {
+                    container.innerHTML = `<div class="bg-slate-800 p-6 rounded-md text-center"><p class="text-slate-500">Nenhuma pendência encontrada para este sistema.</p></div>`;
+                    return;
+                }
+                
+                const pendenciaStatusMap = {
+                    'Aguardando': { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30' },
+                    'Concluído': { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+                };
+
+                container.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Pendências do Projeto</h3>
+                    <div class="space-y-3">
+                        ${sistemaPendencias.map(p => {
+                            const statusInfo = pendenciaStatusMap[p.status] || { bg: 'bg-slate-600/20', text: 'text-slate-400', border: 'border-slate-600/30' };
+                            return `
+                                <div class="bg-slate-800 rounded-lg border ${statusInfo.border} overflow-hidden">
+                                    <button class="w-full p-4 flex justify-between items-center text-left accordion-toggle">
+                                        <div class="flex-grow">
+                                            <div class="flex items-center gap-3">
+                                                <span class="font-semibold text-white">${p.title}</span>
+                                                <span class="text-xs font-bold px-2 py-1 rounded-full ${statusInfo.bg} ${statusInfo.text}">${p.status}</span>
+                                            </div>
+                                            <p class="text-xs text-slate-400 mt-1">Responsável: ${p.responsible || 'N/D'}</p>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-down transition-transform"></i>
+                                    </button>
+                                    <div class="accordion-content">
+                                        <div class="px-4 pb-4 pt-2 border-t border-slate-700">
+                                            <div class="text-sm text-slate-300 prose prose-sm prose-invert max-w-none">${markdownConverter.makeHtml(p.descricao || '_Sem descrição detalhada._')}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                container.querySelectorAll('.accordion-toggle').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const content = button.nextElementSibling;
+                        const icon = button.querySelector('i');
+                        if (content.style.maxHeight) {
+                            content.style.maxHeight = null;
+                            icon.classList.remove('rotate-180');
+                        } else {
+                            content.style.maxHeight = content.scrollHeight + "px";
+                            icon.classList.add('rotate-180');
+                        }
+                    });
+                });
             }
             
             function renderSistemaFuncionalidadeView() {
