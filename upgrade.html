@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade - Gestão de Pendências</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
+        .form-input, .form-select, .form-textarea {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #8b5cf6; /* violet-500 */
+            box-shadow: 0 0 0 2px #5b21b6; /* violet-800 */
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                <i class="fa-solid fa-rocket text-5xl text-violet-500 mx-auto"></i>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Upgrade</h2>
+                <p class="mt-2 text-sm text-slate-400">Faça login para gerenciar as pendências.</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                    </div>
+                </div>
+                <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- App View -->
+    <div id="app" class="hidden flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-20">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-4">
+                        <i class="fa-solid fa-rocket text-3xl text-violet-500"></i>
+                        <h1 class="text-xl font-bold text-white">Upgrade</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">SodaPop</a>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col h-[calc(100vh-8rem)]">
+            
+            <div class="flex-shrink-0 flex justify-between items-center mb-6">
+                <div class="flex items-center gap-4">
+                    <select id="sistema-filter" class="form-select w-64">
+                        <option value="">Todos os sistemas</option>
+                    </select>
+                    <select id="status-filter" class="form-select w-48">
+                        <option value="">Todos os Status</option>
+                        <option value="Aguardando">Aguardando</option>
+                        <option value="Concluído">Concluído</option>
+                    </select>
+                </div>
+                <button id="new-pendencia-btn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Nova Pendência
+                </button>
+            </div>
+
+            <div id="pendencias-container" class="flex-grow overflow-y-auto">
+                <!-- Pendencias table is rendered here -->
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-2">
+            <p class="text-xs text-slate-500">ProdutiveMe | Upgrade v1.0</p>
+        </footer>
+    </div>
+    
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <!-- Modal content (form) goes here -->
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden">
+        <p id="toast-message"></p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const state = {
+            isAuthenticated: false,
+            sistemas: [],
+            pendencias: [],
+            filterSistemaId: '',
+            filterStatus: '',
+        };
+
+        const URLS = {
+            login: 'https://work.produ-cloud.com/webhook/envia_login',
+            sistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
+            getPendencias: 'https://work.produ-cloud.com/webhook/upgrade-busca-pendencias',
+            savePendencia: 'https://work.produ-cloud.com/webhook/upgrade-salva-pendencia',
+            deletePendencia: 'https://work.produ-cloud.com/webhook/upgrade-apaga-pendencia',
+        };
+
+        const pendenciaStatusMap = {
+            'Aguardando': { bg: 'bg-yellow-500/20', text: 'text-yellow-300' },
+            'Concluído': { bg: 'bg-green-500/20', text: 'text-green-400' },
+        };
+
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        
+        const sistemaFilter = document.getElementById('sistema-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const newPendenciaBtn = document.getElementById('new-pendencia-btn');
+        const pendenciasContainer = document.getElementById('pendencias-container');
+
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        const showToast = (message, isError = false) => {
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        };
+        
+        const openModal = (content) => {
+            modalContent.innerHTML = content;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modalContent.innerHTML = '';
+        };
+
+        function checkAuth() {
+            const user = sessionStorage.getItem('sodapop_user');
+            if (user) {
+                state.isAuthenticated = true;
+                loginView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                appView.classList.add('flex');
+                fetchInitialData();
+            } else {
+                loginView.classList.remove('hidden');
+                appView.classList.add('hidden');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            loginButton.disabled = true;
+            loginButton.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+            loginError.classList.add('hidden');
+
+            try {
+                const response = await fetch(URLS.login, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: loginForm.username.value,
+                        password: loginForm.password.value,
+                    })
+                });
+                if (!response.ok) throw new Error('Falha na autenticação.');
+                const userData = await response.json();
+                const user = Array.isArray(userData) ? userData[0] : userData;
+
+                if (user && user.id) {
+                    sessionStorage.setItem('sodapop_user', JSON.stringify(user));
+                    checkAuth();
+                } else {
+                    throw new Error('Usuário ou senha inválidos.');
+                }
+            } catch (error) {
+                loginError.textContent = error.message;
+                loginError.classList.remove('hidden');
+            } finally {
+                loginButton.disabled = false;
+                loginButton.textContent = 'Entrar';
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('sodapop_user');
+            state.isAuthenticated = false;
+            checkAuth();
+        }
+
+        async function fetchInitialData() {
+            try {
+                const sistemasRes = await fetch(URLS.sistemas);
+                if (!sistemasRes.ok) throw new Error('Falha ao carregar os sistemas.');
+                const sistemasData = await sistemasRes.json();
+                state.sistemas = sistemasData.map(s => ({ ...s, id: parseInt(s.id, 10) }));
+
+                await refetchPendencias();
+                render();
+            } catch (error) {
+                showToast(error.message, true);
+            }
+        }
+        
+        async function refetchPendencias() {
+             try {
+                pendenciasContainer.innerHTML = '<p class="text-slate-500 text-center py-4"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando pendências...</p>';
+                const pendenciasRes = await fetch(URLS.getPendencias);
+                if (!pendenciasRes.ok) throw new Error('Falha ao recarregar pendências.');
+                state.pendencias = await pendenciasRes.json();
+                render();
+            } catch (error) {
+                showToast(error.message, true);
+                pendenciasContainer.innerHTML = '<p class="text-red-500 text-center py-4">Erro ao carregar pendências.</p>';
+            }
+        }
+
+        function render() {
+            renderSystemsDropdowns();
+            renderPendenciasTable();
+        }
+
+        function renderSystemsDropdowns() {
+            const optionsHtml = state.sistemas.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            sistemaFilter.innerHTML = `<option value="">Todos os sistemas</option>${optionsHtml}`;
+            sistemaFilter.value = state.filterSistemaId;
+        }
+        
+        function renderPendenciasTable() {
+            let filteredPendencias = state.pendencias;
+            if (state.filterSistemaId) {
+                filteredPendencias = filteredPendencias.filter(p => p.sistema_id == state.filterSistemaId);
+            }
+            if (state.filterStatus) {
+                filteredPendencias = filteredPendencias.filter(p => p.status == state.filterStatus);
+            }
+
+            if (filteredPendencias.length === 0) {
+                pendenciasContainer.innerHTML = '<p class="text-slate-500 text-center py-4">Nenhuma pendência encontrada.</p>';
+                return;
+            }
+
+            pendenciasContainer.innerHTML = `
+                <div class="bg-slate-800/50 rounded-lg overflow-hidden">
+                    <table class="w-full text-sm text-left text-slate-400">
+                        <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Título</th>
+                                <th scope="col" class="px-6 py-3">Sistema</th>
+                                <th scope="col" class="px-6 py-3">Responsável</th>
+                                <th scope="col" class="px-6 py-3">Status</th>
+                                <th scope="col" class="px-6 py-3"><span class="sr-only">Editar</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredPendencias.map(pendencia => {
+                                const sistema = state.sistemas.find(s => s.id == pendencia.sistema_id);
+                                const statusInfo = pendenciaStatusMap[pendencia.status] || {};
+                                return `
+                                <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                    <th scope="row" class="px-6 py-4 font-medium text-white">${pendencia.title}</th>
+                                    <td class="px-6 py-4">${sistema ? sistema.name : 'N/A'}</td>
+                                    <td class="px-6 py-4">${pendencia.responsible || 'N/A'}</td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-xs font-bold px-2 py-1 rounded-full ${statusInfo.bg} ${statusInfo.text}">${pendencia.status}</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button data-id="${pendencia.id}" class="edit-pendencia-btn font-medium text-violet-400 hover:underline">Editar</button>
+                                    </td>
+                                </tr>
+                                `
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.querySelectorAll('.edit-pendencia-btn').forEach(button => {
+                button.addEventListener('click', () => openPendenciaModal(button.dataset.id));
+            });
+        }
+        
+        function openPendenciaModal(pendenciaId = null) {
+            const isEditing = pendenciaId !== null;
+            const pendencia = isEditing ? state.pendencias.find(p => p.id == pendenciaId) : {};
+            const title = isEditing ? 'Editando Pendência' : 'Criar Nova Pendência';
+            
+            const sistemasOptions = state.sistemas.map(s => `<option value="${s.id}" ${s.id == pendencia.sistema_id ? 'selected':''}>${s.name}</option>`).join('');
+
+            const formHtml = `
+                <form id="pendencia-form" class="flex flex-col h-full">
+                    <div class="flex-shrink-0 flex justify-between items-center p-6 border-b border-slate-700">
+                        <h2 class="text-lg font-bold text-white">${title}</h2>
+                        <button type="button" class="close-modal-btn text-slate-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    
+                    <div class="flex-grow overflow-y-auto p-6 space-y-4">
+                        <input type="hidden" id="pendencia-id" value="${pendencia.id || ''}">
+                        
+                        <div>
+                            <label for="pendencia-sistema" class="block text-sm font-medium text-slate-400 mb-1">Sistema *</label>
+                            <select id="pendencia-sistema" class="form-select" required>${sistemasOptions}</select>
+                        </div>
+                        
+                        <div>
+                            <label for="pendencia-title" class="block text-sm font-medium text-slate-400 mb-1">Título *</label>
+                            <input type="text" id="pendencia-title" class="form-input" value="${pendencia.title || ''}" required>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="pendencia-status" class="block text-sm font-medium text-slate-400 mb-1">Status *</label>
+                                <select id="pendencia-status" class="form-select" required>
+                                    <option ${pendencia.status === 'Aguardando' ? 'selected' : ''}>Aguardando</option>
+                                    <option ${pendencia.status === 'Concluído' ? 'selected' : ''}>Concluído</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="pendencia-responsible" class="block text-sm font-medium text-slate-400 mb-1">Responsável</label>
+                                <input type="text" id="pendencia-responsible" class="form-input" value="${pendencia.responsible || ''}">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="pendencia-descricao" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
+                            <textarea id="pendencia-descricao" rows="6" class="form-textarea">${pendencia.descricao || ''}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-shrink-0 p-4 bg-slate-900/50 border-t border-slate-700 flex justify-between items-center">
+                        <button type="button" id="delete-pendencia-btn" class="${isEditing ? '' : 'hidden'} text-sm text-red-500 hover:text-red-400 flex items-center gap-2">
+                            <i class="fa-solid fa-trash"></i>Apagar Pendência
+                        </button>
+                        <button type="submit" id="save-pendencia-btn" class="bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-lg">
+                            <i class="fa-solid fa-save mr-2"></i>${isEditing ? 'Atualizar' : 'Salvar'} Pendência
+                        </button>
+                    </div>
+                </form>
+            `;
+
+            openModal(formHtml);
+
+            document.getElementById('pendencia-form').addEventListener('submit', handleFormSubmit);
+            if(isEditing) {
+                document.getElementById('delete-pendencia-btn').addEventListener('click', confirmDelete);
+            }
+            document.querySelector('.close-modal-btn').addEventListener('click', closeModal);
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const id = form.querySelector('#pendencia-id').value;
+            
+            const pendenciaData = {
+                id: id || "NOVO",
+                sistema_id: form.querySelector('#pendencia-sistema').value,
+                title: form.querySelector('#pendencia-title').value,
+                status: form.querySelector('#pendencia-status').value,
+                responsible: form.querySelector('#pendencia-responsible').value,
+                descricao: form.querySelector('#pendencia-descricao').value,
+            };
+
+            const saveBtn = form.querySelector('#save-pendencia-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
+            try {
+                const response = await fetch(URLS.savePendencia, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pendenciaData),
+                });
+                if (!response.ok) throw new Error('Falha ao salvar pendência.');
+                
+                showToast(`Pendência ${id ? 'atualizada' : 'criada'} com sucesso!`);
+                await refetchPendencias();
+                closeModal();
+            } catch (error) {
+                showToast(error.message, true);
+            } finally {
+                saveBtn.disabled = false;
+            }
+        }
+
+        function confirmDelete() {
+            const pendenciaId = modalContent.querySelector('#pendencia-id').value;
+            if (!pendenciaId) return;
+
+            const originalModalContent = modalContent.innerHTML;
+
+            modalContent.innerHTML =`
+                <h3 class="text-lg font-bold text-white mb-4">Confirmar Exclusão</h3>
+                <p class="text-sm text-slate-300 mb-6">Tem certeza que deseja apagar esta pendência? Esta ação não pode ser desfeita.</p>
+                <div class="flex justify-end gap-4">
+                    <button id="cancel-delete" class="px-4 py-2 rounded-lg text-sm bg-slate-600 hover:bg-slate-500">Cancelar</button>
+                    <button id="confirm-delete" class="px-4 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white">Apagar</button>
+                </div>
+            `;
+            
+            document.getElementById('cancel-delete').addEventListener('click', () => modalContent.innerHTML = originalModalContent);
+            document.getElementById('confirm-delete').addEventListener('click', async () => {
+                try {
+                    const response = await fetch(URLS.deletePendencia, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: parseInt(pendenciaId) })
+                    });
+                    if (!response.ok) throw new Error('Falha ao apagar pendência.');
+                    
+                    showToast('Pendência apagada com sucesso.');
+                    await refetchPendencias();
+                    closeModal();
+                } catch(error) {
+                    showToast(error.message, true);
+                    modalContent.innerHTML = originalModalContent;
+                }
+            });
+        }
+
+        loginForm.addEventListener('submit', handleLogin);
+        logoutButton.addEventListener('click', handleLogout);
+        
+        sistemaFilter.addEventListener('change', (e) => {
+            state.filterSistemaId = e.target.value;
+            render();
+        });
+        statusFilter.addEventListener('change', (e) => {
+            state.filterStatus = e.target.value;
+            render();
+        });
+        
+        newPendenciaBtn.addEventListener('click', () => openPendenciaModal());
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        checkAuth();
+    });
+    </script>
+</body>
+</html>
