@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amulet Coin - Gerador de Propostas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; } /* zinc-900 */
+        ::-webkit-scrollbar-thumb { background-color: #3f3f46; border-radius: 10px; border: 2px solid #18181b; } /* zinc-700 */
+
+        .form-input, .form-select, .form-textarea {
+            background-color: #27272a; /* zinc-800 */
+            border: 1px solid #3f3f46; /* zinc-700 */
+            color: #d4d4d8; /* zinc-300 */
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #f59e0b; /* amber-500 */
+            box-shadow: 0 0 0 2px #78350f; /* amber-900 */
+        }
+        .form-input[disabled] {
+            background-color: #3f3f46; /* zinc-700 */
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background-color: #d97706; /* amber-600 */
+            color: white;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #b45309; /* amber-700 */
+        }
+        .btn-secondary {
+            background-color: #3f3f46; /* zinc-700 */
+            color: white;
+            font-weight: 500;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+             background-color: #52525b; /* zinc-600 */
+        }
+    </style>
+</head>
+<body class="bg-zinc-900 text-zinc-300">
+
+    <div id="app" class="flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-zinc-900/80 backdrop-blur-sm border-b border-zinc-700 sticky top-0 z-20">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-coins text-2xl text-amber-500"></i>
+                        <h1 class="text-xl font-bold text-white">Amulet Coin</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                         <span class="text-sm font-medium text-white">Olá, Usuário</span>
+                         <a href="../index.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-zinc-700">SodaPop</a>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+
+            <!-- Dashboard View -->
+            <div id="dashboard-view">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-white">Dashboard de Propostas</h2>
+                    <button id="btn-nova-proposta" class="btn-primary flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Nova Proposta
+                    </button>
+                </div>
+                <div class="bg-zinc-800 rounded-lg shadow-md overflow-hidden">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-zinc-700/50 text-xs text-zinc-400 uppercase tracking-wider">
+                            <tr>
+                                <th class="p-4">Cliente</th>
+                                <th class="p-4">Projeto</th>
+                                <th class="p-4">Valor</th>
+                                <th class="p-4">Data</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="propostas-table-body" class="divide-y divide-zinc-700">
+                            <!-- Rows will be injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Editor View -->
+            <div id="editor-view" class="hidden">
+                 <button id="btn-voltar-dashboard" class="text-zinc-400 hover:text-white mb-6 flex items-center gap-2 text-sm"><i class="fa-solid fa-arrow-left"></i> Voltar ao Dashboard</button>
+                 <h2 class="text-3xl font-bold text-white mb-6">Criar Nova Proposta</h2>
+                 
+                 <div class="space-y-8">
+                     <!-- Etapa 1: Informações Gerais -->
+                     <div class="bg-zinc-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-amber-500 mb-4 border-b border-zinc-700 pb-2">1. Informações Gerais</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label for="cliente-select" class="block text-sm font-medium mb-1">Cliente</label>
+                                <select id="cliente-select" class="form-select"></select>
+                            </div>
+                            <div>
+                                <label for="titulo-projeto" class="block text-sm font-medium mb-1">Título do Projeto</label>
+                                <input type="text" id="titulo-projeto" class="form-input" placeholder="Ex: Sistema de Gestão Interna">
+                            </div>
+                            <div>
+                                <label for="data-proposta" class="block text-sm font-medium mb-1">Data da Proposta</label>
+                                <input type="date" id="data-proposta" class="form-input">
+                            </div>
+                        </div>
+                     </div>
+
+                     <!-- Etapa 2: Escopo -->
+                     <div class="bg-zinc-800 p-6 rounded-lg">
+                        <div class="flex justify-between items-center mb-4 border-b border-zinc-700 pb-2">
+                            <h3 class="text-lg font-semibold text-amber-500">2. Escopo e Funcionalidades</h3>
+                            <div class="flex gap-2">
+                                <button id="btn-add-modulo-catalogo" class="btn-secondary text-xs">Adicionar do Catálogo</button>
+                                <button id="btn-add-modulo-custom" class="btn-secondary text-xs">Adicionar Customizado</button>
+                            </div>
+                        </div>
+                        <div id="escopo-container" class="space-y-4">
+                            <!-- Módulos adicionados aparecerão aqui -->
+                        </div>
+                     </div>
+
+                     <!-- Etapa 3: Simulador -->
+                     <div class="bg-zinc-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-amber-500 mb-4 border-b border-zinc-700 pb-2">3. Simulador de Precificação</h3>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-zinc-600">
+                                    <th class="p-2 text-left">Módulo</th>
+                                    <th class="p-2 text-left w-32">Horas Estimadas</th>
+                                    <th class="p-2 text-left w-40">Complexidade</th>
+                                    <th class="p-2 text-right w-32">Horas Calculadas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="simulador-table-body">
+                                <!-- Linhas do simulador aparecerão aqui -->
+                            </tbody>
+                            <tfoot class="text-white font-bold">
+                                <tr class="border-t-2 border-zinc-600">
+                                    <td colspan="3" class="p-2 text-right">Total de Horas do Projeto:</td>
+                                    <td id="total-horas-calculadas" class="p-2 text-right">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                     </div>
+
+                     <!-- Etapa 4: Cronograma -->
+                     <div class="bg-zinc-800 p-6 rounded-lg">
+                        <div class="flex justify-between items-center mb-4 border-b border-zinc-700 pb-2">
+                            <h3 class="text-lg font-semibold text-amber-500">4. Cronograma do Projeto</h3>
+                            <button id="btn-add-fase" class="btn-secondary text-xs">Adicionar Fase</button>
+                        </div>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-zinc-600">
+                                    <th class="p-2 text-left">Fase do Projeto</th>
+                                    <th class="p-2 text-left">Descrição da Fase</th>
+                                    <th class="p-2 text-left w-48">Duração (Semanas)</th>
+                                    <th class="p-2 text-right w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cronograma-table-body">
+                                <!-- Linhas do cronograma aparecerão aqui -->
+                            </tbody>
+                             <tfoot class="text-white font-bold">
+                                <tr class="border-t-2 border-zinc-600">
+                                    <td class="p-2 text-right" colspan="2">Total de Semanas do Projeto:</td>
+                                    <td id="total-semanas-projeto" class="p-2 text-left">0</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                     </div>
+
+                     <!-- Etapa 5: Investimento -->
+                     <div class="bg-zinc-800 p-6 rounded-lg">
+                         <h3 class="text-lg font-semibold text-amber-500 mb-4 border-b border-zinc-700 pb-2">5. Investimento</h3>
+                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label for="valor-hora" class="block text-sm font-medium mb-1">Valor da Hora (R$)</label>
+                                <input type="number" id="valor-hora" class="form-input" value="65">
+                            </div>
+                            <div>
+                                <label for="valor-desconto" class="block text-sm font-medium mb-1">Desconto (R$)</label>
+                                <input type="number" id="valor-desconto" class="form-input" value="0" placeholder="0.00">
+                            </div>
+                            <div>
+                                <label for="valor-total" class="block text-sm font-medium mb-1">Valor Total (R$)</label>
+                                <input type="text" id="valor-total" class="form-input" disabled>
+                            </div>
+                         </div>
+                         <div class="mt-4">
+                            <label for="condicoes-pagamento" class="block text-sm font-medium mb-1">Condições de Pagamento</label>
+                            <textarea id="condicoes-pagamento" rows="3" class="form-textarea" placeholder="Ex: 50% na aprovação, 50% na entrega final do projeto."></textarea>
+                         </div>
+                     </div>
+                     
+                     <!-- Etapa 6: Geração -->
+                     <div class="flex justify-end">
+                        <button id="btn-gerar-html" class="btn-primary text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-file-code"></i> Gerar Documento (.html)
+                        </button>
+                     </div>
+                 </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal para Catálogo de Serviços -->
+    <div id="catalogo-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div class="bg-zinc-800 rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b border-zinc-700 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-white">Catálogo de Serviços</h3>
+                <button id="btn-close-modal" class="text-zinc-400 hover:text-white">&times;</button>
+            </div>
+            <div id="catalogo-list" class="p-4 overflow-y-auto space-y-2">
+                <!-- Itens do catálogo -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Mensagem (Simulação de Alerta) -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div class="bg-zinc-800 rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <p id="message-text" class="text-white mb-4"></p>
+            <button id="btn-close-message-modal" class="btn-primary">OK</button>
+        </div>
+    </div>
+
+    <!-- PDF Template (Hidden) -->
+    <div id="pdf-template" class="hidden">
+        <div id="pdf-content">
+            <style>
+                .pdf-page {
+                    width: 210mm;
+                    height: 297mm;
+                    padding: 25mm;
+                    display: flex;
+                    flex-direction: column;
+                    box-sizing: border-box;
+                    background-color: #FFF9F3;
+                    color: #1D1C1B;
+                    font-family: 'Inter', sans-serif;
+                    page-break-after: always;
+                }
+                .pdf-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 2px solid #FF4E00;
+                    padding-bottom: 10px;
+                }
+                .pdf-footer {
+                    font-size: 10px;
+                    text-align: center;
+                    color: #888;
+                    border-top: 1px solid #eee;
+                    padding-top: 10px;
+                    margin-top: auto;
+                }
+            </style>
+
+            <!-- Page 1: Cover -->
+            <div class="pdf-page" style="justify-content: space-between;">
+                <header class="pdf-header">
+                     <img src="https://static.wixstatic.com/media/8e154d_4a12ed9159714e48b78edd19819bb5a0~mv2.png/v1/fill/w_150,h_150,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Logo_Redondo.png" alt="Logo" style="height: 50px;">
+                    <span style="font-size: 12px; font-weight: 600;">Proposta de Projeto</span>
+                </header>
+                <main style="text-align: left; padding-top: 80px;">
+                    <p style="font-size: 18px; color: #FF4E00; font-weight: 600;">Proposta para <span id="pdf-cliente-empresa-cover">Empresa</span></p>
+                    <h1 id="pdf-titulo-projeto" style="font-size: 52px; font-weight: 700; margin: 10px 0; line-height: 1.1;">Título do Projeto</h1>
+                    <p id="pdf-cover-subtitle" style="font-size: 18px; margin-top: 10px; max-width: 70%;">A proposta que você estava esperando, acabou de chegar.</p>
+                </main>
+                <footer style="font-size: 12px;">
+                    <div style="padding-top: 20px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <div>
+                                <p id="pdf-cliente-nome" style="margin: 0;">Nome do Cliente</p>
+                            </div>
+                            <div>
+                                <p id="pdf-data" style="margin: 0;">DD/MM/AAAA</p>
+                            </div>
+                        </div>
+                    </div>
+                </footer>
+            </div>
+
+            <!-- Page 2: Scope -->
+            <div class="pdf-page">
+                <header class="pdf-header">
+                    <img src="https://static.wixstatic.com/media/8e154d_4a12ed9159714e48b78edd19819bb5a0~mv2.png/v1/fill/w_150,h_150,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Logo_Redondo.png" alt="Logo" style="height: 30px;">
+                    <span style="font-size: 12px;" id="pdf-header-cliente">Cliente</span>
+                </header>
+                <h2 style="font-size: 24px; font-weight: 700; color: #FF4E00; margin-top: 40px; margin-bottom: 20px;">Escopo do Projeto</h2>
+                <div id="pdf-escopo-list" style="font-size: 14px; flex-grow: 1;">
+                    <!-- Scope items go here -->
+                </div>
+                <footer class="pdf-footer">
+                    <span>www.produtive.me</span> | <span class="pdf-page-number"></span>
+                </footer>
+            </div>
+
+            <!-- Page 3: Timeline -->
+             <div class="pdf-page">
+                <header class="pdf-header">
+                    <img src="https://static.wixstatic.com/media/8e154d_4a12ed9159714e48b78edd19819bb5a0~mv2.png/v1/fill/w_150,h_150,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Logo_Redondo.png" alt="Logo" style="height: 30px;">
+                    <span style="font-size: 12px;" id="pdf-header-cliente-2">Cliente</span>
+                </header>
+                <h2 style="font-size: 24px; font-weight: 700; color: #FF4E00; margin-top: 40px; margin-bottom: 20px;">Cronograma</h2>
+                <div style="font-size: 14px; flex-grow: 1;">
+                    <table id="pdf-cronograma-table" style="width: 100%; border-collapse: collapse;">
+                        <!-- Timeline items go here -->
+                    </table>
+                </div>
+                <footer class="pdf-footer">
+                    <span>www.produtive.me</span> | <span class="pdf-page-number"></span>
+                </footer>
+            </div>
+            
+            <!-- Page 4: Investment -->
+             <div class="pdf-page">
+                <header class="pdf-header">
+                    <img src="https://static.wixstatic.com/media/8e154d_4a12ed9159714e48b78edd19819bb5a0~mv2.png/v1/fill/w_150,h_150,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/Logo_Redondo.png" alt="Logo" style="height: 30px;">
+                    <span style="font-size: 12px;" id="pdf-header-cliente-3">Cliente</span>
+                </header>
+                <h2 style="font-size: 24px; font-weight: 700; color: #FF4E00; margin-top: 40px; margin-bottom: 20px;">Investimento</h2>
+                 <div style="font-size: 14px; flex-grow: 1;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+                        <tbody>
+                            <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 12px 8px;">Total de Horas do Projeto</td>
+                                <td id="pdf-total-horas" style="padding: 12px 8px; text-align: right; font-weight: 500;">0h</td>
+                            </tr>
+                             <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 12px 8px;">Valor da Hora</td>
+                                <td id="pdf-valor-hora" style="padding: 12px 8px; text-align: right; font-weight: 500;">R$ 0,00</td>
+                            </tr>
+                             <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 12px 8px;">Subtotal</td>
+                                <td id="pdf-subtotal" style="padding: 12px 8px; text-align: right; font-weight: 500;">R$ 0,00</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 12px 8px; color: #b91c1c;">Desconto</td>
+                                <td id="pdf-desconto" style="padding: 12px 8px; text-align: right; font-weight: 500; color: #b91c1c;">- R$ 0,00</td>
+                            </tr>
+                            <tr style="background-color: #FFC280; font-weight: 700; color: #1D1C1B;">
+                                <td style="padding: 15px 8px;">VALOR TOTAL</td>
+                                <td id="pdf-valor-total" style="padding: 15px 8px; text-align: right; font-size: 20px;">R$ 0,00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 30px;">
+                        <h4 style="font-weight: 600; color: #FF4E00; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px;">Condições de Pagamento</h4>
+                        <p id="pdf-condicoes" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                    </div>
+                </div>
+                 <footer class="pdf-footer">
+                    <span>www.produtive.me</span> | <span class="pdf-page-number"></span>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- DADOS FICTÍCIOS (SIMULAÇÃO DO N8N) ---
+        const mockClientes = [
+            { id: '1', nome: 'Caio Trevizan', empresa: 'Cheguei' },
+            { id: '2', nome: 'Fernando Feirinha', empresa: 'Feirinha Labs' },
+            { id: '3', nome: 'Marcos Baggio', empresa: 'Baggio Tech' },
+        ];
+
+        const mockServicosCatalogo = [
+            { id: 'cat-1', nome: 'Desenvolvimento de CRM', descricao: 'Criação de um sistema de gestão de relacionamento com o cliente, incluindo funil de vendas, cadastro de contatos e histórico de interações.' },
+            { id: 'cat-2', nome: 'Wiki Interna (Base de Conhecimento)', descricao: 'Implementação de uma plataforma centralizada para documentação de processos, tutoriais e informações importantes da empresa.' },
+            { id: 'cat-3', nome: 'Dashboard de Vendas', descricao: 'Desenvolvimento de painéis visuais para acompanhamento de métricas de vendas, performance de vendedores e metas.' },
+        ];
+
+        const mockPropostas = [
+            { id: 'p1', cliente_id: '1', titulo_projeto: 'Sistema de Revendedores', valor: 3575.00, data: '2025-09-30', status: 'Aprovada' },
+            { id: 'p2', cliente_id: '2', titulo_projeto: 'Gestão de Tarefas e OKR', valor: 4200.00, data: '2025-10-02', status: 'Enviada' },
+            { id: 'p3', cliente_id: '3', titulo_projeto: 'Controle de Imóveis', valor: 6000.00, data: '2025-10-03', status: 'Rascunho' },
+        ];
+
+        // --- ESTADO DA APLICAÇÃO ---
+        let state = {
+            currentView: 'dashboard', // 'dashboard' ou 'editor'
+            propostaAtual: {
+                id: null,
+                escopo: [], // {id, nome, descricao, horas_estimadas, complexidade}
+                cronograma: [] // {id, nome, descricao, duracao_semanas}
+            }
+        };
+
+        const complexityMultipliers = {
+            'Baixa': 1.0,
+            'Média': 1.2,
+            'Alta': 1.5
+        };
+
+        // --- ELEMENTOS DOM ---
+        const dashboardView = document.getElementById('dashboard-view');
+        const editorView = document.getElementById('editor-view');
+        const btnNovaProposta = document.getElementById('btn-nova-proposta');
+        const btnVoltarDashboard = document.getElementById('btn-voltar-dashboard');
+        const propostasTableBody = document.getElementById('propostas-table-body');
+        const clienteSelect = document.getElementById('cliente-select');
+        const escopoContainer = document.getElementById('escopo-container');
+        const simuladorTableBody = document.getElementById('simulador-table-body');
+        const btnAddModuloCatalogo = document.getElementById('btn-add-modulo-catalogo');
+        const btnAddModuloCustom = document.getElementById('btn-add-modulo-custom');
+        const catalogoModal = document.getElementById('catalogo-modal');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const catalogoList = document.getElementById('catalogo-list');
+        const valorHoraInput = document.getElementById('valor-hora');
+        const valorDescontoInput = document.getElementById('valor-desconto');
+        const btnGerarHtml = document.getElementById('btn-gerar-html');
+        const btnAddFase = document.getElementById('btn-add-fase');
+        const cronogramaTableBody = document.getElementById('cronograma-table-body');
+        
+        // --- FUNÇÕES DE RENDERIZAÇÃO E LÓGICA ---
+        
+        const showMessage = (message) => {
+            document.getElementById('message-text').textContent = message;
+            document.getElementById('message-modal').classList.remove('hidden');
+            document.getElementById('message-modal').classList.add('flex');
+        };
+
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        };
+        
+        const switchView = (view) => {
+            state.currentView = view;
+            if (view === 'dashboard') {
+                dashboardView.classList.remove('hidden');
+                editorView.classList.add('hidden');
+            } else {
+                dashboardView.classList.add('hidden');
+                editorView.classList.remove('hidden');
+            }
+        };
+
+        const renderDashboard = () => {
+            propostasTableBody.innerHTML = '';
+            if (mockPropostas.length === 0) {
+                 propostasTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-zinc-500">Nenhuma proposta encontrada.</td></tr>`;
+                 return;
+            }
+
+            const statusStyles = {
+                'Aprovada': 'bg-green-500/20 text-green-400',
+                'Enviada': 'bg-yellow-500/20 text-yellow-400',
+                'Rascunho': 'bg-zinc-500/20 text-zinc-400',
+                'Recusada': 'bg-red-500/20 text-red-400',
+            };
+
+            mockPropostas.forEach(prop => {
+                const cliente = mockClientes.find(c => c.id === prop.cliente_id);
+                const row = `
+                    <tr class="hover:bg-zinc-700/50">
+                        <td class="p-4 font-medium text-white">${cliente.empresa}</td>
+                        <td class="p-4">${prop.titulo_projeto}</td>
+                        <td class="p-4 font-medium text-white">${formatCurrency(prop.valor)}</td>
+                        <td class="p-4">${new Date(prop.data).toLocaleDateString('pt-BR')}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusStyles[prop.status] || ''}">
+                                ${prop.status}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button class="text-zinc-400 hover:text-amber-500"><i class="fa-solid fa-pencil"></i></button>
+                        </td>
+                    </tr>
+                `;
+                propostasTableBody.innerHTML += row;
+            });
+        };
+        
+        const renderEditor = () => {
+            // Preencher select de clientes
+            clienteSelect.innerHTML = '<option value="">Selecione um cliente</option>';
+            mockClientes.forEach(c => {
+                clienteSelect.innerHTML += `<option value="${c.id}">${c.empresa} (${c.nome})</option>`;
+            });
+            
+            // Setar data atual
+            document.getElementById('data-proposta').value = new Date().toISOString().split('T')[0];
+
+            renderEscopoESimulador();
+            renderCronograma();
+        };
+        
+        const renderEscopoESimulador = () => {
+            escopoContainer.innerHTML = '';
+            simuladorTableBody.innerHTML = '';
+            
+            if (state.propostaAtual.escopo.length === 0) {
+                escopoContainer.innerHTML = `<p class="text-zinc-500 text-center py-4">Nenhum módulo adicionado.</p>`;
+                simuladorTableBody.innerHTML = `<tr><td colspan="4" class="p-2 text-center text-zinc-500">Adicione módulos ao escopo.</td></tr>`;
+            }
+
+            state.propostaAtual.escopo.forEach(modulo => {
+                // Renderizar no Escopo
+                const escopoDiv = document.createElement('div');
+                escopoDiv.className = 'bg-zinc-900/50 p-4 rounded-md border border-zinc-700';
+                escopoDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <input type="text" value="${modulo.nome}" class="form-input bg-transparent border-0 p-0 text-white font-semibold focus:ring-0" placeholder="Nome do Módulo">
+                        <button class="btn-remove-modulo text-zinc-400 hover:text-red-500" data-id="${modulo.id}">&times;</button>
+                    </div>
+                    <textarea rows="3" class="form-input text-sm" placeholder="Descrição das funcionalidades...">${modulo.descricao}</textarea>
+                `;
+                escopoContainer.appendChild(escopoDiv);
+
+                // Renderizar no Simulador
+                const horasCalculadas = (modulo.horas_estimadas || 0) * (complexityMultipliers[modulo.complexidade] || 1.0);
+                const simuladorRow = document.createElement('tr');
+                simuladorRow.innerHTML = `
+                    <td class="p-2">${modulo.nome}</td>
+                    <td class="p-2"><input type="number" value="${modulo.horas_estimadas}" class="form-input simulador-input" data-id="${modulo.id}" data-field="horas_estimadas"></td>
+                    <td class="p-2">
+                        <select class="form-select simulador-input" data-id="${modulo.id}" data-field="complexidade">
+                            <option ${modulo.complexidade === 'Baixa' ? 'selected' : ''}>Baixa</option>
+                            <option ${modulo.complexidade === 'Média' ? 'selected' : ''}>Média</option>
+                            <option ${modulo.complexidade === 'Alta' ? 'selected' : ''}>Alta</option>
+                        </select>
+                    </td>
+                    <td class="p-2 text-right text-white">${horasCalculadas.toFixed(1)}</td>
+                `;
+                simuladorTableBody.appendChild(simuladorRow);
+            });
+            
+            updateCalculos();
+        };
+        
+        const renderCronograma = () => {
+            cronogramaTableBody.innerHTML = '';
+
+            if (state.propostaAtual.cronograma.length === 0) {
+                cronogramaTableBody.innerHTML = `<tr><td colspan="4" class="p-2 text-center text-zinc-500">Adicione fases ao cronograma.</td></tr>`;
+            } else {
+                state.propostaAtual.cronograma.forEach(fase => {
+                    const faseRow = document.createElement('tr');
+                    faseRow.innerHTML = `
+                        <td class="p-2 align-top"><input type="text" value="${fase.nome}" class="form-input cronograma-input" data-id="${fase.id}" data-field="nome" placeholder="Ex: Onboarding e Imersão"></td>
+                        <td class="p-2 align-top"><textarea rows="1" class="form-input cronograma-input text-sm" data-id="${fase.id}" data-field="descricao" placeholder="O que será feito nesta fase...">${fase.descricao}</textarea></td>
+                        <td class="p-2 align-top"><input type="number" value="${fase.duracao_semanas}" class="form-input cronograma-input" data-id="${fase.id}" data-field="duracao_semanas" placeholder="0"></td>
+                        <td class="p-2 text-right align-top">
+                            <button class="btn-remove-fase text-zinc-400 hover:text-red-500" data-id="${fase.id}"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                    cronogramaTableBody.appendChild(faseRow);
+                });
+            }
+            updateCronogramaCalculos();
+        };
+
+        const updateCronogramaCalculos = () => {
+            let totalSemanas = 0;
+            state.propostaAtual.cronograma.forEach(f => {
+                totalSemanas += (parseInt(f.duracao_semanas) || 0);
+            });
+            document.getElementById('total-semanas-projeto').textContent = totalSemanas;
+        };
+
+        const updateCalculos = () => {
+            let totalHoras = 0;
+            state.propostaAtual.escopo.forEach(m => {
+                totalHoras += (m.horas_estimadas || 0) * (complexityMultipliers[m.complexidade] || 1.0);
+            });
+            
+            document.getElementById('total-horas-calculadas').textContent = totalHoras.toFixed(1);
+            
+            const valorHora = parseFloat(valorHoraInput.value) || 0;
+            const valorDesconto = parseFloat(valorDescontoInput.value) || 0;
+            const valorTotal = (totalHoras * valorHora) - valorDesconto;
+            
+            document.getElementById('valor-total').value = valorTotal.toFixed(2);
+        };
+        
+        const adicionarModulo = (modulo) => {
+            state.propostaAtual.escopo.push(modulo);
+            renderEscopoESimulador();
+        };
+
+        const gerarDocumentoHtml = () => {
+            const btnOriginalText = btnGerarHtml.innerHTML;
+            btnGerarHtml.disabled = true;
+            btnGerarHtml.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Gerando...`;
+
+            // --- 1. GATHER DATA ---
+            const clienteId = document.getElementById('cliente-select').value;
+            if (!clienteId) {
+                showMessage("Por favor, selecione um cliente.");
+                btnGerarHtml.disabled = false;
+                btnGerarHtml.innerHTML = btnOriginalText;
+                return;
+            }
+            const cliente = mockClientes.find(c => c.id === clienteId);
+            const tituloProjeto = document.getElementById('titulo-projeto').value || "Projeto sem Título";
+            const dataProposta = new Date(document.getElementById('data-proposta').value + 'T00:00:00').toLocaleDateString('pt-BR');
+
+            // --- 2. POPULATE PDF TEMPLATE (used for HTML generation) ---
+            // Page 1
+            document.getElementById('pdf-titulo-projeto').innerText = tituloProjeto;
+            document.getElementById('pdf-cliente-empresa-cover').innerText = cliente.empresa;
+            document.getElementById('pdf-cliente-nome').innerText = cliente.nome;
+            document.getElementById('pdf-data').innerText = dataProposta;
+            
+            document.querySelectorAll('#pdf-header-cliente, #pdf-header-cliente-2, #pdf-header-cliente-3').forEach(el => el.innerText = cliente.empresa);
+
+            // Page 2: Scope
+            const escopoList = document.getElementById('pdf-escopo-list');
+            escopoList.innerHTML = '';
+            state.propostaAtual.escopo.forEach(modulo => {
+                escopoList.innerHTML += `<div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;"><h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px 0; color: #1D1C1B;">${modulo.nome}</h3><p style="margin: 0; white-space: pre-wrap; line-height: 1.6;">${modulo.descricao}</p></div>`;
+            });
+
+            // Page 3: Timeline
+            const cronogramaTablePdf = document.getElementById('pdf-cronograma-table');
+            cronogramaTablePdf.innerHTML = `<thead style="background-color: #FFC280; color: #1D1C1B; text-align: left;"><tr><th style="padding: 10px; border-radius: 5px 0 0 5px;">Fase</th><th style="padding: 10px;">Descrição</th><th style="padding: 10px; border-radius: 0 5px 5px 0;">Duração</th></tr></thead><tbody></tbody>`;
+            const cronogramaBodyPdf = cronogramaTablePdf.querySelector('tbody');
+            state.propostaAtual.cronograma.forEach(fase => {
+                cronogramaBodyPdf.innerHTML += `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 12px 10px; font-weight: 500;">${fase.nome}</td><td style="padding: 12px 10px;">${fase.descricao}</td><td style="padding: 12px 10px;">${fase.duracao_semanas} semana(s)</td></tr>`;
+            });
+
+            // Page 4: Investment
+            const totalHoras = parseFloat(document.getElementById('total-horas-calculadas').textContent);
+            const valorHora = parseFloat(valorHoraInput.value);
+            const subtotal = totalHoras * valorHora;
+            const desconto = parseFloat(valorDescontoInput.value);
+            const total = subtotal - desconto;
+            document.getElementById('pdf-total-horas').innerText = `${totalHoras.toFixed(1)}h`;
+            document.getElementById('pdf-valor-hora').innerText = formatCurrency(valorHora);
+            document.getElementById('pdf-subtotal').innerText = formatCurrency(subtotal);
+            document.getElementById('pdf-desconto').innerText = `- ${formatCurrency(desconto)}`;
+            document.getElementById('pdf-valor-total').innerText = formatCurrency(total);
+            document.getElementById('pdf-condicoes').innerText = document.getElementById('condicoes-pagamento').value;
+            
+            // --- 3. GENERATE HTML FILE ---
+            const templateStyles = document.querySelector('#pdf-template style').innerHTML;
+            const contentHtml = document.getElementById('pdf-content').innerHTML;
+
+            const fullHtml = `
+                <!DOCTYPE html>
+                <html lang="pt-br">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Proposta - ${tituloProjeto}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                    <style>${templateStyles}</style>
+                </head>
+                <body>${contentHtml}</body>
+                </html>
+            `;
+            
+            const blob = new Blob([fullHtml], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Proposta_${cliente.empresa.replace(/ /g, '_')}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            btnGerarHtml.disabled = false;
+            btnGerarHtml.innerHTML = btnOriginalText;
+        };
+
+        // --- MANIPULADORES DE EVENTOS ---
+
+        btnNovaProposta.addEventListener('click', () => switchView('editor'));
+        btnVoltarDashboard.addEventListener('click', () => switchView('dashboard'));
+        
+        btnAddModuloCatalogo.addEventListener('click', () => {
+            catalogoList.innerHTML = '';
+            mockServicosCatalogo.forEach(servico => {
+                const servicoDiv = document.createElement('div');
+                servicoDiv.className = 'p-3 rounded-md hover:bg-zinc-700 flex justify-between items-center cursor-pointer';
+                servicoDiv.innerHTML = `
+                    <div>
+                        <h4 class="font-semibold text-white">${servico.nome}</h4>
+                        <p class="text-xs text-zinc-400">${servico.descricao}</p>
+                    </div>
+                    <button class="btn-add-from-catalogo text-amber-500 text-lg" data-id="${servico.id}"><i class="fa-solid fa-plus-circle"></i></button>
+                `;
+                catalogoList.appendChild(servicoDiv);
+            });
+            catalogoModal.classList.remove('hidden');
+            catalogoModal.classList.add('flex');
+        });
+        
+        btnCloseModal.addEventListener('click', () => {
+            catalogoModal.classList.add('hidden');
+            catalogoModal.classList.remove('flex');
+        });
+
+        catalogoList.addEventListener('click', (e) => {
+            const button = e.target.closest('.btn-add-from-catalogo');
+            if(button) {
+                const servicoId = button.dataset.id;
+                const servico = mockServicosCatalogo.find(s => s.id === servicoId);
+                adicionarModulo({
+                    id: `mod-${Date.now()}`,
+                    nome: servico.nome,
+                    descricao: servico.descricao,
+                    horas_estimadas: 0,
+                    complexidade: 'Baixa'
+                });
+                btnCloseModal.click();
+            }
+        });
+
+        btnAddModuloCustom.addEventListener('click', () => {
+            adicionarModulo({
+                id: `mod-${Date.now()}`,
+                nome: 'Novo Módulo',
+                descricao: '',
+                horas_estimadas: 0,
+                complexidade: 'Baixa'
+            });
+        });
+        
+        escopoContainer.addEventListener('click', (e) => {
+             const button = e.target.closest('.btn-remove-modulo');
+             if(button) {
+                 const moduloId = button.dataset.id;
+                 state.propostaAtual.escopo = state.propostaAtual.escopo.filter(m => m.id !== moduloId);
+                 renderEscopoESimulador();
+             }
+        });
+        
+        escopoContainer.addEventListener('input', (e) => {
+            const input = e.target;
+            const wrapper = input.closest('.bg-zinc-900\\/50');
+            if(!wrapper) return;
+            const removeBtn = wrapper.querySelector('.btn-remove-modulo');
+            const moduloId = removeBtn.dataset.id;
+            const modulo = state.propostaAtual.escopo.find(m => m.id === moduloId);
+            
+            if(input.tagName === 'INPUT') { // Nome do Módulo
+                modulo.nome = input.value;
+                // Atualiza o nome no simulador também
+                const simuladorRow = [...simuladorTableBody.querySelectorAll('tr')].find(row => {
+                    const simuladorInput = row.querySelector('.simulador-input');
+                    return simuladorInput && simuladorInput.dataset.id === moduloId;
+                });
+                if (simuladorRow) {
+                    simuladorRow.querySelector('td').textContent = input.value;
+                }
+
+            } else if (input.tagName === 'TEXTAREA') { // Descrição
+                modulo.descricao = input.value;
+            }
+        });
+
+        simuladorTableBody.addEventListener('input', (e) => {
+            const input = e.target;
+            const moduloId = input.dataset.id;
+            const field = input.dataset.field;
+            const modulo = state.propostaAtual.escopo.find(m => m.id === moduloId);
+            
+            if(field === 'horas_estimadas') {
+                modulo.horas_estimadas = parseFloat(input.value) || 0;
+            } else if (field === 'complexidade') {
+                modulo.complexidade = input.value;
+            }
+            renderEscopoESimulador();
+        });
+        
+        valorHoraInput.addEventListener('input', updateCalculos);
+        valorDescontoInput.addEventListener('input', updateCalculos);
+        
+        btnAddFase.addEventListener('click', () => {
+            state.propostaAtual.cronograma.push({
+                id: `fase-${Date.now()}`,
+                nome: '',
+                descricao: '',
+                duracao_semanas: 1
+            });
+            renderCronograma();
+        });
+
+        cronogramaTableBody.addEventListener('input', (e) => {
+            if (e.target.classList.contains('cronograma-input')) {
+                const input = e.target;
+                const faseId = input.dataset.id;
+                const field = input.dataset.field;
+                const fase = state.propostaAtual.cronograma.find(f => f.id === faseId);
+                if (fase) {
+                    fase[field] = input.value;
+                    if (field === 'duracao_semanas') {
+                        updateCronogramaCalculos();
+                    }
+                }
+            }
+        });
+
+        cronogramaTableBody.addEventListener('click', (e) => {
+            const button = e.target.closest('.btn-remove-fase');
+            if (button) {
+                const faseId = button.dataset.id;
+                state.propostaAtual.cronograma = state.propostaAtual.cronograma.filter(f => f.id !== faseId);
+                renderCronograma();
+            }
+        });
+
+        btnGerarHtml.addEventListener('click', gerarDocumentoHtml);
+        
+        document.getElementById('btn-close-message-modal').addEventListener('click', () => {
+             document.getElementById('message-modal').classList.add('hidden');
+             document.getElementById('message-modal').classList.remove('flex');
+        });
+
+        // --- INICIALIZAÇÃO ---
+        renderDashboard();
+        renderEditor();
+    });
+    </script>
+</body>
+</html>
