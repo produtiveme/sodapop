@@ -337,7 +337,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.9.2</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.3</p>
         </footer>
     </div>
 
@@ -350,7 +350,7 @@
                 sistemas: [],
                 funcionalidades: [],
                 changes: [],
-                pendencias: [], // <-- ADDED: State for pendências
+                pendencias: [],
                 responsaveis: [],
                 allStatuses: [],
                 allChangeTypes: ['Added', 'Changed', 'Deprecated', 'Fixed', 'Removed', 'Security', 'Task'],
@@ -365,6 +365,7 @@
                 calendarDate: new Date(),
                 selectedSistemaTab: 'funcionalidade',
                 meusChangesFilters: { sistema: '', status: [] },
+                sistemaTarefasFilters: { responsible: [], status: [] },
                 calendarFilters: { status: [], responsible: [], sistema: [] },
                 overdueFilters: { responsible: [], status: [], sistema: [] },
                 kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
@@ -415,7 +416,7 @@
                 sistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas',
                 funcionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
                 changes: 'https://work.produ-cloud.com/webhook/carrega-todos-change',
-                pendencias: 'https://work.produ-cloud.com/webhook/upgrade-busca-pendencias', // <-- ADDED: Webhook for pendências
+                pendencias: 'https://work.produ-cloud.com/webhook/upgrade-busca-pendencias',
                 updateChange: 'https://work.produ-cloud.com/webhook/atualiza_change',
                 createChange: 'https://work.produ-cloud.com/webhook/cria_change',
                 createFuncionalidade: 'https://work.produ-cloud.com/webhook/cria_funcionalidade',
@@ -566,7 +567,7 @@
                         fetch(URLS.sistemas), 
                         fetch(URLS.funcionalidades), 
                         fetch(URLS.changes),
-                        fetch(URLS.pendencias) // <-- ADDED: Fetch pendências data
+                        fetch(URLS.pendencias)
                     ]);
                     if (!sistemasRes.ok || !funcionalidadesRes.ok || !changesRes.ok || !pendenciasRes.ok) throw new Error('Falha ao buscar dados do N8N.');
                     
@@ -576,10 +577,18 @@
                     state.funcionalidades = await funcionalidadesRes.json();
                     const rawChanges = await changesRes.json();
                     state.changes = rawChanges.map(c => ({ ...c, prazo: c.prazo?.replace(/"/g, ''), data_encerramento: c.data_encerramento?.replace(/"/g, '') }));
-                    state.pendencias = await pendenciasRes.json(); // <-- ADDED: Store pendências in state
+                    state.pendencias = await pendenciasRes.json();
                     
                     state.responsaveis = [...new Set(state.changes.map(c => c.responsible).filter(Boolean))].sort();
                     state.allStatuses = [...new Set(state.changes.map(c => c.status).filter(Boolean))].sort();
+
+                    if (state.currentUser && state.currentUser.nome && !state.selectedResponsible) {
+                        const respName = state.responsaveis.find(r => state.currentUser.nome.startsWith(r));
+                        if (respName) {
+                            state.selectedResponsible = respName;
+                        }
+                    }
+
                     updateUI();
                 } catch (error) {
                     console.error('Erro ao carregar dados:', error);
@@ -885,7 +894,6 @@
                 views.sistemaDetail.classList.remove('hidden');
                 const sistema = state.selectedSistema, color = colorMap[sistema.color] || colorMap.default;
                 
-                // <-- ADDED: Calculate pendências counter
                 const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == sistema.id && p.status !== 'Concluído');
                 const pendenciasCounterHtml = sistemaPendencias.length > 0 ? `<span class="ml-2 bg-yellow-500 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">${sistemaPendencias.length}</span>` : '';
 
@@ -895,6 +903,7 @@
                     <div class="mt-4 border-b border-slate-700 flex space-x-1">
                         <button id="tab-funcionalidade" class="px-4 py-2 text-sm font-medium border-b-2">Por Funcionalidade</button>
                         <button id="tab-calendario" class="px-4 py-2 text-sm font-medium border-b-2">Por Calendário</button>
+                        <button id="tab-tarefas" class="px-4 py-2 text-sm font-medium border-b-2">Tarefas</button>
                         <button id="tab-kanban" class="px-4 py-2 text-sm font-medium border-b-2">Kanban</button>
                         <button id="tab-hillchart" class="px-4 py-2 text-sm font-medium border-b-2">Hill Chart</button>
                         <button id="tab-pendencias" class="flex items-center px-4 py-2 text-sm font-medium border-b-2">Pendências ${pendenciasCounterHtml}</button>
@@ -903,29 +912,140 @@
                 const tabs = {
                     funcionalidade: views.sistemaDetail.querySelector('#tab-funcionalidade'),
                     calendario: views.sistemaDetail.querySelector('#tab-calendario'),
+                    tarefas: views.sistemaDetail.querySelector('#tab-tarefas'),
                     kanban: views.sistemaDetail.querySelector('#tab-kanban'),
                     hillchart: views.sistemaDetail.querySelector('#tab-hillchart'),
-                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias') // <-- ADDED: Pendências tab
+                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias')
                 };
                 Object.keys(tabs).forEach(tabKey => {
-                    tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === tabKey ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
-                    // <-- ADDED: Style for pendências tab counter
+                    const key = tabKey.replace('_', '-');
+                    tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === key ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
                     if (tabKey === 'pendencias') {
                         tabs[tabKey].classList.add('flex', 'items-center');
                     }
-                    tabs[tabKey].addEventListener('click', () => { state.selectedSistemaTab = tabKey; render(); });
+                    tabs[tabKey].addEventListener('click', () => { state.selectedSistemaTab = key; render(); });
                 });
                 
                 if (state.selectedSistemaTab === 'funcionalidade') renderSistemaFuncionalidadeView();
                 else if (state.selectedSistemaTab === 'calendario') renderSistemaCalendarioView();
+                else if (state.selectedSistemaTab === 'tarefas') renderSistemaTarefasView();
                 else if (state.selectedSistemaTab === 'kanban') renderSistemaKanbanView();
                 else if (state.selectedSistemaTab === 'hillchart') renderSistemaHillChartView();
-                else if (state.selectedSistemaTab === 'pendencias') renderSistemaPendenciasView(); // <-- ADDED: Call new render function
+                else if (state.selectedSistemaTab === 'pendencias') renderSistemaPendenciasView();
 
                 views.sistemaDetail.querySelector('#back-to-sistemas').addEventListener('click', () => { state.currentView = 'sistemas'; render(); });
             }
 
-            // <-- ADDED: New function to render the Pendências tab content -->
+            function renderSistemaTarefasView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                
+                let changes = state.changes.filter(c => 
+                    c.sistema_id == state.selectedSistema.id && 
+                    !state.completedStatuses.includes(c.status)
+                );
+
+                const projectResponsaveis = [...new Set(changes.map(c => c.responsible).filter(Boolean))].sort();
+
+                if (state.sistemaTarefasFilters.responsible.length > 0) {
+                    changes = changes.filter(c => state.sistemaTarefasFilters.responsible.includes(c.responsible));
+                }
+                if (state.sistemaTarefasFilters.status.length > 0) {
+                    changes = changes.filter(c => state.sistemaTarefasFilters.status.includes(c.status));
+                }
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+                const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 8);
+
+                const groupedByDate = { overdue: [], today: [], next7days: [], future: [], noDate: [] };
+
+                changes.forEach(change => {
+                    if (!change.prazo || change.prazo.startsWith('1970')) {
+                        groupedByDate.noDate.push(change);
+                        return;
+                    }
+                    const prazoDate = new Date(change.prazo);
+                    if (prazoDate < today) groupedByDate.overdue.push(change);
+                    else if (prazoDate >= today && prazoDate < tomorrow) groupedByDate.today.push(change);
+                    else if (prazoDate >= tomorrow && prazoDate < nextWeek) groupedByDate.next7days.push(change);
+                    else groupedByDate.future.push(change);
+                });
+
+                const dateGroupOrder = [
+                    { key: 'overdue', title: 'Atrasado', color: 'text-red-400' },
+                    { key: 'today', title: 'Hoje', color: 'text-green-400' },
+                    { key: 'next7days', title: 'Próximos 7 Dias', color: 'text-yellow-400' },
+                    { key: 'future', title: 'Futuro', color: 'text-slate-400' },
+                    { key: 'noDate', title: 'Sem Prazo', color: 'text-slate-500' }
+                ];
+                
+                const createFilterDropdown = (id, btnTxt, items, chkdItems, stKey, valKey, nameKey) => `<div class="relative w-full md:w-auto"><button id="${id}-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>${btnTxt} (${chkdItems.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="${id}-dropdown" class="hidden absolute top-full right-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600 max-h-60 overflow-y-auto"><div class="p-2 space-y-1">${items.map(item => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="sistema-tarefas-filter-checkbox" data-filter-type="${stKey}" value="${item[valKey]}" ${chkdItems.includes(item[valKey]) ? 'checked' : ''}><span>${item[nameKey]}</span></label>`).join('')}</div></div></div>`;
+
+                let contentHtml = `<div class="flex items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg">
+                    ${createFilterDropdown('sistema-responsible-filter', 'Responsável', projectResponsaveis.map(r => ({value: r, name: r})), state.sistemaTarefasFilters.responsible, 'responsible', 'value', 'name')}
+                    ${createFilterDropdown('sistema-status-filter', 'Status', state.allStatuses.filter(s => !state.completedStatuses.includes(s)).map(s => ({value: s, name: s})), state.sistemaTarefasFilters.status, 'status', 'value', 'name')}
+                </div>`;
+
+                let hasContent = false;
+                dateGroupOrder.forEach(groupInfo => {
+                    const changesInGroup = groupedByDate[groupInfo.key];
+                    if (changesInGroup.length > 0) {
+                        hasContent = true;
+                        contentHtml += `<h3 class="font-bold ${groupInfo.color} mt-6 mb-2 text-lg">${groupInfo.title}</h3><ul>`;
+                        changesInGroup.forEach(change => {
+                            const prazoRelativo = formatPrazoRestante(change.prazo);
+                            const prazoColor = prazoRelativo ? prazoRelativo.color : 'text-slate-500';
+
+                            contentHtml += `
+                                <li class="task-item group flex items-center gap-4 py-3 border-b border-slate-700" data-change-id="${change.id}">
+                                    <div class="task-checkbox-btn" data-change-id="${change.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </div>
+                                    <div class="flex-grow cursor-pointer" data-change-id="${change.id}">
+                                        <p class="text-slate-200">${change.text}</p>
+                                        <div class="flex items-center gap-4 text-xs mt-1">
+                                            ${change.prazo ? `<span class="${prazoColor} flex items-center gap-1.5"><i class="fa-solid fa-calendar"></i> ${formatDate(change.prazo)}</span>` : ''}
+                                            <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-hashtag"></i> ${change.idChange}</span>
+                                            ${change.responsible ? `<span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-user"></i> ${change.responsible}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button class="edit-change-btn hidden group-hover:block text-slate-400 hover:text-white px-2" data-change-id="${change.id}"><i class="fa-solid fa-pencil"></i></button>
+                                </li>
+                            `;
+                        });
+                        contentHtml += `</ul>`;
+                    }
+                });
+
+                 if (!hasContent) {
+                    contentHtml += `<p class="text-slate-500 mt-6 text-center">Nenhuma tarefa encontrada para este projeto com os filtros selecionados.</p>`;
+                }
+                
+                container.innerHTML = contentHtml;
+                
+                ['sistema-responsible-filter', 'sistema-status-filter'].forEach(id => {
+                    const btn = container.querySelector(`#${id}-btn`), dropdown = container.querySelector(`#${id}-dropdown`);
+                    if(btn) btn.addEventListener('click', () => dropdown.classList.toggle('hidden'));
+                });
+
+                container.querySelectorAll('.sistema-tarefas-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    const type = e.target.dataset.filterType;
+                    const value = e.target.value;
+                    if (e.target.checked) state.sistemaTarefasFilters[type].push(value);
+                    else state.sistemaTarefasFilters[type] = state.sistemaTarefasFilters[type].filter(item => item !== value);
+                    render();
+                }));
+
+                container.querySelectorAll('.task-checkbox-btn').forEach(btn => btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    handleQuickComplete(e.currentTarget.dataset.changeId);
+                }));
+                container.querySelectorAll('.flex-grow, .edit-change-btn').forEach(el => el.addEventListener('click', e => {
+                     e.stopPropagation();
+                    showChangeModal(e.currentTarget.dataset.changeId);
+                }));
+            }
+            
             function renderSistemaPendenciasView() {
                 const container = views.sistemaDetail.querySelector('#sistema-tab-content');
                 const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == state.selectedSistema.id);
@@ -1886,6 +2006,9 @@
                     const option = document.createElement('option');
                     option.value = r;
                     option.textContent = r;
+                    if (r === state.selectedResponsible) {
+                        option.selected = true;
+                    }
                     responsibleFilterEl.appendChild(option);
                 });
                 render();
@@ -1897,25 +2020,24 @@
             themeToggleButton.addEventListener('click', toggleTheme);
 
             navSistemasBtn.addEventListener('click', () => {
-                state.currentView = 'sistemas'; state.selectedSistema = null; state.selectedResponsible = null;
-                responsibleFilterEl.value = '';
-                state.calendarFilters = { status: [], responsible: [], sistema: [] }; 
-                state.overdueFilters = { responsible: [], status: [], sistema: [] }; 
-                state.kanbanFilters = { status: [], responsible: [], funcionalidade: [] };
+                state.currentView = 'sistemas'; state.selectedSistema = null; 
+                if (state.currentUser && state.currentUser.nome) {
+                    const respName = state.responsaveis.find(r => state.currentUser.nome.startsWith(r));
+                    state.selectedResponsible = respName || null;
+                } else {
+                    state.selectedResponsible = null;
+                }
+                responsibleFilterEl.value = state.selectedResponsible || '';
                 render();
             });
             navCalendarioBtn.addEventListener('click', () => {
                 state.currentView = 'calendario'; state.selectedSistema = null; state.selectedResponsible = null;
                 responsibleFilterEl.value = '';
-                state.overdueFilters = { responsible: [], status: [], sistema: [] }; 
-                state.kanbanFilters = { status: [], responsible: [], funcionalidade: [] };
                 render();
             });
             navAtrasadosBtn.addEventListener('click', () => {
                 state.currentView = 'overdue'; state.selectedSistema = null; state.selectedResponsible = null;
                 responsibleFilterEl.value = '';
-                state.calendarFilters = { status: [], responsible: [], sistema: [] };
-                state.kanbanFilters = { status: [], responsible: [], funcionalidade: [] };
                 render();
             });
              navFinalizadosBtn.addEventListener('click', () => {
@@ -1925,14 +2047,14 @@
             });
             responsibleFilterEl.addEventListener('change', (e) => {
                 state.meusChangesFilters = { sistema: '', status: [] };
-                state.calendarFilters = { status: [], responsible: [], sistema: [] };
-                state.overdueFilters = { responsible: [], status: [], sistema: [] };
-                state.kanbanFilters = { status: [], responsible: [], funcionalidade: [] };
                 if(e.target.value) {
                     state.selectedResponsible = e.target.value;
                     state.currentView = 'meus-changes';
                     state.selectedSistema = null;
-                } else { state.currentView = 'sistemas'; }
+                } else { 
+                    state.selectedResponsible = null;
+                    state.currentView = 'sistemas'; 
+                }
                 render();
             });
             mainModalEl.addEventListener('click', (e) => { if (e.target === mainModalEl) closeModal(); });
