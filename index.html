@@ -85,6 +85,32 @@
             transition: max-height 0.3s ease-out;
         }
 
+        /* Todoist-like styles */
+        .task-checkbox-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #475569; /* slate-600 */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .task-checkbox-btn:hover {
+            background-color: rgba(71, 85, 105, 0.5); /* slate-600/50 */
+        }
+        .task-checkbox-btn svg {
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: white;
+        }
+        .task-item:hover .task-checkbox-btn svg {
+            opacity: 1;
+        }
+
+
         /* Light Theme Styles - V2 (Correction) */
         .light-theme {
             --bg-primary: #ffffff;
@@ -121,6 +147,8 @@
         .light-theme .text-indigo-400 { color: #4f46e5 !important; }
         .light-theme .bg-slate-700.text-slate-300 { color: var(--text-primary) !important; }
         .light-theme .text-red-400 { color: #ef4444 !important; }
+        .light-theme .text-green-400 { color: #22c55e !important; }
+        .light-theme .text-yellow-400 { color: #f59e0b !important; }
 
 
         /* Component Specific Overrides */
@@ -189,6 +217,12 @@
             --tw-prose-quote-borders: var(--border-color);
             --tw-prose-code: var(--text-primary);
             --tw-prose-pre-bg: var(--bg-tertiary);
+        }
+        .light-theme .task-checkbox-btn {
+            border-color: #cbd5e1; /* slate-300 */
+        }
+        .light-theme .task-checkbox-btn:hover {
+             background-color: rgba(203, 213, 225, 0.5);
         }
     </style>
 </head>
@@ -304,7 +338,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.4</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.9.0</p>
         </footer>
     </div>
 
@@ -571,6 +605,27 @@
                 }
             }
             
+            async function handleQuickComplete(changeId) {
+                const change = state.changes.find(c => c.id == changeId);
+                if (!change || state.completedStatuses.includes(change.status)) return;
+
+                const updatedChange = {
+                    ...change,
+                    status: 'Finalizado',
+                    data_encerramento: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                const el = document.querySelector(`.task-item[data-change-id="${changeId}"]`);
+                if (el) {
+                    el.style.opacity = '0.5';
+                }
+
+                if (!(await updateChange(updatedChange))) {
+                    if (el) el.style.opacity = '1';
+                }
+            }
+
             async function handleSaveChanges(changeId, button) {
                 button.disabled = true;
                 button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
@@ -1253,25 +1308,95 @@
             function renderMeusChanges() {
                 views.meusChanges.classList.remove('hidden');
                 const responsible = state.selectedResponsible;
-                let changes = state.changes.filter(c => c.responsible === responsible);
+                let changes = state.changes.filter(c => c.responsible === responsible && !state.completedStatuses.includes(c.status));
+                
                 if (state.meusChangesFilters.sistema) changes = changes.filter(c => c.sistema_id == state.meusChangesFilters.sistema);
                 if (state.meusChangesFilters.status.length > 0) changes = changes.filter(c => state.meusChangesFilters.status.includes(c.status));
-                const groupedChanges = changes.reduce((acc, change) => {
-                    const sistema = state.sistemas.find(s => s.id == change.sistema_id) || { name: 'Sistema Desconhecido', id: 'unknown' };
-                    if (!acc[sistema.id]) acc[sistema.id] = { sistemaName: sistema.name, changes: [] };
-                    acc[sistema.id].changes.push(change);
-                    return acc;
-                }, {});
-                views.meusChanges.innerHTML = `<h2 class="text-2xl font-bold text-white mb-4">Changes de ${responsible}</h2><div class="flex items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg"><select id="meus-changes-sistema-filter" class="bg-slate-700 text-white text-sm rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full md:w-auto"><option value="">Todos os Sistemas</option>${state.sistemas.map(s => `<option value="${s.id}" ${state.meusChangesFilters.sistema == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}</select><div class="relative w-full md:w-auto"><button id="status-filter-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>Filtrar por Status (${state.meusChangesFilters.status.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="status-filter-dropdown" class="hidden absolute top-full right-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600"><div class="p-2 space-y-1">${state.allStatuses.map(status => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="status-filter-checkbox" value="${status}" ${state.meusChangesFilters.status.includes(status) ? 'checked' : ''}><span>${status}</span></label>`).join('')}</div></div></div></div><div class="space-y-6">${Object.keys(groupedChanges).length > 0 ? Object.values(groupedChanges).map(group => `<div><h3 class="text-lg font-semibold text-indigo-400 mb-3">${group.sistemaName}</h3><div class="space-y-3">${group.changes.map(change => `<div class="change-card bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center justify-between cursor-pointer" data-change-id="${change.id}"><div class="flex items-center min-w-0"><div class="mr-4">${change.goldenTicket ? '<i class="fa-solid fa-star text-yellow-400 text-lg"></i>' : '<div class="w-1 h-10 bg-slate-700 rounded-full"></div>'}</div><div class="min-w-0"><p class="font-semibold text-white truncate">${change.text}</p><p class="text-xs text-slate-400"><span class="font-mono">Ticket-${change.idChange}</span> | Prazo: ${formatDate(change.prazo)}</p></div></div><span class="text-xs font-bold px-2 py-1 rounded-full ${statusMap[change.status] || ''}">${change.status}</span></div>`).join('')}</div></div>`).join('') : `<p class="text-slate-500 mt-6">Nenhum change encontrado.</p>`}</div>`;
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+                const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 8); // To include today + 7 days
+
+                const groupedByDate = { overdue: [], today: [], next7days: [], future: [], noDate: [] };
+
+                changes.forEach(change => {
+                    if (!change.prazo || change.prazo.startsWith('1970')) {
+                        groupedByDate.noDate.push(change);
+                        return;
+                    }
+                    const prazoDate = new Date(change.prazo);
+                    // No need to setUTCHours if we compare with local `today` `tomorrow` etc.
+                    if (prazoDate < today) groupedByDate.overdue.push(change);
+                    else if (prazoDate >= today && prazoDate < tomorrow) groupedByDate.today.push(change);
+                    else if (prazoDate >= tomorrow && prazoDate < nextWeek) groupedByDate.next7days.push(change);
+                    else groupedByDate.future.push(change);
+                });
+
+                const dateGroupOrder = [
+                    { key: 'overdue', title: 'Atrasado', color: 'text-red-400' },
+                    { key: 'today', title: 'Hoje', color: 'text-green-400' },
+                    { key: 'next7days', title: 'Próximos 7 Dias', color: 'text-yellow-400' },
+                    { key: 'future', title: 'Futuro', color: 'text-slate-400' },
+                    { key: 'noDate', title: 'Sem Prazo', color: 'text-slate-500' }
+                ];
+                
+                let contentHtml = `<h2 class="text-2xl font-bold text-white mb-4">Changes de ${responsible}</h2><div class="flex items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg"><select id="meus-changes-sistema-filter" class="bg-slate-700 text-white text-sm rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full md:w-auto"><option value="">Todos os Sistemas</option>${state.sistemas.map(s => `<option value="${s.id}" ${state.meusChangesFilters.sistema == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}</select><div class="relative w-full md:w-auto"><button id="status-filter-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>Filtrar por Status (${state.meusChangesFilters.status.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="status-filter-dropdown" class="hidden absolute top-full right-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600"><div class="p-2 space-y-1">${state.allStatuses.filter(s => !state.completedStatuses.includes(s)).map(status => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="status-filter-checkbox" value="${status}" ${state.meusChangesFilters.status.includes(status) ? 'checked' : ''}><span>${status}</span></label>`).join('')}</div></div></div></div>`;
+                
+                let hasContent = false;
+                dateGroupOrder.forEach(groupInfo => {
+                    const changesInGroup = groupedByDate[groupInfo.key];
+                    if (changesInGroup.length > 0) {
+                        hasContent = true;
+                        contentHtml += `<h3 class="font-bold ${groupInfo.color} mt-6 mb-2 text-lg">${groupInfo.title}</h3><ul>`;
+                        changesInGroup.forEach(change => {
+                            const sistema = state.sistemas.find(s => s.id == change.sistema_id);
+                            const prazoRelativo = formatPrazoRestante(change.prazo);
+                            const prazoColor = prazoRelativo ? prazoRelativo.color : 'text-slate-500';
+
+                            contentHtml += `
+                                <li class="task-item group flex items-center gap-4 py-3 border-b border-slate-700" data-change-id="${change.id}">
+                                    <div class="task-checkbox-btn" data-change-id="${change.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </div>
+                                    <div class="flex-grow cursor-pointer" data-change-id="${change.id}">
+                                        <p class="text-slate-200">${change.text}</p>
+                                        <div class="flex items-center gap-4 text-xs mt-1">
+                                            ${change.prazo ? `<span class="${prazoColor} flex items-center gap-1.5"><i class="fa-solid fa-calendar"></i> ${formatDate(change.prazo)}</span>` : ''}
+                                            <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-hashtag"></i> ${change.idChange}</span>
+                                            ${sistema ? `<span class="text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-folder"></i> ${sistema.name}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button class="edit-change-btn hidden group-hover:block text-slate-400 hover:text-white px-2" data-change-id="${change.id}"><i class="fa-solid fa-pencil"></i></button>
+                                </li>
+                            `;
+                        });
+                        contentHtml += `</ul>`;
+                    }
+                });
+
+                if(!hasContent) {
+                    contentHtml += `<p class="text-slate-500 mt-6 text-center">Nenhuma tarefa encontrada para os filtros selecionados.</p>`;
+                }
+
+                views.meusChanges.innerHTML = contentHtml;
+
+                // Add event listeners
                 document.getElementById('meus-changes-sistema-filter').addEventListener('change', e => { state.meusChangesFilters.sistema = e.target.value; render(); });
                 const statusBtn = document.getElementById('status-filter-btn'), statusDropdown = document.getElementById('status-filter-dropdown');
-                statusBtn.addEventListener('click', () => statusDropdown.classList.toggle('hidden'));
+                if(statusBtn) statusBtn.addEventListener('click', () => statusDropdown.classList.toggle('hidden'));
                 document.querySelectorAll('.status-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
                     if (e.target.checked) state.meusChangesFilters.status.push(e.target.value);
                     else state.meusChangesFilters.status = state.meusChangesFilters.status.filter(s => s !== e.target.value);
                     render();
                 }));
-                views.meusChanges.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+                views.meusChanges.querySelectorAll('.task-checkbox-btn').forEach(btn => btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    handleQuickComplete(e.currentTarget.dataset.changeId);
+                }));
+                views.meusChanges.querySelectorAll('.flex-grow, .edit-change-btn').forEach(el => el.addEventListener('click', e => {
+                     e.stopPropagation();
+                    showChangeModal(e.currentTarget.dataset.changeId);
+                }));
             }
             
             function renderCalendar() {
