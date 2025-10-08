@@ -726,53 +726,77 @@
 
             function renderSistemasList() {
                 views.sistemas.classList.remove('hidden');
-                views.sistemas.innerHTML = `<h2 class="text-2xl font-bold text-white mb-6">Todos os Sistemas</h2><div id="sistemas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>`;
-                const grid = views.sistemas.querySelector('#sistemas-grid');
-                state.sistemas.forEach(sistema => {
-                    const color = colorMap[sistema.color] || colorMap.default;
-                    const card = document.createElement('div');
-                    
-                    const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
-                    let totalPontos = 0;
-                    let pontosConcluidos = 0;
+                views.sistemas.innerHTML = `<h2 class="text-2xl font-bold text-white mb-6">Todos os Sistemas</h2>`;
+                
+                const groupedSistemas = state.sistemas.reduce((acc, sistema) => {
+                    const status = sistema.status || 'Sem Status';
+                    if (!acc[status]) {
+                        acc[status] = [];
+                    }
+                    acc[status].push(sistema);
+                    return acc;
+                }, {});
 
-                    sistemaFuncs.forEach(func => {
-                        const pontos = state.complexityPoints[func.complexidade] || 0;
-                        totalPontos += pontos;
-                        pontosConcluidos += pontos * ((func.progress || 0) / 100);
-                    });
+                const statusOrder = ['Desenvolvimento', 'Manutenção', 'Pausado', 'Concluído', 'Sem Status'];
 
-                    const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
-                    
-                    const statusInfo = sistemaStatusMap[sistema.status] || { bg: 'bg-gray-500/20', text: 'text-gray-300' };
-                    const statusHtml = sistema.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusInfo.bg} ${statusInfo.text}">${sistema.status}</span>` : '';
-                    
-                    const prazoInfo = formatPrazoRestante(sistema.prazo);
-                    const prazoHtml = prazoInfo ? `<div class="flex items-center text-xs font-semibold ${prazoInfo.color} mt-4"><i class="fa-solid fa-stopwatch mr-2"></i><span>${prazoInfo.text}</span></div>` : '';
+                statusOrder.forEach(status => {
+                    if (groupedSistemas[status] && groupedSistemas[status].length > 0) {
+                        const statusTitle = document.createElement('h3');
+                        statusTitle.className = 'text-xl font-semibold text-indigo-400 mt-8 mb-4 border-b border-slate-700 pb-2';
+                        statusTitle.textContent = status;
+                        views.sistemas.appendChild(statusTitle);
+
+                        const grid = document.createElement('div');
+                        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
+
+                        groupedSistemas[status].forEach(sistema => {
+                            const color = colorMap[sistema.color] || colorMap.default;
+                            const card = document.createElement('div');
+                            
+                            const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                            let totalPontos = 0;
+                            let pontosConcluidos = 0;
+
+                            sistemaFuncs.forEach(func => {
+                                const pontos = state.complexityPoints[func.complexidade] || 0;
+                                totalPontos += pontos;
+                                pontosConcluidos += pontos * ((func.progress || 0) / 100);
+                            });
+
+                            const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
+                            
+                            const statusInfo = sistemaStatusMap[sistema.status] || { bg: 'bg-gray-500/20', text: 'text-gray-300' };
+                            const statusHtml = sistema.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusInfo.bg} ${statusInfo.text}">${sistema.status}</span>` : '';
+                            
+                            const prazoInfo = formatPrazoRestante(sistema.prazo);
+                            const prazoHtml = prazoInfo ? `<div class="flex items-center text-xs font-semibold ${prazoInfo.color} mt-4"><i class="fa-solid fa-stopwatch mr-2"></i><span>${prazoInfo.text}</span></div>` : '';
 
 
-                    card.className = `border ${color.border} bg-slate-800 rounded-lg p-5 flex flex-col justify-between hover:border-indigo-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10`;
-                    card.innerHTML = `
-                        <div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span>
-                                ${statusHtml}
-                            </div>
-                            <h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3>
-                            <div class="text-sm text-slate-400 mt-2 h-16 overflow-hidden description-content">${markdownConverter.makeHtml(sistema.description || '')}</div>
-                        </div>
-                         <div class="mt-4">
-                            ${prazoHtml}
-                            <div class="flex justify-between text-xs text-slate-400 mb-1 mt-2">
-                                <span>Progresso</span>
-                                <span>${Math.round(progressoPonderado)}%</span>
-                            </div>
-                            <div class="w-full bg-slate-700 rounded-full h-1.5">
-                                <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
-                            </div>
-                        </div>`;
-                    card.addEventListener('click', () => { state.selectedSistema = sistema; state.selectedSistemaTab = 'funcionalidade'; state.currentView = 'sistema-detail'; render(); });
-                    grid.appendChild(card);
+                            card.className = `border ${color.border} bg-slate-800 rounded-lg p-5 flex flex-col justify-between hover:border-indigo-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10`;
+                            card.innerHTML = `
+                                <div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span>
+                                        ${statusHtml}
+                                    </div>
+                                    <h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3>
+                                    <div class="text-sm text-slate-400 mt-2 h-16 overflow-hidden description-content">${markdownConverter.makeHtml(sistema.description || '')}</div>
+                                </div>
+                                 <div class="mt-4">
+                                    ${prazoHtml}
+                                    <div class="flex justify-between text-xs text-slate-400 mb-1 mt-2">
+                                        <span>Progresso</span>
+                                        <span>${Math.round(progressoPonderado)}%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-700 rounded-full h-1.5">
+                                        <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
+                                    </div>
+                                </div>`;
+                            card.addEventListener('click', () => { state.selectedSistema = sistema; state.selectedSistemaTab = 'funcionalidade'; state.currentView = 'sistema-detail'; render(); });
+                            grid.appendChild(card);
+                        });
+                        views.sistemas.appendChild(grid);
+                    }
                 });
             }
 
