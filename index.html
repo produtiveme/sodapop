@@ -152,7 +152,7 @@
 
 
         /* Component Specific Overrides */
-        .light-theme #app header button, .light-theme #responsible-filter {
+        .light-theme #app header button, .light-theme #responsible-filter, .light-theme #ticket-search-form input {
             background-color: var(--bg-tertiary) !important;
             color: var(--text-primary) !important;
         }
@@ -271,17 +271,16 @@
                         </svg>
                         <h1 class="text-xl font-bold text-white">SodaPop</h1>
                     </div>
-                    <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
                         <button id="nav-sistemas" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-slate-700">Sistemas</button>
                         <button id="nav-calendario" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Calendário</button>
                         <button id="nav-atrasados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Atrasados</button>
                         <button id="nav-finalizados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Finalizados</button>
-                        <a href="pearl.html" target="_blank" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700 flex items-center gap-2">
-                            Pearl <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-                        </a>
-                        <a href="starpiece.html" target="_blank" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700 flex items-center gap-2">
-                            Star Piece <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-                        </a>
+                        <div class="h-6 border-l border-slate-600 mx-2"></div>
+                        <form id="ticket-search-form" class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">#</span>
+                            <input type="search" id="ticket-search-input" placeholder="Buscar Ticket..." class="form-input bg-slate-700 pl-7 w-32 text-sm py-1.5 focus:w-48 transition-all duration-300">
+                        </form>
                         <div class="relative">
                             <select id="responsible-filter" class="bg-slate-700 text-white text-sm font-medium rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                                 <option value="">Meus Changes</option>
@@ -338,7 +337,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.9.0</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.9.2</p>
         </footer>
     </div>
 
@@ -401,6 +400,8 @@
             const navAtrasadosBtn = document.getElementById('nav-atrasados');
             const navFinalizadosBtn = document.getElementById('nav-finalizados');
             const responsibleFilterEl = document.getElementById('responsible-filter');
+            const ticketSearchForm = document.getElementById('ticket-search-form');
+            const ticketSearchInput = document.getElementById('ticket-search-input');
             const mainModalEl = document.getElementById('main-modal');
             const modalContentEl = document.getElementById('modal-content');
             const subModalEl = document.getElementById('sub-modal');
@@ -750,6 +751,21 @@
                     button.disabled = false;
                     button.innerHTML = 'Criar Funcionalidade';
                 }
+            }
+            
+            function handleTicketSearch(e) {
+                e.preventDefault();
+                const ticketId = ticketSearchInput.value.trim();
+                if (!ticketId) return;
+
+                const foundChange = state.changes.find(c => c.idChange == ticketId);
+
+                if (foundChange) {
+                    showChangeModal(foundChange.id);
+                } else {
+                    showToast(`Ticket #${ticketId} não encontrado.`, true);
+                }
+                ticketSearchInput.value = '';
             }
 
 
@@ -1920,6 +1936,8 @@
                 render();
             });
             mainModalEl.addEventListener('click', (e) => { if (e.target === mainModalEl) closeModal(); });
+
+            ticketSearchForm.addEventListener('submit', handleTicketSearch);
 
             // --- INITIALIZATION ---
             checkAuth();
