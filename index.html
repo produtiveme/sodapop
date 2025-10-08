@@ -304,7 +304,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.1</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.4</p>
         </footer>
     </div>
 
@@ -737,7 +737,17 @@
                     return acc;
                 }, {});
 
-                const statusOrder = ['Desenvolvimento', 'Manutenção', 'Pausado', 'Concluído', 'Sem Status'];
+                const preferredStatusOrder = ['Desenvolvimento', 'Manutenção', 'Pausado', 'Concluído'];
+                const allStatusesInData = Object.keys(groupedSistemas);
+                
+                const statusOrder = [
+                    ...preferredStatusOrder.filter(s => allStatusesInData.includes(s)),
+                    ...allStatusesInData.filter(s => !preferredStatusOrder.includes(s) && s !== 'Sem Status'),
+                ];
+
+                if (allStatusesInData.includes('Sem Status')) {
+                    statusOrder.push('Sem Status');
+                }
 
                 statusOrder.forEach(status => {
                     if (groupedSistemas[status] && groupedSistemas[status].length > 0) {
