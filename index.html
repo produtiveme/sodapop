@@ -163,11 +163,11 @@
             background-color: #93c5fd !important;
             color: #1e3a8a !important;
         }
-        .light-theme #logout-button, .light-theme #theme-toggle-btn {
+        .light-theme #logout-button, .light-theme #theme-toggle-btn, .light-theme #app-launcher-btn {
             background-color: transparent !important;
             color: var(--text-secondary) !important;
         }
-        .light-theme #logout-button:hover, .light-theme #theme-toggle-btn:hover {
+        .light-theme #logout-button:hover, .light-theme #theme-toggle-btn:hover, .light-theme #app-launcher-btn:hover {
             color: var(--text-primary) !important;
         }
 
@@ -190,7 +190,7 @@
         .light-theme .change-card.bg-slate-700 { background-color: var(--bg-tertiary) !important; }
         .light-theme .bg-slate-700.rounded-full { background-color: var(--bg-tertiary) !important; }
 
-        .light-theme #modal-content, .light-theme #sub-modal-content {
+        .light-theme #modal-content, .light-theme #sub-modal-content, .light-theme #app-launcher-panel {
             background-color: var(--bg-primary) !important;
         }
         .light-theme #modal-content .bg-slate-900\/50 {
@@ -289,6 +289,10 @@
                                <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
+                        <div class="h-6 border-l border-slate-600 mx-2"></div>
+                        <button id="app-launcher-btn" class="text-slate-400 hover:text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-700" title="Ferramentas">
+                            <i class="fa-solid fa-th-large"></i>
+                        </button>
                         <button id="theme-toggle-btn" class="text-slate-400 hover:text-white" title="Alterar tema">
                             <i id="theme-icon-sun" class="fa-solid fa-sun hidden"></i>
                             <i id="theme-icon-moon" class="fa-solid fa-moon"></i>
@@ -298,6 +302,12 @@
                 </div>
             </nav>
         </header>
+
+        <!-- App Launcher Panel -->
+        <div id="app-launcher-panel" class="hidden absolute top-16 right-4 w-80 max-w-sm bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-4 z-30">
+            <!-- App items will be injected by JS -->
+        </div>
+
 
         <!-- Main Content -->
         <main id="main-content" class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 main-content">
@@ -337,7 +347,7 @@
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.3</p>
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.4</p>
         </footer>
     </div>
 
@@ -384,6 +394,8 @@
             const themeToggleButton = document.getElementById('theme-toggle-btn');
             const themeIconSun = document.getElementById('theme-icon-sun');
             const themeIconMoon = document.getElementById('theme-icon-moon');
+            const appLauncherBtn = document.getElementById('app-launcher-btn');
+            const appLauncherPanel = document.getElementById('app-launcher-panel');
             
             const views = {
                 loading: document.getElementById('loading'),
@@ -802,6 +814,32 @@
                 else if (state.currentView === 'calendario') renderCalendar();
                 else if (state.currentView === 'overdue') renderOverdue();
                 else if (state.currentView === 'finalizados') renderFinalizados();
+            }
+            
+            function renderAppLauncher() {
+                const ecosystemApps = [
+                    { name: 'Pass', description: 'Dashboard do cliente.', link: 'pass.html', icon: 'fa-key' },
+                    { name: 'Key', description: 'Criação de senhas para clientes.', link: 'key.html', icon: 'fa-user-lock' },
+                    { name: 'Pearl', description: 'Mapeamento de gráficos Mermaid.', link: 'pearl.html', icon: 'fa-project-diagram' },
+                    { name: 'Star Piece', description: 'Registro de dores e processos.', link: 'starpiece.html', icon: 'fa-star' },
+                    { name: 'Lemonade', description: 'Gestão de eventos e marcos.', link: 'lemonade.html', icon: 'fa-lemon' },
+                    { name: 'Upgrade', description: 'Cadastro de pendências.', link: 'upgrade.html', icon: 'fa-rocket' }
+                ];
+
+                appLauncherPanel.innerHTML = '<div class="grid grid-cols-2 gap-4"></div>';
+                const grid = appLauncherPanel.querySelector('div');
+
+                ecosystemApps.forEach(app => {
+                    grid.innerHTML += `
+                        <a href="${app.link}" target="_blank" class="flex items-center p-3 rounded-lg hover:bg-slate-700">
+                            <i class="fa-solid ${app.icon} text-indigo-400 text-2xl w-10 text-center"></i>
+                            <div class="ml-3">
+                                <p class="font-semibold text-white">${app.name}</p>
+                                <p class="text-xs text-slate-400">${app.description}</p>
+                            </div>
+                        </a>
+                    `;
+                });
             }
 
             function renderSistemasList() {
@@ -2061,8 +2099,20 @@
 
             ticketSearchForm.addEventListener('submit', handleTicketSearch);
 
+            appLauncherBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                appLauncherPanel.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!appLauncherPanel.classList.contains('hidden') && !appLauncherPanel.contains(e.target) && e.target !== appLauncherBtn) {
+                    appLauncherPanel.classList.add('hidden');
+                }
+            });
+
             // --- INITIALIZATION ---
             checkAuth();
+            renderAppLauncher();
         });
     </script>
 </body>
