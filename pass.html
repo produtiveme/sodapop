@@ -110,6 +110,41 @@
             opacity: 1;
             transform: translate(-50%, -50%) scale(1.1);
         }
+
+        /* Estilos para a Tooltip do Hill Chart */
+        .hill-tooltip {
+            position: absolute;
+            background-color: #1e293b; /* slate-800 */
+            border: 1px solid #4f46e5; /* indigo-600 */
+            color: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 50;
+            white-space: nowrap;
+            font-size: 12px;
+            transform: translate(-50%, -100%);
+        }
+        .hill-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #4f46e5;
+        }
+        
+        /* Estilos para as fases CRIA */
+        .cria-clarificar { stroke: #4ade80; /* green-400 */ }
+        .cria-refinar { stroke: #60a5fa; /* blue-400 */ }
+        .cria-implementar { stroke: #facc15; /* yellow-400 */ }
+        .cria-ajustar { stroke: #f87171; /* red-400 */ }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -190,10 +225,13 @@
                 <!-- Conteúdo do modal (vídeo embedado) -->
             </div>
         </div>
+        
+        <!-- Tooltip para Hill Chart -->
+        <div id="hill-tooltip" class="hill-tooltip hidden"></div>
 
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p class="text-xs text-slate-500">ProdutiveMe | Pass v1.9</p>
+            <p class="text-xs text-slate-500">ProdutiveMe | Pass v1.10.0</p>
         </footer>
     </div>
 
@@ -245,6 +283,7 @@
             const modalContentEl = document.getElementById('modal-content');
             const toastEl = document.getElementById('toast');
             const toastMessageEl = document.getElementById('toast-message');
+            const hillTooltip = document.getElementById('hill-tooltip'); // NOVO: Tooltip
             
             // --- N8N WEBHOOK URLS ---
             const URLS = {
@@ -260,6 +299,34 @@
             const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true, strikethrough: true });
             const colorMap = { blue: { bg: 'bg-blue-900/10', border: 'border-blue-500', text: 'text-blue-400' }, green: { bg: 'bg-green-900/10', border: 'border-green-500', text: 'text-green-400' }, pink: { bg: 'bg-pink-900/10', border: 'border-pink-500', text: 'text-pink-400' }, gray: { bg: 'bg-slate-700/10', border: 'border-slate-500', text: 'text-slate-400' }, orange: { bg: 'bg-orange-900/10', border: 'border-orange-500', text: 'text-orange-400' }, default: { bg: 'bg-slate-800', border: 'border-slate-700', text: 'text-slate-300' } };
             const complexityPoints = { 'P': 1, 'M': 3, 'G': 7, 'GG': 15, 'XGG': 50 };
+            
+            // NOVO: Mapeamento de cor e raio para a complexidade
+            const complexityStyles = {
+                'P': { radius: 5, fill: '#4ade80' }, // green-400
+                'M': { radius: 7, fill: '#60a5fa' }, // blue-400
+                'G': { radius: 9, fill: '#a855f7' }, // purple-500
+                'GG': { radius: 11, fill: '#facc15' }, // yellow-400
+                'XGG': { radius: 13, fill: '#f87171' }, // red-400
+                'default': { radius: 7, fill: '#94a3b8' } // slate-400
+            };
+
+            // NOVO: Mapeamento de cor para as linhas CRIA
+            const criaColors = {
+                25: '#4ade80', // C-Clarificar
+                50: '#60a5fa', // R-Refinar
+                75: '#facc15', // I-Implementar
+            };
+            
+            // NOVO: Mapeamento do progresso para a fase CRIA
+            const getCriaPhase = (progress) => {
+                if (progress === 100) return { name: 'Ajustar', tag: 'A', color: '#4ade80' }; // Mudado para verde ao invés de vermelho
+                if (progress > 75) return { name: 'Ajustar', tag: 'A', color: '#f87171' };
+                if (progress > 50) return { name: 'Implementar', tag: 'I', color: '#facc15' };
+                if (progress > 25) return { name: 'Refinar', tag: 'R', color: '#60a5fa' };
+                return { name: 'Clarificar', tag: 'C', color: '#4ade80' };
+            };
+
+
             const eventTypeMap = {
                 'Reunião': { icon: 'fa-users', color: 'text-sky-400' },
                 'Atualização': { icon: 'fa-info-circle', color: 'text-green-400' },
@@ -306,14 +373,9 @@
 
             // Função para gerar um URL de thumbnail (implementando Opção B: Capa Padrão)
             const getLoomThumbnail = (url) => {
-                // Remove a lógica de placeholder anterior e retorna um URL vazio,
-                // que será tratado no HTML com a capa padrão.
                 if (!url || !url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/)) {
-                     // Retorna null para sinalizar que o default-cover deve ser exibido
                     return null;
                 }
-                // Se no futuro você implementar a Opção A, o URL da miniatura iria aqui.
-                // Por enquanto, forçamos o fallback para a capa padrão
                 return null; 
             };
 
@@ -1023,15 +1085,19 @@
                 
                 container.innerHTML = `
                     <h3 class="text-xl font-semibold text-white mb-4">Hill Chart do Projeto</h3>
-                    <div class="bg-slate-800/50 p-6 rounded-lg">
-                        <svg id="hill-chart-svg" width="100%" viewBox="0 0 800 300"></svg>
+                    <div class="bg-slate-800/50 p-6 rounded-lg relative">
+                        <div id="hill-legend" class="absolute top-4 right-4 bg-slate-900/70 p-3 rounded-lg text-xs backdrop-blur-sm shadow-lg border border-slate-700"></div>
+                        <div id="cria-legend" class="absolute bottom-4 left-4 right-4 bg-slate-900/70 p-3 rounded-lg text-xs backdrop-blur-sm shadow-lg border border-slate-700 flex justify-around"></div>
+                        <svg id="hill-chart-svg" width="100%" viewBox="0 0 800 450"></svg>
                     </div>
                 `;
 
+                const hillLegendEl = container.querySelector('#hill-legend');
+                const criaLegendEl = container.querySelector('#cria-legend');
                 const svg = container.querySelector('#hill-chart-svg');
                 const width = 800;
-                const height = 300;
-                const margin = { top: 60, right: 40, bottom: 40, left: 40 };
+                const height = 450;
+                const margin = { top: 80, right: 40, bottom: 40, left: 40 };
                 const chartWidth = width - margin.left - margin.right;
                 const chartHeight = height - margin.top - margin.bottom;
 
@@ -1050,22 +1116,42 @@
                 path.setAttribute('fill', 'none');
                 chartGroup.appendChild(path);
 
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', chartWidth / 2);
-                line.setAttribute('y1', hillTopY - 10);
-                line.setAttribute('x2', chartWidth / 2);
-                line.setAttribute('y2', hillBottomY + 10);
-                line.setAttribute('stroke', '#334155');
-                line.setAttribute('stroke-width', '1');
-                line.setAttribute('stroke-dasharray', '4');
-                chartGroup.appendChild(line);
+                // Linha central (50% - Refinar/Implementar)
+                const centerLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                centerLine.setAttribute('x1', chartWidth / 2);
+                centerLine.setAttribute('y1', hillTopY - 10);
+                centerLine.setAttribute('x2', chartWidth / 2);
+                centerLine.setAttribute('y2', hillBottomY + 10);
+                centerLine.setAttribute('stroke', '#334155');
+                centerLine.setAttribute('stroke-width', '1');
+                centerLine.setAttribute('stroke-dasharray', '4');
+                chartGroup.appendChild(centerLine);
+                
+                // NOVO: Linhas de 25% (Clarificar/Refinar) e 75% (Implementar/Ajustar)
+                const criaLines = [
+                    { percent: 0.25, class: 'cria-clarificar' },
+                    { percent: 0.75, class: 'cria-implementar' }
+                ];
+                criaLines.forEach(({ percent, class: lineClass }) => {
+                    const lineX = chartWidth * percent;
+                    const criaLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    criaLine.setAttribute('x1', lineX);
+                    criaLine.setAttribute('y1', hillTopY + 5);
+                    criaLine.setAttribute('x2', lineX);
+                    criaLine.setAttribute('y2', hillBottomY - 5);
+                    criaLine.setAttribute('stroke', criaColors[percent * 100]); // Usa cor específica
+                    criaLine.setAttribute('stroke-width', '1');
+                    criaLine.setAttribute('stroke-dasharray', '2');
+                    chartGroup.appendChild(criaLine);
+                });
+
 
                 const upHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 upHillLabel.setAttribute('x', chartWidth / 4);
                 upHillLabel.setAttribute('y', chartHeight);
                 upHillLabel.setAttribute('text-anchor', 'middle');
                 upHillLabel.setAttribute('fill', '#94a3b8');
-                upHillLabel.textContent = 'Planejamento';
+                upHillLabel.textContent = 'Planejamento (C-R)';
                 chartGroup.appendChild(upHillLabel);
 
                 const downHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -1073,7 +1159,7 @@
                 downHillLabel.setAttribute('y', chartHeight);
                 downHillLabel.setAttribute('text-anchor', 'middle');
                 downHillLabel.setAttribute('fill', '#94a3b8');
-                downHillLabel.textContent = 'Execução';
+                downHillLabel.textContent = 'Execução (I-A)';
                 chartGroup.appendChild(downHillLabel);
                 
                 const points = [];
@@ -1086,7 +1172,7 @@
                     const t = (func.progress || 0) / 100;
                     const x = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
                     const y = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
-                    points.push({ x, y, text: func.text });
+                    points.push({ x, y, data: func, progress: func.progress || 0, text: func.text });
                 });
 
                 const labelPositions = [];
@@ -1128,6 +1214,12 @@
                 });
                 
                 points.forEach(point => {
+                     // NOVO: Cores e Tamanho baseado na Complexidade
+                    const complexity = point.data.complexidade || 'default';
+                    const { radius, fill } = complexityStyles[complexity] || complexityStyles.default;
+                    const isComplete = point.progress === 100;
+                    const phase = getCriaPhase(point.progress);
+                    
                      const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     connector.setAttribute('x1', point.x);
                     connector.setAttribute('y1', point.y - 5);
@@ -1141,19 +1233,78 @@
                     text.setAttribute('x', point.x);
                     text.setAttribute('y', point.labelY);
                     text.setAttribute('text-anchor', 'middle');
-                    text.setAttribute('fill', '#cbd5e1');
+                    text.setAttribute('fill', isComplete ? '#4ade80' : '#cbd5e1');
                     text.setAttribute('font-size', '12');
-                    text.textContent = point.text;
+                    // NOVO: Adiciona a tag CRIA ao lado do nome (C- Clarificar)
+                    text.textContent = `[${phase.tag}] ${point.text}`;
                     chartGroup.appendChild(text);
 
                     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     circle.setAttribute('cx', point.x);
                     circle.setAttribute('cy', point.y);
-                    circle.setAttribute('r', '5');
-                    circle.setAttribute('fill', '#818cf8');
+                    circle.setAttribute('r', radius); // Tamanho por Complexidade
+                    circle.setAttribute('fill', isComplete ? '#4ade80' : fill); // Cor por Complexidade/Concluído
                     circle.setAttribute('stroke', '#1e293b');
                     circle.setAttribute('stroke-width', '2');
+                    
+                    // NOVO: Adiciona atributos para a Tooltip
+                    circle.setAttribute('data-name', point.text);
+                    circle.setAttribute('data-progress', point.progress);
+                    circle.setAttribute('data-complexity', complexity);
+                    circle.setAttribute('data-phase', phase.name);
+                    circle.setAttribute('class', 'hill-point cursor-pointer');
+
                     chartGroup.appendChild(circle);
+                });
+                
+                // NOVO: Renderiza a legenda de Complexidade
+                hillLegendEl.innerHTML = `
+                    <h4 class="font-bold text-white mb-2">Complexidade</h4>
+                    <ul class="space-y-1">
+                        ${Object.keys(complexityStyles).filter(k => k !== 'default').map(key => {
+                            const style = complexityStyles[key];
+                            return `
+                                <li class="flex items-center space-x-2">
+                                    <svg width="20" height="20"><circle cx="10" cy="10" r="${style.radius * 0.7}" fill="${style.fill}" /></svg>
+                                    <span class="text-slate-400 font-semibold">${key} (${complexityPoints[key]} pts)</span>
+                                </li>
+                            `;
+                        }).join('')}
+                    </ul>
+                `;
+
+                // NOVO: Renderiza a legenda CRIA
+                criaLegendEl.innerHTML = `
+                    ${['C - Clarificar (0-25%)', 'R - Refinar (26-50%)', 'I - Implementar (51-75%)', 'A - Ajustar (76-100%)'].map((item, index) => {
+                        const phaseColor = index === 0 ? criaColors[25] : index === 1 ? criaColors[50] : index === 2 ? criaColors[75] : criaColors[75];
+                        return `<div class="flex items-center space-x-1"><div class="w-2 h-2 rounded-full" style="background-color: ${phaseColor};"></div><span class="text-slate-400 text-xs">${item}</span></div>`;
+                    }).join('')}
+                `;
+                
+                // NOVO: Adiciona eventos de Tooltip (Perg. 2)
+                const chartSvg = container.querySelector('#hill-chart-svg');
+                chartSvg.querySelectorAll('.hill-point').forEach(circle => {
+                    circle.addEventListener('mouseenter', (e) => {
+                        const rect = e.target.getBoundingClientRect();
+                        const data = e.target.dataset;
+                        
+                        hillTooltip.innerHTML = `
+                            <p class="font-bold text-white mb-1">${data.name}</p>
+                            <p class="text-xs text-indigo-300">Progresso: <span class="font-semibold">${data.progress}%</span></p>
+                            <p class="text-xs text-slate-400">Fase: <span class="font-semibold">${data.phase}</span></p>
+                            <p class="text-xs text-slate-400">Complexidade: <span class="font-semibold">${data.complexity}</span></p>
+                        `;
+
+                        hillTooltip.style.left = `${rect.left + rect.width / 2}px`;
+                        hillTooltip.style.top = `${rect.top}px`;
+                        hillTooltip.classList.remove('hidden');
+                        hillTooltip.style.opacity = '1';
+                    });
+
+                    circle.addEventListener('mouseleave', () => {
+                        hillTooltip.style.opacity = '0';
+                        setTimeout(() => hillTooltip.classList.add('hidden'), 200);
+                    });
                 });
             }
 
@@ -1174,12 +1325,19 @@
                 const funcsHtml = funcs.length > 0 ? funcs.map(f => {
                     const progress = f.progress || 0;
                     const circumference = 16 * 2 * Math.PI;
+                    const { fill } = complexityStyles[f.complexidade] || complexityStyles.default; // NOVO: Cor por Complexidade
+                    const phase = getCriaPhase(progress); // NOVO: Fase CRIA
                     
                     return `
                         <li class="bg-slate-800 p-3 rounded-md flex items-center justify-between">
                             <div class="flex-grow flex items-center">
                                 <span class="pr-4">${f.text}</span>
-                                <span class="bg-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">${f.type || 'Funcionalidade'}</span>
+                                <div class="flex items-center space-x-2">
+                                     <!-- NOVO: Tag de Fase CRIA -->
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded-full" style="background-color: ${phase.color}20; color: ${phase.color};">${phase.tag} - ${phase.name}</span>
+                                    <!-- NOVO: Tag de Complexidade -->
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded-full text-white" style="background-color: ${fill};">${f.complexidade || 'P'}</span>
+                                </div>
                             </div>
                             <div class="flex items-center flex-shrink-0">
                                 <div class="relative w-10 h-10">
