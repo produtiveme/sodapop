@@ -49,6 +49,67 @@
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
+        /* Estilo para o container de vídeo com efeito de play */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            cursor: pointer;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            background-color: #1a202c; /* cor de fundo para simular a tela preta */
+            transition: transform 0.2s;
+        }
+        .video-container:hover {
+            transform: scale(1.02);
+        }
+        .video-thumbnail {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .video-container:hover .video-thumbnail {
+            opacity: 0.5;
+        }
+        /* Adicionado estilo para a capa padrão */
+        .default-cover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #334155; /* slate-700 */
+        }
+        .default-cover-icon {
+            color: #6366f1; /* indigo-500 */
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 3rem;
+            opacity: 0.8;
+            transition: opacity 0.2s, transform 0.2s;
+            /* Adiciona sombra para destaque */
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+        }
+        .video-container:hover .play-button {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -123,10 +184,22 @@
             </div>
         </main>
         
+        <!-- Modals -->
+        <div id="main-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+            <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <!-- Conteúdo do modal (vídeo embedado) -->
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
-            <p class="text-xs text-slate-500">ProdutiveMe | Pass v1.8</p>
+            <p class="text-xs text-slate-500">ProdutiveMe | Pass v1.9</p>
         </footer>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden">
+        <p id="toast-message"></p>
     </div>
 
     <script>
@@ -139,10 +212,12 @@
                 funcionalidades: [],
                 eventos: [],
                 pendencias: [],
+                videos: [], // NOVO: Estado para os vídeos
                 eventosLoadFailed: false,
                 funcionalidadesLoadFailed: false,
                 pendenciasLoading: false,
                 pendenciasLoadFailed: false,
+                videosLoadFailed: false,
                 currentView: 'sistemas',
                 selectedSistema: null,
                 selectedSistemaTab: 'timeline',
@@ -166,6 +241,10 @@
                 sistemaDetail: document.getElementById('sistema-detail-view'),
             };
             const mainContentEl = document.getElementById('main-content');
+            const mainModalEl = document.getElementById('main-modal');
+            const modalContentEl = document.getElementById('modal-content');
+            const toastEl = document.getElementById('toast');
+            const toastMessageEl = document.getElementById('toast-message');
             
             // --- N8N WEBHOOK URLS ---
             const URLS = {
@@ -173,7 +252,8 @@
                 sistemas: 'https://work.produ-cloud.com/webhook/pass-busca-sistema',
                 funcionalidades: 'https://work.produ-cloud.com/webhook/pass-busca-funcionalidade',
                 eventos: 'https://work.produ-cloud.com/webhook/pass-busca-eventos',
-                pendencias: 'https://work.produ-cloud.com/webhook/pass-busca-pendencias'
+                pendencias: 'https://work.produ-cloud.com/webhook/pass-busca-pendencias',
+                getVideos: 'https://work.produ-cloud.com/webhook/pass-busca-video', // Webhook de busca de vídeos
             };
             
             // --- UTILITIES ---
@@ -196,6 +276,46 @@
                 const date = new Date(dateString);
                 return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
             };
+            const showToast = (message, isError = false) => {
+                toastMessageEl.textContent = message;
+                toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+                toastEl.classList.remove('hidden');
+                setTimeout(() => { toastEl.classList.add('hidden'), 3000; });
+            };
+            const openModal = (content) => {
+                modalContentEl.innerHTML = content;
+                mainModalEl.classList.remove('hidden');
+                mainModalEl.classList.add('flex');
+            };
+            const closeModal = () => {
+                mainModalEl.classList.add('hidden');
+                mainModalEl.classList.remove('flex');
+                modalContentEl.innerHTML = '';
+            };
+            
+            // Função para extrair o ID do vídeo Loom e gerar o URL embed
+            const getLoomEmbedUrl = (url) => {
+                if (!url) return null;
+                const match = url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
+                if (match && match[1]) {
+                    // Transforma URL de compartilhamento em URL de embed
+                    return `https://www.loom.com/embed/${match[1]}?autoplay=0`;
+                }
+                return null;
+            };
+
+            // Função para gerar um URL de thumbnail (implementando Opção B: Capa Padrão)
+            const getLoomThumbnail = (url) => {
+                // Remove a lógica de placeholder anterior e retorna um URL vazio,
+                // que será tratado no HTML com a capa padrão.
+                if (!url || !url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/)) {
+                     // Retorna null para sinalizar que o default-cover deve ser exibido
+                    return null;
+                }
+                // Se no futuro você implementar a Opção A, o URL da miniatura iria aqui.
+                // Por enquanto, forçamos o fallback para a capa padrão
+                return null; 
+            };
 
 
             // --- AUTHENTICATION & API ---
@@ -216,7 +336,7 @@
 
                 if (response.status === 401) {
                     handleLogout();
-                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                    return Promise.reject(new Error('Sessão expirada. Por favor, faça login novamente.'));
                 }
                 
                 return response;
@@ -291,7 +411,7 @@
                 state.isAuthenticated = false;
                 state.currentUser = null;
                 Object.assign(state, {
-                    sistemas: [], funcionalidades: [], eventos: [], pendencias: [], currentView: 'sistemas', selectedSistema: null, selectedSistemaTab: 'timeline'
+                    sistemas: [], funcionalidades: [], eventos: [], pendencias: [], videos: [], currentView: 'sistemas', selectedSistema: null, selectedSistemaTab: 'timeline'
                 });
                 checkAuth();
             }
@@ -301,24 +421,64 @@
                 state.pendenciasLoading = true;
                 state.pendencias = [];
                 state.pendenciasLoadFailed = false;
-                render();
-
+                // Removido render() daqui para evitar render incompleto no meio da busca
+                // O render final será chamado em refetchAllSystemData
                 try {
                     const response = await authenticatedFetch(URLS.pendencias, {
                         method: 'POST',
                         body: JSON.stringify({ sistema_id: sistemaId })
+                    }).catch(error => { // Adicionado catch para tratar TypeError: Failed to fetch
+                         console.error('Falha ao buscar pendências:', error);
+                         state.pendenciasLoadFailed = true;
+                         throw error; // Propaga o erro para o Promise.all
                     });
-                     if (!response.ok) {
+                    
+                    if (!response.ok) {
                         throw new Error(`Servidor respondeu com status ${response.status}`);
                     }
                     state.pendencias = await response.json();
                 } catch (error) {
-                    console.error('Falha ao buscar pendências:', error);
+                    console.error('Falha ao buscar pendências (API):', error);
                     state.pendenciasLoadFailed = true;
+                    // Se a API retornar sucesso (status 200) mas o array estiver vazio, state.pendencias 
+                    // será [] e a tela tratará como "Não foram encontradas pendências."
                 } finally {
                     state.pendenciasLoading = false;
-                    render();
                 }
+            }
+            
+            // NOVO: Função para buscar os vídeos
+            async function fetchVideos(sistemaId) {
+                state.videosLoadFailed = false;
+                try {
+                    const response = await authenticatedFetch(URLS.getVideos, {
+                        method: 'POST',
+                        // NOVO: Envia o sistema_id para filtragem (conforme a rotina N8N)
+                        body: JSON.stringify({ sistema_id: sistemaId }) 
+                    }).catch(error => { // Adicionado catch para tratar TypeError: Failed to fetch
+                         console.error('Falha ao buscar vídeos:', error);
+                         state.videosLoadFailed = true;
+                         throw error; // Propaga o erro para o Promise.all
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Servidor respondeu com status ${response.status}`);
+                    }
+                    state.videos = await response.json();
+                } catch (error) {
+                    console.error('Falha ao buscar vídeos (API):', error);
+                    state.videos = [];
+                    state.videosLoadFailed = true;
+                }
+            }
+            
+            async function refetchAllSystemData(sistemaId) {
+                 await Promise.all([
+                    // Usamos Promise.allSettled aqui para que a falha de um não bloqueie o resto,
+                    // mas já temos o tratamento no .catch/try-catch interno para definir o flag.
+                    fetchPendencias(sistemaId).catch(err => {}), 
+                    fetchVideos(sistemaId).catch(err => {})
+                ]);
             }
             
             async function fetchData() {
@@ -327,13 +487,21 @@
                 try {
                     const requestBody = {
                         method: 'POST',
-                        body: JSON.stringify({ sistemas_ids: state.currentUser.sistemas_ids })
+                        // Em vez de sistemas_ids, usamos apenas o primeiro ID do array para a busca inicial
+                        body: JSON.stringify({ sistemas_ids: state.currentUser.sistemas_ids }) 
                     };
 
+                    // Envolve as chamadas iniciais em funções que tratam erros de rede antes do Promise.allSettled
+                    const safeFetch = (url, body) => authenticatedFetch(url, { method: 'POST', body: JSON.stringify(body) }).catch(err => {
+                        console.error(`Erro de rede ao buscar ${url}:`, err);
+                        // Retorna um objeto simulado para que Promise.allSettled funcione corretamente
+                        return { ok: false, status: 0, error: err }; 
+                    });
+
                     const results = await Promise.allSettled([
-                        authenticatedFetch(URLS.sistemas, requestBody),
-                        authenticatedFetch(URLS.funcionalidades, requestBody),
-                        authenticatedFetch(URLS.eventos, requestBody)
+                        safeFetch(URLS.sistemas, { sistemas_ids: state.currentUser.sistemas_ids }),
+                        safeFetch(URLS.funcionalidades, { sistemas_ids: state.currentUser.sistemas_ids }),
+                        safeFetch(URLS.eventos, { sistemas_ids: state.currentUser.sistemas_ids })
                     ]);
 
                     const [sistemasResult, funcionalidadesResult, eventosResult] = results;
@@ -366,18 +534,18 @@
                     if (state.sistemas.length === 1) {
                         state.selectedSistema = state.sistemas[0];
                         state.currentView = 'sistema-detail';
-                        await fetchPendencias(state.selectedSistema.id);
+                        await refetchAllSystemData(state.selectedSistema.id);
                     } else {
                         state.currentView = 'sistemas';
-                        render();
                     }
                     
                 } catch (error) {
                     console.error('Erro geral ao carregar dados:', error);
-                    views.loading.innerHTML = `<p class="text-red-400">Ocorreu um erro inesperado. Verifique o console.</p>`;
+                    views.loading.innerHTML = `<p class="text-red-400">Ocorreu um erro inesperado. Verifique o console. (Possível problema de CORS/Rede)</p>`;
                 } finally {
                     views.loading.classList.add('hidden');
                     views.container.classList.remove('hidden');
+                    render(); // Renderiza após a conclusão de todas as buscas
                 }
             }
 
@@ -436,7 +604,8 @@
                         state.selectedSistema = sistema; 
                         state.currentView = 'sistema-detail'; 
                         state.selectedSistemaTab = 'timeline'; 
-                        await fetchPendencias(sistema.id);
+                        await refetchAllSystemData(sistema.id);
+                        render();
                     });
                     grid.appendChild(card);
                 });
@@ -469,6 +638,7 @@
                     <div class="mt-4 border-b border-slate-700 flex space-x-1">
                         <button id="tab-timeline" class="px-4 py-2 text-sm font-medium border-b-2">Linha do Tempo</button>
                         <button id="tab-overview" class="px-4 py-2 text-sm font-medium border-b-2">Visão Geral</button>
+                        <button id="tab-videos" class="px-4 py-2 text-sm font-medium border-b-2">Vídeos</button>
                         <button id="tab-pendencias" class="flex items-center px-4 py-2 text-sm font-medium border-b-2">Pendências ${pendenciasCounterHtml}</button>
                     </div>
                     <div id="sistema-tab-content" class="mt-6"></div>`;
@@ -476,6 +646,7 @@
                 const tabs = {
                     timeline: views.sistemaDetail.querySelector('#tab-timeline'),
                     overview: views.sistemaDetail.querySelector('#tab-overview'),
+                    videos: views.sistemaDetail.querySelector('#tab-videos'), // NOVO
                     pendencias: views.sistemaDetail.querySelector('#tab-pendencias'),
                 };
                 
@@ -497,11 +668,125 @@
                     renderOverviewTab(tabContentContainer);
                 } else if (state.selectedSistemaTab === 'pendencias') {
                     renderPendenciasTab(tabContentContainer);
+                } else if (state.selectedSistemaTab === 'videos') {
+                    renderSistemaVideosView(tabContentContainer); // NOVO
                 }
 
                 if (state.sistemas.length > 1) {
                     views.sistemaDetail.querySelector('#back-to-sistemas').addEventListener('click', () => { state.currentView = 'sistemas'; render(); });
                 }
+            }
+
+            // NOVO: Renderização da aba de vídeos
+            function renderSistemaVideosView(container) {
+                if (state.videosLoadFailed) {
+                    container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Não foi possível carregar a biblioteca de vídeos.</p><p class="text-xs text-slate-500 mt-2">Verifique o console para detalhes do erro de rede/API.</p></div>`;
+                    return;
+                }
+                
+                const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
+                const videos = state.videos.map(v => ({
+                    ...v,
+                    funcionalidade: sistemaFuncs.find(f => f.id == v.funcionalidade_id)
+                }));
+                
+                const videosGrouped = videos.reduce((acc, video) => {
+                    const groupKey = video.funcionalidade ? video.funcionalidade.text : 'Geral / Sem Funcionalidade';
+                    if (!acc[groupKey]) acc[groupKey] = [];
+                    acc[groupKey].push(video);
+                    return acc;
+                }, {});
+
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold text-white">Biblioteca Loom do Projeto</h3>
+                    </div>
+                    
+                    ${Object.keys(videosGrouped).length === 0 
+                        ? `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-slate-500">Nenhum vídeo cadastrado para este projeto.</p></div>`
+                        : Object.keys(videosGrouped).map(groupName => `
+                            <div class="mb-8">
+                                <h4 class="text-lg font-semibold text-indigo-400 border-b border-slate-700 pb-2 mb-4">${groupName}</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    ${videosGrouped[groupName].map(video => {
+                                        const thumbnailUrl = getLoomThumbnail(video.url_loom);
+                                        const isCustomThumbnail = thumbnailUrl !== null; // Se não for null, teoricamente teríamos uma URL personalizada
+                                        
+                                        return `
+                                        <div class="bg-slate-800 p-3 rounded-lg shadow-lg border border-slate-700">
+                                            <div class="video-card-content" data-url="${video.url_loom}" data-title="${video.titulo}">
+                                                <!-- Video Thumbnail/Preview Container (Youtube-like) -->
+                                                <div class="video-container mb-3 video-trigger" data-url="${video.url_loom}">
+                                                    
+                                                    ${isCustomThumbnail ? 
+                                                        `<img src="${thumbnailUrl}" onerror="this.nextElementSibling.classList.remove('hidden')" class="video-thumbnail" alt="Thumbnail do vídeo">` : 
+                                                        `<div class="default-cover">
+                                                            <i class="fa-solid fa-video default-cover-icon"></i>
+                                                            <span class="text-xs text-slate-400">Vídeo Loom</span>
+                                                        </div>`
+                                                    }
+                                                    
+                                                    <i class="fa-solid fa-play-circle play-button"></i>
+                                                </div>
+
+                                                <!-- Video Details -->
+                                                <h5 class="font-bold text-white mb-1 leading-tight">${video.titulo}</h5>
+                                                <p class="text-xs text-slate-400 h-8 overflow-hidden">${video.descricao || 'Sem descrição.'}</p>
+
+                                                <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-700">
+                                                    ${video.tag ? `<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">${video.tag}</span>` : '<span></span>'}
+                                                     <span class="text-xs text-slate-500">${formatDate(video.data_gravacao) || 'N/D'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                `;
+                
+                container.querySelectorAll('.video-trigger').forEach(trigger => {
+                    trigger.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const videoUrl = e.currentTarget.dataset.url;
+                        const cardContent = e.currentTarget.closest('.video-card-content');
+                        const videoTitle = cardContent ? cardContent.dataset.title : 'Vídeo do Projeto';
+                        showVideoModal(videoUrl, videoTitle);
+                    });
+                });
+            }
+            
+            // NOVO: Modal de visualização de vídeo (estilo YouTube)
+            function showVideoModal(videoUrl, title) {
+                const embedUrl = getLoomEmbedUrl(videoUrl);
+                if (!embedUrl) {
+                    return showToast("URL do Loom inválido.", true);
+                }
+
+                // Ajusta o tamanho do modal para o vídeo 16:9
+                mainModalEl.querySelector('#modal-content').classList.remove('max-w-4xl');
+                mainModalEl.querySelector('#modal-content').classList.add('max-w-5xl');
+
+                const modalHtml = `
+                    <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900 rounded-t-lg">
+                        <h3 class="text-xl font-bold text-white">${title}</h3>
+                        <button id="close-video-modal" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div class="flex-grow bg-black relative rounded-b-lg" style="padding-bottom: 56.25%;">
+                        <iframe 
+                            src="${embedUrl}" 
+                            frameborder="0" 
+                            allowfullscreen
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            style="position:absolute;top:0;left:0;width:100%;height:100%;"
+                        ></iframe>
+                    </div>
+                `;
+
+                openModal(modalHtml);
+                document.getElementById('close-video-modal').addEventListener('click', closeModal);
             }
 
             function renderOverviewTab(container) {
@@ -573,12 +858,16 @@
                     container.innerHTML = `<div class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Carregando pendências...</div>`;
                     return;
                 }
+                
+                // NOVO: Verifica se houve falha de rede/API.
                 if (state.pendenciasLoadFailed) {
-                    container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar as pendências.</p></div>`;
+                    container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Não foi possível carregar as pendências. Verifique a conexão.</p></div>`;
                     return;
                 }
+                
+                // NOVO: Se não houve falha, mas a lista está vazia.
                 if (state.pendencias.length === 0) {
-                     container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-slate-500">Nenhuma pendência para este projeto.</p></div>`;
+                     container.innerHTML = `<div class="bg-slate-800 p-4 rounded-md text-center"><p class="text-slate-500">Não foram encontradas pendências para este projeto.</p></div>`;
                     return;
                 }
 
@@ -913,6 +1202,11 @@
             // --- EVENT LISTENERS ---
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
+            mainModalEl.addEventListener('click', (e) => { 
+                if (e.target === mainModalEl) {
+                    closeModal(); 
+                }
+            });
 
             // --- INITIALIZATION ---
             checkAuth();
