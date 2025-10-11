@@ -212,6 +212,18 @@
                             </button>
                         </form>
                     </div>
+
+                    <!-- Listagem de Arquivos -->
+                    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
+                        <h3 class="text-2xl font-semibold text-white mb-4 flex items-center gap-3">
+                            <i class="fa-solid fa-list" style="color: var(--brand-color);"></i> Arquivos/Links Cadastrados
+                            <span id="arquivos-count" class="text-sm text-slate-400 font-normal"></span>
+                        </h3>
+                        <!-- Filtros e Tabela serão injetados aqui -->
+                        <div id="arquivo-list-container">
+                             <p class="text-center text-slate-500">Carregando arquivos...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -243,11 +255,15 @@
                 currentUser: null,
                 sistemas: [],
                 funcionalidades: [],
-                videos: [], // NOVO: Armazenar os vídeos
+                videos: [], // Armazenar os vídeos
+                arquivos: [], // NOVO: Armazenar os arquivos/links
                 currentView: 'videos',
-                // NOVO: Estados para os filtros
+                // Estados para os filtros de Vídeos
                 filterSistemaId: '',
                 filterTag: '',
+                // NOVO: Estados para os filtros de Arquivos
+                filterArquivoSistemaId: '',
+                filterArquivoCategoria: '',
             };
 
             // --- DOM ELEMENTS ---
@@ -275,9 +291,17 @@
             const videoListContainer = document.getElementById('video-list-container');
             const videosCountEl = document.getElementById('videos-count');
             
-            // NOVO: Elementos de filtro da listagem de vídeos
-            let videoFilterSistemaSelect; // Serão criados e referenciados após a renderização
+            // NOVO: Elementos de listagem e contagem de arquivos
+            const arquivoListContainer = document.getElementById('arquivo-list-container');
+            const arquivosCountEl = document.getElementById('arquivos-count');
+            
+            // Elementos de filtro da listagem de vídeos
+            let videoFilterSistemaSelect; 
             let videoFilterTagSelect;
+            // NOVO: Elementos de filtro da listagem de arquivos
+            let arquivoFilterSistemaSelect;
+            let arquivoFilterCategoriaSelect;
+
 
             const toastEl = document.getElementById('toast');
             const toastMessageEl = document.getElementById('toast-message');
@@ -289,7 +313,8 @@
                 login: 'https://work.produ-cloud.com/webhook/envia_login', 
                 getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas', 
                 getFuncionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
-                getVideos: 'https://work.produ-cloud.com/webhook/nugget-busca-video', // NOVO ENDPOINT DE BUSCA
+                getVideos: 'https://work.produ-cloud.com/webhook/nugget-busca-video', 
+                getArquivos: 'https://work.produ-cloud.com/webhook/nugget-busca-arquivos', // NOVO ENDPOINT DE BUSCA DE ARQUIVOS
                 // Rotinas de Escrita
                 saveVideo: 'https://work.produ-cloud.com/webhook/nugget-salva-video', 
                 saveArquivo: 'https://work.produ-cloud.com/webhook/nugget_arquivos_links', 
@@ -306,11 +331,20 @@
             const formatDate = (dateString) => {
                 if (!dateString) return 'N/D';
                 const date = new Date(dateString);
-                // Usar UTC para evitar problemas de fuso horário com datas do N8N
                  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
             };
+            
+            const getIconForUrl = (url) => {
+                const lowerUrl = url.toLowerCase();
+                if (lowerUrl.includes('drive.google.com') || lowerUrl.includes('.pdf')) return 'fa-file-pdf';
+                if (lowerUrl.includes('youtube.com') || lowerUrl.includes('vimeo.com') || lowerUrl.includes('loom.com')) return 'fa-video';
+                if (lowerUrl.includes('docs.google.com/document')) return 'fa-file-word';
+                if (lowerUrl.includes('docs.google.com/spreadsheets')) return 'fa-file-excel';
+                return 'fa-link';
+            };
 
-             const openModal = (content) => {
+
+            const openModal = (content) => {
                 modalContentEl.innerHTML = content;
                 mainModalEl.classList.remove('hidden');
                 mainModalEl.classList.add('flex');
@@ -419,36 +453,60 @@
                 loadingEl.classList.remove('hidden');
                 try {
                     // Carrega todos os dados em paralelo
-                    const [sistemasRes, funcsRes, videosRes] = await Promise.all([
+                    const [sistemasRes, funcsRes, videosRes, arquivosRes] = await Promise.all([
                         authenticatedFetch(URLS.getSistemas, { method: 'GET' }), 
                         authenticatedFetch(URLS.getFuncionalidades, { method: 'GET' }),
-                        authenticatedFetch(URLS.getVideos, { method: 'GET' }) 
+                        authenticatedFetch(URLS.getVideos, { method: 'GET' }),
+                        authenticatedFetch(URLS.getArquivos, { method: 'GET' })
                     ]);
 
                     if (!sistemasRes.ok || !funcsRes.ok) {
                         const errorMsg = `Falha ao carregar sistemas/funcionalidades. Verifique as URLs do N8N.`;
                          throw new Error(errorMsg);
                     }
-                    if (!videosRes.ok) {
-                         console.error("Falha ao carregar vídeos:", videosRes.status);
-                    }
-
+                    
+                    // Processamento e tratamento de falhas individuais na busca de ativos
                     state.sistemas = await sistemasRes.json();
                     state.funcionalidades = await funcsRes.json();
                     
-                    try {
-                         const videosData = await videosRes.json();
-                         state.videos = Array.isArray(videosData) ? videosData : [];
-                    } catch(e) {
-                         state.videos = [];
+                    // --- Processamento Robusto de Vídeos ---
+                    if (videosRes.ok) {
+                        try {
+                            const data = await videosRes.json();
+                            state.videos = Array.isArray(data) ? data : [];
+                        } catch (e) {
+                            state.videos = [];
+                            console.warn("Vídeos: Resposta não era JSON válido ou estava vazia.", e);
+                        }
+                    } else {
+                        console.error("Falha na requisição de Vídeos:", videosRes.status);
                     }
+
+                    // --- Processamento Robusto de Arquivos ---
+                    if (arquivosRes.ok) {
+                        try {
+                            const data = await arquivosRes.json();
+                            state.arquivos = Array.isArray(data) ? data : [];
+                        } catch (e) {
+                            state.arquivos = [];
+                            console.warn("Arquivos: Resposta não era JSON válido ou estava vazia.", e);
+                        }
+                    } else {
+                        console.error("Falha na requisição de Arquivos:", arquivosRes.status);
+                    }
+
 
                     if (state.sistemas.length === 0) {
                         showToast('Nenhum projeto encontrado. Verifique a fonte de dados.', true);
                     }
                     
                     populateSelects();
+                    
+                    // Chama as funções de listagem após o carregamento dos dados,
+                    // garantindo que as listas estejam preenchidas antes da primeira renderização
                     renderListagemVideos();
+                    renderListagemArquivos();
+
 
                 } catch (error) {
                     showToast(error.message || 'Erro ao carregar dados iniciais. (Rede/Auth)', true);
@@ -492,12 +550,10 @@
                     viewVideosEl.classList.remove('hidden');
                     document.getElementById('nav-videos').classList.add('active');
                     viewTitleEl.textContent = 'Gerenciamento de Vídeos Loom';
-                    renderListagemVideos();
                 } else if (state.currentView === 'arquivos') {
                     viewArquivosEl.classList.remove('hidden');
                     document.getElementById('nav-arquivos').classList.add('active');
                     viewTitleEl.textContent = 'Gerenciamento de Arquivos e Links';
-                    // Implementar renderListagemArquivos() no futuro
                 }
             }
 
@@ -510,8 +566,8 @@
                     const funcionalidade = state.funcionalidades.find(f => String(f.id) === String(v.funcionalidade_id));
                     return {
                         ...v,
-                        sistema_name: sistema ? sistema.name : 'N/D', // Captura o nome
-                        funcionalidade_name: funcionalidade ? funcionalidade.text : 'N/D', // Captura o nome
+                        sistema_name: sistema ? sistema.name : 'N/D', 
+                        funcionalidade_name: funcionalidade ? funcionalidade.text : 'N/D',
                         formatted_date: formatDate(v.data_gravacao),
                     };
                 });
@@ -520,11 +576,9 @@
                 
                 // --- 2. Aplica Filtros ---
                 if (state.filterSistemaId) {
-                    // Filtra pelo ID do sistema.
                     filteredVideos = filteredVideos.filter(v => String(v.sistema_id) === state.filterSistemaId);
                 }
                 if (state.filterTag) {
-                    // Filtra pela Tag.
                     filteredVideos = filteredVideos.filter(v => v.tag === state.filterTag);
                 }
 
@@ -552,7 +606,7 @@
 
                  if (filteredVideos.length === 0) {
                     videoListContainer.innerHTML = filtersHtml + `<p class="text-center text-slate-500 py-4">Nenhum vídeo cadastrado que corresponda aos filtros.</p>`;
-                    addFilterListeners();
+                    addVideoFilterListeners();
                     return;
                  }
                  
@@ -598,15 +652,119 @@
                  videoListContainer.innerHTML = filtersHtml + tableHtml;
 
                  // Adiciona listeners aos filtros recém-criados
-                 addFilterListeners();
+                 addVideoFilterListeners();
 
                  // Adiciona listeners para os botões de edição (próxima etapa)
                  videoListContainer.querySelectorAll('.edit-video-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
                  });
             }
+            
+            function renderListagemArquivos() {
+                
+                // --- 1. Mapeamento para nomes amigáveis (Aplicado a TODOS os arquivos) ---
+                const allMappedArquivos = state.arquivos.map(a => {
+                    const sistema = state.sistemas.find(s => String(s.id) === String(a.sistema_id));
+                    return {
+                        ...a,
+                        sistema_name: sistema ? sistema.name : 'N/D', 
+                        formatted_date: formatDate(a.data_criacao),
+                        icon_class: getIconForUrl(a.url),
+                    };
+                });
+                
+                let filteredArquivos = allMappedArquivos;
+                
+                // --- 2. Aplica Filtros ---
+                if (state.filterArquivoSistemaId) {
+                    filteredArquivos = filteredArquivos.filter(a => String(a.sistema_id) === state.filterArquivoSistemaId);
+                }
+                if (state.filterArquivoCategoria) {
+                    filteredArquivos = filteredArquivos.filter(a => a.categoria === state.filterArquivoCategoria);
+                }
 
-            function addFilterListeners() {
+                arquivosCountEl.textContent = `(${filteredArquivos.length} itens)`;
+
+                // --- 3. Coleta Categorias Únicas para o Filtro (baseado em TODOS os arquivos) ---
+                const uniqueCategorias = [...new Set(state.arquivos.map(a => a.categoria).filter(c => c && c.trim() !== ''))].sort();
+                
+                // --- 4. Renderiza HTML dos Filtros ---
+                const sistemaOptionsHtml = state.sistemas.map(s => `<option value="${s.id}" ${state.filterArquivoSistemaId === String(s.id) ? 'selected' : ''}>${s.name}</option>`).join('');
+                const categoriaOptionsHtml = uniqueCategorias.map(cat => `<option value="${cat}" ${state.filterArquivoCategoria === cat ? 'selected' : ''}>${cat}</option>`).join('');
+
+                const filtersHtml = `
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <select id="arquivo-filter-sistema" class="form-select w-full md:w-1/2">
+                            <option value="">Filtrar por Projeto...</option>
+                            ${sistemaOptionsHtml}
+                        </select>
+                        <select id="arquivo-filter-categoria" class="form-select w-full md:w-1/2">
+                            <option value="">Filtrar por Categoria...</option>
+                            ${categoriaOptionsHtml}
+                        </select>
+                    </div>
+                `;
+
+                 if (filteredArquivos.length === 0) {
+                    arquivoListContainer.innerHTML = filtersHtml + `<p class="text-center text-slate-500 py-4">Nenhum arquivo cadastrado que corresponda aos filtros.</p>`;
+                    addArquivoFilterListeners();
+                    return;
+                 }
+                 
+                 // --- 5. Renderização da Tabela ---
+                 const tableHtml = `
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-400">
+                            <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Título</th>
+                                    <th scope="col" class="px-6 py-3">Projeto</th>
+                                    <th scope="col" class="px-6 py-3">Categoria</th>
+                                    <th scope="col" class="px-6 py-3">Descrição</th>
+                                    <th scope="col" class="px-6 py-3">Data</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filteredArquivos.map(a => `
+                                    <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                        <th scope="row" class="px-6 py-4 font-medium text-white max-w-xs truncate flex items-center gap-3">
+                                            <i class="fa-solid ${a.icon_class} text-amber-400"></i>
+                                            ${a.titulo}
+                                        </th>
+                                        <td class="px-6 py-4">${a.sistema_name}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">${a.categoria || 'Sem Categoria'}</span>
+                                        </td>
+                                        <td class="px-6 py-4 max-w-xs truncate" title="${a.descricao}">${a.descricao || 'N/D'}</td>
+                                        <td class="px-6 py-4">${a.formatted_date}</td>
+                                        <td class="px-6 py-4 text-right flex justify-end space-x-2">
+                                            <a href="${a.url}" target="_blank" class="text-slate-400 hover:text-white" title="Abrir Link">
+                                                <i class="fa-solid fa-up-right-from-square"></i>
+                                            </a>
+                                            <button data-id="${a.id}" class="edit-arquivo-btn text-amber-500 hover:text-amber-400" title="Editar">
+                                                <i class="fa-solid fa-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                 `;
+
+                 arquivoListContainer.innerHTML = filtersHtml + tableHtml;
+
+                 // Adiciona listeners aos filtros recém-criados
+                 addArquivoFilterListeners();
+
+                 // Adiciona listeners para os botões de edição (próxima etapa)
+                 arquivoListContainer.querySelectorAll('.edit-arquivo-btn').forEach(btn => {
+                     btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição de Arquivo (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
+                 });
+            }
+
+            function addVideoFilterListeners() {
                 // Captura os elementos recém-criados
                 videoFilterSistemaSelect = document.getElementById('video-filter-sistema');
                 videoFilterTagSelect = document.getElementById('video-filter-tag');
@@ -616,12 +774,35 @@
                         state.filterSistemaId = e.target.value;
                         renderListagemVideos();
                     });
+                    videoFilterSistemaSelect.value = state.filterSistemaId;
                 }
                 if (videoFilterTagSelect) {
                     videoFilterTagSelect.addEventListener('change', (e) => {
                         state.filterTag = e.target.value;
                         renderListagemVideos();
                     });
+                    videoFilterTagSelect.value = state.filterTag;
+                }
+            }
+            
+            function addArquivoFilterListeners() {
+                // Captura os elementos recém-criados
+                arquivoFilterSistemaSelect = document.getElementById('arquivo-filter-sistema');
+                arquivoFilterCategoriaSelect = document.getElementById('arquivo-filter-categoria');
+
+                if (arquivoFilterSistemaSelect) {
+                    arquivoFilterSistemaSelect.addEventListener('change', (e) => {
+                        state.filterArquivoSistemaId = e.target.value;
+                        renderListagemArquivos();
+                    });
+                    arquivoFilterSistemaSelect.value = state.filterArquivoSistemaId;
+                }
+                if (arquivoFilterCategoriaSelect) {
+                    arquivoFilterCategoriaSelect.addEventListener('change', (e) => {
+                        state.filterArquivoCategoria = e.target.value;
+                        renderListagemArquivos();
+                    });
+                    arquivoFilterCategoriaSelect.value = state.filterArquivoCategoria;
                 }
             }
 
@@ -641,7 +822,6 @@
                 
                 // 2. Custom URL Validation
                 const loomUrl = form['video-url'].value;
-                // CORREÇÃO: Permite a URL base OU a URL com parâmetros de consulta (?...) no final.
                 if (!loomUrl.match(/^https:\/\/www\.loom\.com\/share\/[a-zA-Z0-9]+(\?.*)?$/)) {
                      showToast('URL do Loom inválido. Use o formato https://www.loom.com/share/...', true);
                      return;
@@ -692,10 +872,17 @@
             async function handleFormArquivoSubmit(e) {
                 e.preventDefault();
                 const form = e.target;
-                
+                const saveBtn = document.getElementById('btn-salvar-arquivo');
+
+                // 1. Initial Validation Check (Standard HTML5)
                 if (!form.reportValidity()) {
+                    showToast('Preencha todos os campos obrigatórios (Projeto, Categoria, Título e URL).', true);
                     return; 
                 }
+                
+                // --- START SAVING PROCESS ---
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
                 
                 const payload = {
                     sistema_id: form['arquivo-sistema'].value,
@@ -706,8 +893,6 @@
                     data_criacao: new Date().toISOString()
                 };
 
-                btnSalvarArquivo.disabled = true;
-                btnSalvarArquivo.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
                 try {
                     const response = await authenticatedFetch(URLS.saveArquivo, { 
@@ -717,14 +902,16 @@
                     
                     if (!response.ok) {
                          const errorText = await response.text();
-                         throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
+                         console.error('API Error:', response.status, errorText);
+                         throw new Error(`Falha ao salvar. Detalhes: ${errorText.substring(0, 50)}...`);
                     }
 
                     showToast('Arquivo salvo com sucesso!');
                     form.reset();
-                    // Futuramente: Recarrega a lista de arquivos
+                    await fetchInitialData(); // Recarrega os dados para atualizar a lista
                 } catch (error) {
-                    showToast(error.message || 'Falha ao salvar arquivo.', true);
+                    console.error('Erro no Submit:', error);
+                    showToast(error.message || 'Falha ao salvar arquivo. Verifique o console.', true);
                 } finally {
                     btnSalvarArquivo.disabled = false;
                     btnSalvarArquivo.innerHTML = `<i class="fa-solid fa-save"></i> Salvar Arquivo`;
