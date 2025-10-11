@@ -45,6 +45,11 @@
         .nav-link.active {
             background-color: #475569; /* slate-600 */
         }
+
+        /* Modal specific style for fixed positioning and background */
+        #confirmation-modal {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-300">
@@ -247,6 +252,20 @@
         </div>
     </div>
 
+     <!-- Modal de Confirmação (Novo para Exclusão) -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div id="confirm-modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-red-500 mb-4"></i>
+            <h3 class="text-lg font-bold text-white mb-2">Confirmação de Exclusão</h3>
+            <p id="confirm-message" class="text-sm text-slate-300 mb-6">Tem certeza que deseja apagar este item? Esta ação não pode ser desfeita.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancel-delete-btn" class="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-md text-sm font-medium">Cancelar</button>
+                <button id="confirm-delete-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- STATE MANAGEMENT ---
@@ -291,14 +310,14 @@
             const videoListContainer = document.getElementById('video-list-container');
             const videosCountEl = document.getElementById('videos-count');
             
-            // NOVO: Elementos de listagem e contagem de arquivos
+            // Elementos de listagem e contagem de arquivos
             const arquivoListContainer = document.getElementById('arquivo-list-container');
             const arquivosCountEl = document.getElementById('arquivos-count');
             
             // Elementos de filtro da listagem de vídeos
             let videoFilterSistemaSelect; 
             let videoFilterTagSelect;
-            // NOVO: Elementos de filtro da listagem de arquivos
+            // Elementos de filtro da listagem de arquivos
             let arquivoFilterSistemaSelect;
             let arquivoFilterCategoriaSelect;
 
@@ -307,6 +326,12 @@
             const toastMessageEl = document.getElementById('toast-message');
             const mainModalEl = document.getElementById('main-modal');
             const modalContentEl = document.getElementById('modal-content');
+            
+            // Elementos do Modal de Confirmação
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const confirmMessageEl = document.getElementById('confirm-message');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
 
             // --- N8N WEBHOOK URLS ---
             const URLS = {
@@ -314,10 +339,13 @@
                 getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas', 
                 getFuncionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
                 getVideos: 'https://work.produ-cloud.com/webhook/nugget-busca-video', 
-                getArquivos: 'https://work.produ-cloud.com/webhook/nugget-busca-arquivos', // NOVO ENDPOINT DE BUSCA DE ARQUIVOS
+                getArquivos: 'https://work.produ-cloud.com/webhook/nugget-busca-arquivos', 
                 // Rotinas de Escrita
                 saveVideo: 'https://work.produ-cloud.com/webhook/nugget-salva-video', 
-                saveArquivo: 'https://work.produ-cloud.com/webhook/nugget_arquivos_links', 
+                saveArquivo: 'https://work.produ-cloud.com/webhook/nugget_arquivos_links',
+                // Rotinas de Exclusão (NOVAS)
+                deleteVideo: 'https://work.produ-cloud.com/webhook/nugget-exclui-video',
+                deleteArquivo: 'https://work.produ-cloud.com/webhook/nugget-exclui-arquivo',
             };
             
             // --- UTILITIES ---
@@ -355,6 +383,26 @@
                 mainModalEl.classList.remove('flex');
                 modalContentEl.innerHTML = '';
             };
+            
+            function showConfirmationModal(message, callback) {
+                confirmMessageEl.innerHTML = message; // Use innerHTML para suportar formatação simples (ex: **titulo**)
+                confirmationModal.classList.remove('hidden');
+                confirmationModal.classList.add('flex');
+
+                // Garante que os listeners anteriores sejam removidos para evitar execuções duplicadas
+                confirmDeleteBtn.onclick = null;
+                cancelDeleteBtn.onclick = null;
+                
+                confirmDeleteBtn.onclick = () => {
+                    confirmationModal.classList.add('hidden');
+                    callback(true);
+                };
+
+                cancelDeleteBtn.onclick = () => {
+                    confirmationModal.classList.add('hidden');
+                    callback(false);
+                };
+            }
 
 
             // --- AUTHENTICATION & API ---
@@ -372,18 +420,34 @@
                     'Authorization': `Bearer ${token}`
                 };
                 
-                const fetchOptions = options.method === 'GET' ? { headers } : { ...options, headers };
-                
-                const response = await fetch(url, fetchOptions);
+                // Adiciona o método 'POST' explicitamente se não estiver definido
+                const defaultOptions = { 
+                    method: options.method || 'GET', 
+                    ...options, 
+                    headers: headers 
+                };
 
-                if (!response.ok && response.status !== 404 && response.status !== 400) { 
-                    if (response.status === 401 || response.status >= 500) { 
-                        handleLogout();
-                        throw new Error('Erro de autenticação ou servidor. Tentando relogar.');
-                    }
+                // Remove 'body' se o método não for POST/PUT (evita erros em GET/DELETE)
+                if (defaultOptions.method === 'GET' || defaultOptions.method === 'DELETE') {
+                    delete defaultOptions.body;
                 }
-                
-                return response;
+
+                try {
+                    const response = await fetch(url, defaultOptions);
+                    
+                    if (!response.ok && response.status !== 404 && response.status !== 400) { 
+                        if (response.status === 401 || response.status >= 500) { 
+                            handleLogout();
+                            throw new Error('Erro de autenticação ou servidor. Tentando relogar.');
+                        }
+                    }
+                    
+                    return response;
+                } catch(error) {
+                    // Captura o TypeError: Failed to fetch (geralmente CORS, URL inválida ou rede)
+                    console.error("Fetch Error:", error.message, url);
+                    throw new Error("Falha na comunicação com o servidor. Verifique a URL e CORS.");
+                }
             }
 
             function checkAuth() {
@@ -515,6 +579,63 @@
                     renderView();
                 }
             }
+            
+            // --- DELETION LOGIC (NOVAS FUNÇÕES) ---
+
+            async function handleDeleteVideo(id) {
+                const video = state.videos.find(v => String(v.id) === String(id));
+                const message = `Deseja realmente excluir o vídeo: **${video ? video.titulo : 'ID ' + id}**?`;
+                
+                showConfirmationModal(message, async (confirm) => {
+                    if (confirm) {
+                        try {
+                            const response = await authenticatedFetch(URLS.deleteVideo, {
+                                method: 'POST',
+                                body: JSON.stringify({ id: id })
+                            });
+
+                            // VERIFICAÇÃO AJUSTADA: Aceita status 200 como sucesso (resposta noData do N8N)
+                            if (response.status !== 200) {
+                                throw new Error(`Falha ao excluir o vídeo (Status: ${response.status}).`);
+                            }
+                            
+                            showToast('Vídeo excluído com sucesso!');
+                            await fetchInitialData(); // Recarrega para atualizar a lista
+                        } catch (error) {
+                            console.error('Erro ao excluir vídeo:', error);
+                            showToast(error.message, true);
+                        }
+                    }
+                });
+            }
+
+            async function handleDeleteArquivo(id) {
+                 const arquivo = state.arquivos.find(a => String(a.id) === String(id));
+                 const message = `Deseja realmente excluir o arquivo: **${arquivo ? arquivo.titulo : 'ID ' + id}**?`;
+
+                 showConfirmationModal(message, async (confirm) => {
+                    if (confirm) {
+                        try {
+                            const response = await authenticatedFetch(URLS.deleteArquivo, {
+                                method: 'POST',
+                                body: JSON.stringify({ id: id })
+                            });
+
+                            // VERIFICAÇÃO AJUSTADA: Aceita status 200 como sucesso (resposta noData do N8N)
+                            if (response.status !== 200) {
+                                throw new Error(`Falha ao excluir o arquivo (Status: ${response.status}).`);
+                            }
+                            
+                            showToast('Arquivo excluído com sucesso!');
+                            await fetchInitialData(); // Recarrega para atualizar a lista
+                        } catch (error) {
+                            console.error('Erro ao excluir arquivo:', error);
+                            showToast(error.message, true);
+                        }
+                    }
+                });
+            }
+
 
             function populateSelects() {
                 const sistemaOptions = state.sistemas.map(s => `<option value="${String(s.id)}">${s.name}</option>`).join('');
@@ -641,6 +762,9 @@
                                             <button data-id="${v.id}" class="edit-video-btn text-amber-500 hover:text-amber-400" title="Editar">
                                                 <i class="fa-solid fa-pencil"></i>
                                             </button>
+                                            <button data-id="${v.id}" class="delete-video-btn text-red-500 hover:text-red-400" title="Excluir">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -654,9 +778,12 @@
                  // Adiciona listeners aos filtros recém-criados
                  addVideoFilterListeners();
 
-                 // Adiciona listeners para os botões de edição (próxima etapa)
+                 // Adiciona listeners para os botões de ação
                  videoListContainer.querySelectorAll('.edit-video-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
+                 });
+                 videoListContainer.querySelectorAll('.delete-video-btn').forEach(btn => {
+                     btn.addEventListener('click', (e) => handleDeleteVideo(e.currentTarget.dataset.id));
                  });
             }
             
@@ -745,6 +872,9 @@
                                             <button data-id="${a.id}" class="edit-arquivo-btn text-amber-500 hover:text-amber-400" title="Editar">
                                                 <i class="fa-solid fa-pencil"></i>
                                             </button>
+                                            <button data-id="${a.id}" class="delete-arquivo-btn text-red-500 hover:text-red-400" title="Excluir">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -758,9 +888,12 @@
                  // Adiciona listeners aos filtros recém-criados
                  addArquivoFilterListeners();
 
-                 // Adiciona listeners para os botões de edição (próxima etapa)
+                 // Adiciona listeners para os botões de ação
                  arquivoListContainer.querySelectorAll('.edit-arquivo-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição de Arquivo (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
+                 });
+                 arquivoListContainer.querySelectorAll('.delete-arquivo-btn').forEach(btn => {
+                     btn.addEventListener('click', (e) => handleDeleteArquivo(e.currentTarget.dataset.id));
                  });
             }
 
