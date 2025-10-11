@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nugget - Gerenciador de Ativos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            --brand-color: #fcd34d; /* yellow-300 */
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; border: 2px solid #1e293b; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #64748b; }
+        
+        .form-input, .form-select, .form-textarea {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--brand-color);
+            box-shadow: 0 0 0 2px #b45309; /* amber-700 */
+        }
+        .btn-primary {
+            background-color: #f59e0b; /* amber-500 */
+            color: black;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #d97706; /* amber-600 */
+        }
+        .nav-link.active {
+            background-color: #475569; /* slate-600 */
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Login View (Usando o mesmo molde do SodaPop) -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                 <i class="fa-solid fa-gem text-5xl mx-auto" style="color: var(--brand-color);"></i>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao Nugget</h2>
+                <p class="mt-2 text-sm text-slate-400">Acesso administrativo</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                    </div>
+                </div>
+                 <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white" style="background-color: var(--brand-color); color: black !important;">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <div id="app" class="hidden flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-20">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-6">
+                        <div class="flex items-center space-x-4">
+                            <i class="fa-solid fa-gem text-3xl" style="color: var(--brand-color);"></i>
+                            <h1 class="text-xl font-bold text-white">Nugget</h1>
+                        </div>
+                        
+                        <!-- Novo Menu de Navegação -->
+                        <div class="flex items-center space-x-2">
+                             <button id="nav-videos" data-view="videos" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700 active">
+                                <i class="fa-solid fa-video mr-2"></i> Vídeos Loom
+                             </button>
+                             <button id="nav-arquivos" data-view="arquivos" class="nav-link px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">
+                                <i class="fa-solid fa-folder-open mr-2"></i> Arquivos/Links
+                             </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="index.html" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">SodaPop</a>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            <h2 class="text-3xl font-bold text-white mb-6" id="view-title">Gerenciamento de Vídeos Loom</h2>
+
+            <div id="loading" class="text-center p-8 hidden">
+                 <i class="fa-solid fa-spinner fa-spin text-2xl" style="color: var(--brand-color);"></i>
+                <p class="text-sm text-slate-400 mt-2">Carregando dados de projetos...</p>
+            </div>
+            
+            <div id="content-container">
+                 <!-- VIEW: VÍDEOS -->
+                <div id="view-videos" class="space-y-12">
+                    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
+                        <h3 class="text-2xl font-semibold text-white mb-4 flex items-center gap-3">
+                            <i class="fa-solid fa-video" style="color: var(--brand-color);"></i> Cadastro de Novo Vídeo
+                        </h3>
+                        <form id="form-video" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="video-sistema" class="block text-sm font-medium mb-1">Projeto (Sistema)</label>
+                                    <select id="video-sistema" class="form-select" required></select>
+                                </div>
+                                <div>
+                                    <label for="video-funcionalidade" class="block text-sm font-medium mb-1">Funcionalidade</label>
+                                    <select id="video-funcionalidade" class="form-select" required></select>
+                                </div>
+                                <div>
+                                    <label for="video-tag" class="block text-sm font-medium mb-1">Tag (Ex: Treinamento, Demo)</label>
+                                    <input type="text" id="video-tag" class="form-input" placeholder="Tag de categorização">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="video-titulo" class="block text-sm font-medium mb-1">Título do Vídeo</label>
+                                <input type="text" id="video-titulo" class="form-input" required placeholder="Ex: Demonstração da Nova Tela de Login">
+                            </div>
+                            
+                            <div>
+                                <label for="video-url" class="block text-sm font-medium mb-1">URL do Loom (Link de Compartilhamento)</label>
+                                <input type="url" id="video-url" class="form-input" required placeholder="https://www.loom.com/share/...">
+                            </div>
+                            
+                            <div>
+                                <label for="video-descricao" class="block text-sm font-medium mb-1">Descrição</label>
+                                <textarea id="video-descricao" rows="3" class="form-textarea" placeholder="Breve contexto do vídeo."></textarea>
+                            </div>
+
+                            <button type="submit" id="btn-salvar-video" class="btn-primary flex items-center gap-2">
+                                <i class="fa-solid fa-save"></i> Salvar Vídeo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                 <!-- VIEW: ARQUIVOS -->
+                <div id="view-arquivos" class="space-y-12 hidden">
+                    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
+                        <h3 class="text-2xl font-semibold text-white mb-4 flex items-center gap-3">
+                            <i class="fa-solid fa-folder-open" style="color: var(--brand-color);"></i> Cadastro de Novo Arquivo/Link
+                        </h3>
+                        <form id="form-arquivo" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="arquivo-sistema" class="block text-sm font-medium mb-1">Projeto (Sistema)</label>
+                                    <select id="arquivo-sistema" class="form-select" required></select>
+                                </div>
+                                <div>
+                                    <label for="arquivo-categoria" class="block text-sm font-medium mb-1">Categoria (Ex: Contratos, Briefing)</label>
+                                    <input type="text" id="arquivo-categoria" class="form-input" required placeholder="Categoria de Agrupamento">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="arquivo-titulo" class="block text-sm font-medium mb-1">Título do Arquivo</label>
+                                <input type="text" id="arquivo-titulo" class="form-input" required placeholder="Ex: Contrato Assinado - 2025">
+                            </div>
+                            
+                            <div>
+                                <label for="arquivo-url" class="block text-sm font-medium mb-1">URL do Arquivo/Link (Google Drive, PDF, etc.)</label>
+                                <input type="url" id="arquivo-url" class="form-input" required placeholder="https://drive.google.com/...">
+                            </div>
+                            
+                            <div>
+                                <label for="arquivo-descricao" class="block text-sm font-medium mb-1">Descrição</label>
+                                <textarea id="arquivo-descricao" rows="3" class="form-textarea" placeholder="Breve contexto do arquivo."></textarea>
+                            </div>
+
+                            <button type="submit" id="btn-salvar-arquivo" class="btn-primary flex items-center gap-2">
+                                <i class="fa-solid fa-save"></i> Salvar Arquivo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+        
+        <!-- Footer -->
+        <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
+            <p class="text-xs text-slate-500">ProdutiveMe | Nugget v1.0</p>
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden">
+        <p id="toast-message"></p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            const state = {
+                isAuthenticated: false,
+                currentUser: null,
+                sistemas: [],
+                funcionalidades: [],
+                currentView: 'videos', // NOVO: Controla qual tela está ativa
+            };
+
+            // --- DOM ELEMENTS ---
+            const loginViewEl = document.getElementById('login-view');
+            const appViewEl = document.getElementById('app');
+            const loginFormEl = document.getElementById('login-form');
+            const loginErrorEl = document.getElementById('login-error');
+            const loginButtonEl = document.getElementById('login-button');
+            const logoutButtonEl = document.getElementById('logout-button');
+            const loadingEl = document.getElementById('loading');
+            
+            const formVideoEl = document.getElementById('form-video');
+            const formArquivoEl = document.getElementById('form-arquivo');
+            const videoSistemaSelect = document.getElementById('video-sistema');
+            const videoFuncionalidadeSelect = document.getElementById('video-funcionalidade');
+            const arquivoSistemaSelect = document.getElementById('arquivo-sistema');
+            const btnSalvarVideo = document.getElementById('btn-salvar-video');
+            const btnSalvarArquivo = document.getElementById('btn-salvar-arquivo');
+
+            const viewVideosEl = document.getElementById('view-videos');
+            const viewArquivosEl = document.getElementById('view-arquivos');
+            const viewTitleEl = document.getElementById('view-title');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+
+            const toastEl = document.getElementById('toast');
+            const toastMessageEl = document.getElementById('toast-message');
+
+            // --- N8N WEBHOOK URLS ---
+            const URLS = {
+                login: 'https://work.produ-cloud.com/webhook/envia_login', 
+                getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas', 
+                getFuncionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
+                // Rotinas de Escrita
+                saveVideo: 'https://work.produ-cloud.com/webhook/nugget-salva-video', 
+                saveArquivo: 'https://work.produ-cloud.com/webhook/nugget_arquivos_links', 
+            };
+            
+            // --- UTILITIES ---
+            const showToast = (message, isError = false) => {
+                toastMessageEl.textContent = message;
+                toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+                toastEl.classList.remove('hidden');
+                setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
+            };
+
+            // --- AUTHENTICATION & API ---
+            async function authenticatedFetch(url, options = {}) {
+                const token = sessionStorage.getItem('pass_jwt_token');
+                
+                if (!token) {
+                    handleLogout();
+                    return Promise.reject(new Error('Sessão de administrador expirada.'));
+                }
+
+                const headers = {
+                    ...options.headers,
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
+                
+                const fetchOptions = options.method === 'GET' ? { headers } : { ...options, headers };
+                
+                const response = await fetch(url, fetchOptions);
+
+                if (response.status === 401) {
+                    handleLogout();
+                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                }
+                
+                return response;
+            }
+
+            function checkAuth() {
+                const user = sessionStorage.getItem('sodapop_user');
+                const token = sessionStorage.getItem('pass_jwt_token'); 
+                
+                if (user && token) {
+                    state.isAuthenticated = true;
+                    state.currentUser = JSON.parse(user);
+                    loginViewEl.classList.add('hidden');
+                    appViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('flex');
+                    fetchInitialData();
+                } else {
+                    loginViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('hidden');
+                }
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                loginButtonEl.disabled = true;
+                loginButtonEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+                loginErrorEl.classList.add('hidden');
+
+                const username = loginFormEl.username.value;
+                const password = loginFormEl.password.value;
+
+                try {
+                    const response = await fetch(URLS.login, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
+                    
+                    const result = await response.json();
+                    const loginData = Array.isArray(result) ? result[0] : result;
+                    
+                    if (loginData && loginData.id && loginData.username) {
+                        const simulatedToken = `dummy_admin_token_${loginData.id}_${Date.now()}`;
+                        
+                        sessionStorage.setItem('pass_jwt_token', simulatedToken); 
+                        sessionStorage.setItem('sodapop_user', JSON.stringify(loginData)); 
+                        checkAuth();
+                    } else {
+                         throw new Error('Usuário ou senha inválidos.');
+                    }
+                } catch (error) {
+                    loginErrorEl.textContent = error.message;
+                    loginErrorEl.classList.remove('hidden');
+                } finally {
+                    loginButtonEl.disabled = false;
+                    loginButtonEl.innerHTML = 'Entrar';
+                }
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('sodapop_user');
+                sessionStorage.removeItem('pass_jwt_token');
+                checkAuth();
+            }
+
+            // --- DATA OPERATIONS ---
+            async function fetchInitialData() {
+                loadingEl.classList.remove('hidden');
+                try {
+                    
+                    const [sistemasRes, funcsRes] = await Promise.all([
+                        authenticatedFetch(URLS.getSistemas, { method: 'GET' }), 
+                        authenticatedFetch(URLS.getFuncionalidades, { method: 'GET' }) 
+                    ]);
+
+                    if (!sistemasRes.ok || !funcsRes.ok) {
+                        const errorMsg = `Falha ao carregar sistemas/funcionalidades. Status Sistemas: ${sistemasRes.status || 'N/A'}, Status Funcionalidades: ${funcsRes.status || 'N/A'}.`;
+                         throw new Error(errorMsg);
+                    }
+
+                    state.sistemas = await sistemasRes.json();
+                    state.funcionalidades = await funcsRes.json();
+                    
+                    if (state.sistemas.length === 0) {
+                        showToast('Nenhum projeto encontrado. Verifique a fonte de dados.', true);
+                    }
+                    
+                    populateSelects();
+
+                } catch (error) {
+                    showToast(error.message || 'Erro ao carregar dados iniciais. (Rede/Auth)', true);
+                } finally {
+                    loadingEl.classList.add('hidden');
+                    renderView(); // Renderiza a view inicial após carregar os dados
+                }
+            }
+
+            function populateSelects() {
+                const sistemaOptions = state.sistemas.map(s => `<option value="${String(s.id)}">${s.name}</option>`).join('');
+                videoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
+                arquivoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
+                updateFuncionalidadeSelects();
+            }
+
+            function updateFuncionalidadeSelects() {
+                const selectedSistemaId = String(videoSistemaSelect.value); 
+                const funcs = selectedSistemaId 
+                    ? state.funcionalidades.filter(f => String(f.sistema_id) === selectedSistemaId)
+                    : [];
+
+                const funcOptions = funcs.map(f => `<option value="${f.id}">${f.text} (${f.complexidade || 'N/D'})</option>`).join('');
+                videoFuncionalidadeSelect.innerHTML = `<option value="">Selecione uma Funcionalidade...</option>` + funcOptions;
+                videoFuncionalidadeSelect.disabled = !selectedSistemaId;
+            }
+
+            // NOVO: Função para renderizar a view correta e atualizar a navegação
+            function renderView() {
+                viewVideosEl.classList.add('hidden');
+                viewArquivosEl.classList.add('hidden');
+                
+                navLinks.forEach(link => link.classList.remove('active'));
+
+                if (state.currentView === 'videos') {
+                    viewVideosEl.classList.remove('hidden');
+                    document.getElementById('nav-videos').classList.add('active');
+                    viewTitleEl.textContent = 'Gerenciamento de Vídeos Loom';
+                } else if (state.currentView === 'arquivos') {
+                    viewArquivosEl.classList.remove('hidden');
+                    document.getElementById('nav-arquivos').classList.add('active');
+                    viewTitleEl.textContent = 'Gerenciamento de Arquivos e Links';
+                }
+            }
+
+            // --- FORM SUBMISSION LOGIC ---
+
+            async function handleFormVideoSubmit(e) {
+                e.preventDefault();
+                const form = e.target;
+                
+                if (!form.reportValidity()) {
+                    return; 
+                }
+
+                const payload = {
+                    sistema_id: form['video-sistema'].value,
+                    funcionalidade_id: form['video-funcionalidade'].value,
+                    titulo: form['video-titulo'].value,
+                    url_loom: form['video-url'].value,
+                    descricao: form['video-descricao'].value,
+                    tag: form['video-tag'].value,
+                    data_gravacao: new Date().toISOString()
+                };
+
+                btnSalvarVideo.disabled = true;
+                btnSalvarVideo.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
+                try {
+                    const response = await authenticatedFetch(URLS.saveVideo, { 
+                        method: 'POST', 
+                        body: JSON.stringify(payload) 
+                    });
+                    
+                    if (!response.ok) {
+                         const errorText = await response.text();
+                         throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
+                    }
+                    
+                    showToast('Vídeo salvo com sucesso! Refletirá no Pass.');
+                    form.reset();
+
+                } catch (error) {
+                    showToast(error.message || 'Falha ao salvar vídeo.', true);
+                } finally {
+                    btnSalvarVideo.disabled = false;
+                    btnSalvarVideo.innerHTML = `<i class="fa-solid fa-save"></i> Salvar Vídeo`;
+                }
+            }
+
+            async function handleFormArquivoSubmit(e) {
+                e.preventDefault();
+                const form = e.target;
+                
+                if (!form.reportValidity()) {
+                    return; 
+                }
+                
+                const payload = {
+                    sistema_id: form['arquivo-sistema'].value,
+                    titulo: form['arquivo-titulo'].value,
+                    url: form['arquivo-url'].value,
+                    categoria: form['arquivo-categoria'].value,
+                    descricao: form['arquivo-descricao'].value,
+                    data_criacao: new Date().toISOString()
+                };
+
+                btnSalvarArquivo.disabled = true;
+                btnSalvarArquivo.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+
+                try {
+                    const response = await authenticatedFetch(URLS.saveArquivo, { 
+                        method: 'POST', 
+                        body: JSON.stringify(payload) 
+                    });
+                    
+                    if (!response.ok) {
+                         const errorText = await response.text();
+                         throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
+                    }
+
+                    showToast('Arquivo salvo com sucesso! Refletirá no Pass.');
+                    form.reset();
+
+                } catch (error) {
+                    showToast(error.message || 'Falha ao salvar arquivo.', true);
+                } finally {
+                    btnSalvarArquivo.disabled = false;
+                    btnSalvarArquivo.innerHTML = `<i class="fa-solid fa-save"></i> Salvar Arquivo`;
+                }
+            }
+
+            // --- EVENT LISTENERS ---
+            loginFormEl.addEventListener('submit', handleLogin);
+            logoutButtonEl.addEventListener('click', handleLogout);
+            videoSistemaSelect.addEventListener('change', updateFuncionalidadeSelects);
+            
+            formVideoEl.addEventListener('submit', handleFormVideoSubmit);
+            formArquivoEl.addEventListener('submit', handleFormArquivoSubmit);
+
+            // Adiciona listener para a navegação
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    const view = link.dataset.view;
+                    if (state.currentView !== view) {
+                        state.currentView = view;
+                        renderView();
+                    }
+                });
+            });
+
+            // --- INITIALIZATION ---
+            checkAuth();
+        });
+    </script>
+</body>
+</html>
