@@ -160,6 +160,18 @@
                             </button>
                         </form>
                     </div>
+
+                    <!-- Listagem de Vídeos -->
+                    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
+                        <h3 class="text-2xl font-semibold text-white mb-4 flex items-center gap-3">
+                            <i class="fa-solid fa-list" style="color: var(--brand-color);"></i> Vídeos Cadastrados
+                            <span id="videos-count" class="text-sm text-slate-400 font-normal"></span>
+                        </h3>
+                        <!-- Filtros e Tabela serão injetados aqui -->
+                        <div id="video-list-container">
+                             <p class="text-center text-slate-500">Carregando vídeos...</p>
+                        </div>
+                    </div>
                 </div>
                 
                  <!-- VIEW: ARQUIVOS -->
@@ -216,6 +228,13 @@
         <p id="toast-message"></p>
     </div>
 
+    <!-- Modal de Edição/Visualização (Reutilizável) -->
+    <div id="main-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden items-center justify-center p-4">
+        <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <!-- Conteúdo do modal (formulário de edição) -->
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- STATE MANAGEMENT ---
@@ -224,7 +243,8 @@
                 currentUser: null,
                 sistemas: [],
                 funcionalidades: [],
-                currentView: 'videos', // NOVO: Controla qual tela está ativa
+                videos: [], // NOVO: Armazenar os vídeos
+                currentView: 'videos',
             };
 
             // --- DOM ELEMENTS ---
@@ -249,15 +269,20 @@
             const viewTitleEl = document.getElementById('view-title');
             const navLinks = document.querySelectorAll('.nav-link');
 
+            const videoListContainer = document.getElementById('video-list-container');
+            const videosCountEl = document.getElementById('videos-count');
 
             const toastEl = document.getElementById('toast');
             const toastMessageEl = document.getElementById('toast-message');
+            const mainModalEl = document.getElementById('main-modal');
+            const modalContentEl = document.getElementById('modal-content');
 
             // --- N8N WEBHOOK URLS ---
             const URLS = {
                 login: 'https://work.produ-cloud.com/webhook/envia_login', 
                 getSistemas: 'https://work.produ-cloud.com/webhook/carrega_todos_sistemas', 
                 getFuncionalidades: 'https://work.produ-cloud.com/webhook/carrega_todas_funcionalidades',
+                getVideos: 'https://work.produ-cloud.com/webhook/nugget-busca-video', // NOVO ENDPOINT DE BUSCA
                 // Rotinas de Escrita
                 saveVideo: 'https://work.produ-cloud.com/webhook/nugget-salva-video', 
                 saveArquivo: 'https://work.produ-cloud.com/webhook/nugget_arquivos_links', 
@@ -271,11 +296,30 @@
                 setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
             };
 
+            const formatDate = (dateString) => {
+                if (!dateString) return 'N/D';
+                const date = new Date(dateString);
+                // Usar UTC para evitar problemas de fuso horário com datas do N8N
+                 return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+            };
+
+             const openModal = (content) => {
+                modalContentEl.innerHTML = content;
+                mainModalEl.classList.remove('hidden');
+                mainModalEl.classList.add('flex');
+            };
+
+            const closeModal = () => {
+                mainModalEl.classList.add('hidden');
+                mainModalEl.classList.remove('flex');
+                modalContentEl.innerHTML = '';
+            };
+
+
             // --- AUTHENTICATION & API ---
             async function authenticatedFetch(url, options = {}) {
                 const token = sessionStorage.getItem('pass_jwt_token');
                 
-                // NOVO: Como este é um painel administrativo sem JWT real, simulamos a verificação
                 if (!token) {
                     handleLogout();
                     return Promise.reject(new Error('Sessão de administrador expirada.'));
@@ -289,13 +333,9 @@
                 
                 const fetchOptions = options.method === 'GET' ? { headers } : { ...options, headers };
                 
-                // NOVO: Adiciona um tratamento simples para simular 401
                 const response = await fetch(url, fetchOptions);
 
-                // No seu ambiente, o N8N pode retornar um status que não seja 401 para "não autenticado",
-                // mas para fins de simulação e segurança, vamos forçar o logout em falhas críticas
                 if (!response.ok && response.status !== 404 && response.status !== 400) { 
-                    // Se o status for 401 ou outro erro de servidor (5xx), forçamos o logout (se for um erro de rede, o fetch falha antes)
                     if (response.status === 401 || response.status >= 500) { 
                         handleLogout();
                         throw new Error('Erro de autenticação ou servidor. Tentando relogar.');
@@ -332,7 +372,6 @@
                 const password = loginFormEl.password.value;
 
                 try {
-                    // Novo: O Login usa o mesmo webhook do SodaPop, que deve retornar o usuário
                     const response = await fetch(URLS.login, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -345,12 +384,9 @@
                     const loginData = Array.isArray(result) ? result[0] : result;
                     
                     if (loginData && loginData.id && loginData.username) {
-                        // Novo: Simulação do JWT/Token para autenticação administrativa simplificada
                         const simulatedToken = `dummy_admin_token_${loginData.id}_${Date.now()}`;
                         
-                        // O token precisa ser salvo para o `authenticatedFetch` usá-lo
                         sessionStorage.setItem('pass_jwt_token', simulatedToken); 
-                        // Salvamos o usuário sob o nome usado no SodaPop
                         sessionStorage.setItem('sodapop_user', JSON.stringify(loginData)); 
                         checkAuth();
                     } else {
@@ -375,44 +411,55 @@
             async function fetchInitialData() {
                 loadingEl.classList.remove('hidden');
                 try {
-                    // Como é um painel administrativo, buscaremos TODOS os sistemas e funcionalidades.
-                    
-                    const [sistemasRes, funcsRes] = await Promise.all([
+                    // Carrega todos os dados em paralelo
+                    const [sistemasRes, funcsRes, videosRes] = await Promise.all([
                         authenticatedFetch(URLS.getSistemas, { method: 'GET' }), 
-                        authenticatedFetch(URLS.getFuncionalidades, { method: 'GET' }) 
+                        authenticatedFetch(URLS.getFuncionalidades, { method: 'GET' }),
+                        authenticatedFetch(URLS.getVideos, { method: 'GET' }) // NOVO: Busca os vídeos
                     ]);
 
                     if (!sistemasRes.ok || !funcsRes.ok) {
                         const errorMsg = `Falha ao carregar sistemas/funcionalidades. Verifique as URLs do N8N.`;
                          throw new Error(errorMsg);
                     }
+                    if (!videosRes.ok) {
+                         // Permite o app continuar, mas mostra um erro para os vídeos
+                         console.error("Falha ao carregar vídeos:", videosRes.status);
+                    }
 
                     state.sistemas = await sistemasRes.json();
                     state.funcionalidades = await funcsRes.json();
                     
+                    try {
+                        // Tenta ler os vídeos mesmo se a resposta não for 200, caso o N8N retorne um erro amigável em JSON
+                         const videosData = await videosRes.json();
+                         state.videos = Array.isArray(videosData) ? videosData : [];
+                    } catch(e) {
+                         state.videos = [];
+                    }
+
+
                     if (state.sistemas.length === 0) {
                         showToast('Nenhum projeto encontrado. Verifique a fonte de dados.', true);
                     }
                     
                     populateSelects();
+                    renderListagemVideos();
 
                 } catch (error) {
                     showToast(error.message || 'Erro ao carregar dados iniciais. (Rede/Auth)', true);
                 } finally {
                     loadingEl.classList.add('hidden');
-                    renderView(); // Renderiza a view inicial após carregar os dados
+                    renderView();
                 }
             }
 
             function populateSelects() {
-                // Cria as opções para todos os sistemas
                 const sistemaOptions = state.sistemas.map(s => `<option value="${String(s.id)}">${s.name}</option>`).join('');
                 
-                // Popula os selects de sistema em ambas as abas
                 videoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
                 arquivoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
                 
-                // A funcionalidade só é populada após a seleção do sistema
                 updateFuncionalidadeSelects();
             }
 
@@ -422,16 +469,15 @@
                     ? state.funcionalidades.filter(f => String(f.sistema_id) === selectedSistemaId)
                     : [];
 
-                // REMOVIDO FILTRO DE PROGRESSO PARA MOSTRAR TODAS AS FUNCIONALIDADES (Conforme solicitdo pelo usuário)
-                // const activeFuncs = funcs.filter(f => (f.progress || 0) < 100);
                 const allFuncs = funcs;
 
                 const funcOptions = allFuncs.map(f => `<option value="${f.id}">${f.text} (${f.complexidade || 'N/D'})</option>`).join('');
                 videoFuncionalidadeSelect.innerHTML = `<option value="">Selecione uma Funcionalidade...</option>` + funcOptions;
                 videoFuncionalidadeSelect.disabled = !selectedSistemaId;
             }
+            
+            // --- RENDER FUNCTIONS ---
 
-            // --- RENDER VIEW LOGIC ---
             function renderView() {
                 viewVideosEl.classList.add('hidden');
                 viewArquivosEl.classList.add('hidden');
@@ -442,12 +488,82 @@
                     viewVideosEl.classList.remove('hidden');
                     document.getElementById('nav-videos').classList.add('active');
                     viewTitleEl.textContent = 'Gerenciamento de Vídeos Loom';
+                    renderListagemVideos();
                 } else if (state.currentView === 'arquivos') {
                     viewArquivosEl.classList.remove('hidden');
                     document.getElementById('nav-arquivos').classList.add('active');
                     viewTitleEl.textContent = 'Gerenciamento de Arquivos e Links';
+                    // Implementar renderListagemArquivos() no futuro
                 }
             }
+
+            function renderListagemVideos() {
+                 videosCountEl.textContent = `(${state.videos.length} itens)`;
+
+                 if (state.videos.length === 0) {
+                    videoListContainer.innerHTML = `<p class="text-center text-slate-500 py-4">Nenhum vídeo cadastrado ainda.</p>`;
+                    return;
+                 }
+                 
+                 // Mapeamento para nomes amigáveis na tabela
+                 const videoData = state.videos.map(v => {
+                    const sistema = state.sistemas.find(s => String(s.id) === String(v.sistema_id));
+                    const funcionalidade = state.funcionalidades.find(f => String(f.id) === String(v.funcionalidade_id));
+                    return {
+                        ...v,
+                        sistema_name: sistema ? sistema.name : 'N/D',
+                        funcionalidade_name: funcionalidade ? funcionalidade.text : 'N/D',
+                        formatted_date: formatDate(v.data_gravacao),
+                    };
+                 });
+
+                 // Renderização da Tabela
+                 const tableHtml = `
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-400">
+                            <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Título</th>
+                                    <th scope="col" class="px-6 py-3">Projeto</th>
+                                    <th scope="col" class="px-6 py-3">Funcionalidade</th>
+                                    <th scope="col" class="px-6 py-3">Tag</th>
+                                    <th scope="col" class="px-6 py-3">Data</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${videoData.map(v => `
+                                    <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                        <th scope="row" class="px-6 py-4 font-medium text-white max-w-xs truncate">${v.titulo}</th>
+                                        <td class="px-6 py-4">${v.sistema_name}</td>
+                                        <td class="px-6 py-4 max-w-xs truncate">${v.funcionalidade_name}</td>
+                                        <td class="px-6 py-4">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">${v.tag || 'Sem Tag'}</span>
+                                        </td>
+                                        <td class="px-6 py-4">${v.formatted_date}</td>
+                                        <td class="px-6 py-4 text-right flex justify-end space-x-2">
+                                            <a href="${v.url_loom}" target="_blank" class="text-slate-400 hover:text-white" title="Abrir Link">
+                                                <i class="fa-solid fa-up-right-from-square"></i>
+                                            </a>
+                                            <button data-id="${v.id}" class="edit-video-btn text-amber-500 hover:text-amber-400" title="Editar">
+                                                <i class="fa-solid fa-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                 `;
+
+                 videoListContainer.innerHTML = tableHtml;
+
+                 // Adiciona listeners para os botões de edição (próxima etapa)
+                 videoListContainer.querySelectorAll('.edit-video-btn').forEach(btn => {
+                     btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
+                 });
+            }
+
 
             // --- FORM SUBMISSION LOGIC ---
 
@@ -459,12 +575,11 @@
                     return; 
                 }
                 
-                // Validação manual do URL Loom
                 const loomUrl = form['video-url'].value;
                 if (!loomUrl.match(/^https:\/\/www\.loom\.com\/share\/[a-zA-Z0-9]+$/)) {
                      form['video-url'].setCustomValidity('O URL do Loom deve ser no formato https://www.loom.com/share/...');
                      form.reportValidity();
-                     form['video-url'].setCustomValidity(''); // Reset the message
+                     form['video-url'].setCustomValidity('');
                      return;
                 }
 
@@ -493,9 +608,10 @@
                          throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
                     }
                     
-                    showToast('Vídeo salvo com sucesso! Refletirá no Pass.');
+                    showToast('Vídeo salvo com sucesso!');
                     form.reset();
-                    updateFuncionalidadeSelects(); // Reinicia o select de funcionalidade
+                    updateFuncionalidadeSelects();
+                    await fetchInitialData(); // Recarrega os dados para atualizar a lista
 
                 } catch (error) {
                     showToast(error.message || 'Falha ao salvar vídeo.', true);
@@ -536,9 +652,9 @@
                          throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
                     }
 
-                    showToast('Arquivo salvo com sucesso! Refletirá no Pass.');
+                    showToast('Arquivo salvo com sucesso!');
                     form.reset();
-
+                    // Futuramente: Recarrega a lista de arquivos
                 } catch (error) {
                     showToast(error.message || 'Falha ao salvar arquivo.', true);
                 } finally {
@@ -551,13 +667,11 @@
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
             
-            // NOVO: Adiciona a escuta para carregar funcionalidades ao selecionar o sistema
             videoSistemaSelect.addEventListener('change', updateFuncionalidadeSelects);
             
             formVideoEl.addEventListener('submit', handleFormVideoSubmit);
             formArquivoEl.addEventListener('submit', handleFormArquivoSubmit);
 
-            // Adiciona listener para a navegação
             navLinks.forEach(link => {
                 link.addEventListener('click', () => {
                     const view = link.dataset.view;
@@ -567,6 +681,11 @@
                     }
                 });
             });
+
+            mainModalEl.addEventListener('click', (e) => {
+                 if (e.target === mainModalEl) closeModal();
+            });
+
 
             // --- INITIALIZATION ---
             checkAuth();
