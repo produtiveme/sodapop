@@ -275,6 +275,7 @@
             async function authenticatedFetch(url, options = {}) {
                 const token = sessionStorage.getItem('pass_jwt_token');
                 
+                // NOVO: Como este é um painel administrativo sem JWT real, simulamos a verificação
                 if (!token) {
                     handleLogout();
                     return Promise.reject(new Error('Sessão de administrador expirada.'));
@@ -288,11 +289,17 @@
                 
                 const fetchOptions = options.method === 'GET' ? { headers } : { ...options, headers };
                 
+                // NOVO: Adiciona um tratamento simples para simular 401
                 const response = await fetch(url, fetchOptions);
 
-                if (response.status === 401) {
-                    handleLogout();
-                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                // No seu ambiente, o N8N pode retornar um status que não seja 401 para "não autenticado",
+                // mas para fins de simulação e segurança, vamos forçar o logout em falhas críticas
+                if (!response.ok && response.status !== 404 && response.status !== 400) { 
+                    // Se o status for 401 ou outro erro de servidor (5xx), forçamos o logout (se for um erro de rede, o fetch falha antes)
+                    if (response.status === 401 || response.status >= 500) { 
+                        handleLogout();
+                        throw new Error('Erro de autenticação ou servidor. Tentando relogar.');
+                    }
                 }
                 
                 return response;
@@ -325,6 +332,7 @@
                 const password = loginFormEl.password.value;
 
                 try {
+                    // Novo: O Login usa o mesmo webhook do SodaPop, que deve retornar o usuário
                     const response = await fetch(URLS.login, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -337,9 +345,12 @@
                     const loginData = Array.isArray(result) ? result[0] : result;
                     
                     if (loginData && loginData.id && loginData.username) {
+                        // Novo: Simulação do JWT/Token para autenticação administrativa simplificada
                         const simulatedToken = `dummy_admin_token_${loginData.id}_${Date.now()}`;
                         
+                        // O token precisa ser salvo para o `authenticatedFetch` usá-lo
                         sessionStorage.setItem('pass_jwt_token', simulatedToken); 
+                        // Salvamos o usuário sob o nome usado no SodaPop
                         sessionStorage.setItem('sodapop_user', JSON.stringify(loginData)); 
                         checkAuth();
                     } else {
@@ -364,6 +375,7 @@
             async function fetchInitialData() {
                 loadingEl.classList.remove('hidden');
                 try {
+                    // Como é um painel administrativo, buscaremos TODOS os sistemas e funcionalidades.
                     
                     const [sistemasRes, funcsRes] = await Promise.all([
                         authenticatedFetch(URLS.getSistemas, { method: 'GET' }), 
@@ -371,7 +383,7 @@
                     ]);
 
                     if (!sistemasRes.ok || !funcsRes.ok) {
-                        const errorMsg = `Falha ao carregar sistemas/funcionalidades. Status Sistemas: ${sistemasRes.status || 'N/A'}, Status Funcionalidades: ${funcsRes.status || 'N/A'}.`;
+                        const errorMsg = `Falha ao carregar sistemas/funcionalidades. Verifique as URLs do N8N.`;
                          throw new Error(errorMsg);
                     }
 
@@ -393,9 +405,14 @@
             }
 
             function populateSelects() {
+                // Cria as opções para todos os sistemas
                 const sistemaOptions = state.sistemas.map(s => `<option value="${String(s.id)}">${s.name}</option>`).join('');
+                
+                // Popula os selects de sistema em ambas as abas
                 videoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
                 arquivoSistemaSelect.innerHTML = `<option value="">Selecione um Projeto...</option>` + sistemaOptions;
+                
+                // A funcionalidade só é populada após a seleção do sistema
                 updateFuncionalidadeSelects();
             }
 
@@ -405,12 +422,16 @@
                     ? state.funcionalidades.filter(f => String(f.sistema_id) === selectedSistemaId)
                     : [];
 
-                const funcOptions = funcs.map(f => `<option value="${f.id}">${f.text} (${f.complexidade || 'N/D'})</option>`).join('');
+                // REMOVIDO FILTRO DE PROGRESSO PARA MOSTRAR TODAS AS FUNCIONALIDADES (Conforme solicitdo pelo usuário)
+                // const activeFuncs = funcs.filter(f => (f.progress || 0) < 100);
+                const allFuncs = funcs;
+
+                const funcOptions = allFuncs.map(f => `<option value="${f.id}">${f.text} (${f.complexidade || 'N/D'})</option>`).join('');
                 videoFuncionalidadeSelect.innerHTML = `<option value="">Selecione uma Funcionalidade...</option>` + funcOptions;
                 videoFuncionalidadeSelect.disabled = !selectedSistemaId;
             }
 
-            // NOVO: Função para renderizar a view correta e atualizar a navegação
+            // --- RENDER VIEW LOGIC ---
             function renderView() {
                 viewVideosEl.classList.add('hidden');
                 viewArquivosEl.classList.add('hidden');
@@ -437,12 +458,22 @@
                 if (!form.reportValidity()) {
                     return; 
                 }
+                
+                // Validação manual do URL Loom
+                const loomUrl = form['video-url'].value;
+                if (!loomUrl.match(/^https:\/\/www\.loom\.com\/share\/[a-zA-Z0-9]+$/)) {
+                     form['video-url'].setCustomValidity('O URL do Loom deve ser no formato https://www.loom.com/share/...');
+                     form.reportValidity();
+                     form['video-url'].setCustomValidity(''); // Reset the message
+                     return;
+                }
+
 
                 const payload = {
                     sistema_id: form['video-sistema'].value,
                     funcionalidade_id: form['video-funcionalidade'].value,
                     titulo: form['video-titulo'].value,
-                    url_loom: form['video-url'].value,
+                    url_loom: loomUrl,
                     descricao: form['video-descricao'].value,
                     tag: form['video-tag'].value,
                     data_gravacao: new Date().toISOString()
@@ -464,6 +495,7 @@
                     
                     showToast('Vídeo salvo com sucesso! Refletirá no Pass.');
                     form.reset();
+                    updateFuncionalidadeSelects(); // Reinicia o select de funcionalidade
 
                 } catch (error) {
                     showToast(error.message || 'Falha ao salvar vídeo.', true);
@@ -518,6 +550,8 @@
             // --- EVENT LISTENERS ---
             loginFormEl.addEventListener('submit', handleLogin);
             logoutButtonEl.addEventListener('click', handleLogout);
+            
+            // NOVO: Adiciona a escuta para carregar funcionalidades ao selecionar o sistema
             videoSistemaSelect.addEventListener('change', updateFuncionalidadeSelects);
             
             formVideoEl.addEventListener('submit', handleFormVideoSubmit);
