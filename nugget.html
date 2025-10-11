@@ -420,8 +420,9 @@
                     'Authorization': `Bearer ${token}`
                 };
                 
-                // Adiciona o método 'POST' explicitamente se não estiver definido
+                // Adiciona o modo CORS explicitamente e o método
                 const defaultOptions = { 
+                    mode: 'cors', // Adiciona explicitamente o modo CORS para maior compatibilidade
                     method: options.method || 'GET', 
                     ...options, 
                     headers: headers 
@@ -759,9 +760,7 @@
                                             <a href="${v.url_loom}" target="_blank" class="text-slate-400 hover:text-white" title="Abrir Link">
                                                 <i class="fa-solid fa-up-right-from-square"></i>
                                             </a>
-                                            <button data-id="${v.id}" class="edit-video-btn text-amber-500 hover:text-amber-400" title="Editar">
-                                                <i class="fa-solid fa-pencil"></i>
-                                            </button>
+                                            <!-- Ícone de Edição REMOVIDO -->
                                             <button data-id="${v.id}" class="delete-video-btn text-red-500 hover:text-red-400" title="Excluir">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
@@ -779,9 +778,6 @@
                  addVideoFilterListeners();
 
                  // Adiciona listeners para os botões de ação
-                 videoListContainer.querySelectorAll('.edit-video-btn').forEach(btn => {
-                     btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
-                 });
                  videoListContainer.querySelectorAll('.delete-video-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => handleDeleteVideo(e.currentTarget.dataset.id));
                  });
@@ -869,9 +865,7 @@
                                             <a href="${a.url}" target="_blank" class="text-slate-400 hover:text-white" title="Abrir Link">
                                                 <i class="fa-solid fa-up-right-from-square"></i>
                                             </a>
-                                            <button data-id="${a.id}" class="edit-arquivo-btn text-amber-500 hover:text-amber-400" title="Editar">
-                                                <i class="fa-solid fa-pencil"></i>
-                                            </button>
+                                            <!-- Ícone de Edição REMOVIDO -->
                                             <button data-id="${a.id}" class="delete-arquivo-btn text-red-500 hover:text-red-400" title="Excluir">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
@@ -889,9 +883,6 @@
                  addArquivoFilterListeners();
 
                  // Adiciona listeners para os botões de ação
-                 arquivoListContainer.querySelectorAll('.edit-arquivo-btn').forEach(btn => {
-                     btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição de Arquivo (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
-                 });
                  arquivoListContainer.querySelectorAll('.delete-arquivo-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => handleDeleteArquivo(e.currentTarget.dataset.id));
                  });
