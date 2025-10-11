@@ -245,6 +245,9 @@
                 funcionalidades: [],
                 videos: [], // NOVO: Armazenar os vídeos
                 currentView: 'videos',
+                // NOVO: Estados para os filtros
+                filterSistemaId: '',
+                filterTag: '',
             };
 
             // --- DOM ELEMENTS ---
@@ -271,6 +274,10 @@
 
             const videoListContainer = document.getElementById('video-list-container');
             const videosCountEl = document.getElementById('videos-count');
+            
+            // NOVO: Elementos de filtro da listagem de vídeos
+            let videoFilterSistemaSelect; // Serão criados e referenciados após a renderização
+            let videoFilterTagSelect;
 
             const toastEl = document.getElementById('toast');
             const toastMessageEl = document.getElementById('toast-message');
@@ -415,7 +422,7 @@
                     const [sistemasRes, funcsRes, videosRes] = await Promise.all([
                         authenticatedFetch(URLS.getSistemas, { method: 'GET' }), 
                         authenticatedFetch(URLS.getFuncionalidades, { method: 'GET' }),
-                        authenticatedFetch(URLS.getVideos, { method: 'GET' }) // NOVO: Busca os vídeos
+                        authenticatedFetch(URLS.getVideos, { method: 'GET' }) 
                     ]);
 
                     if (!sistemasRes.ok || !funcsRes.ok) {
@@ -423,7 +430,6 @@
                          throw new Error(errorMsg);
                     }
                     if (!videosRes.ok) {
-                         // Permite o app continuar, mas mostra um erro para os vídeos
                          console.error("Falha ao carregar vídeos:", videosRes.status);
                     }
 
@@ -431,13 +437,11 @@
                     state.funcionalidades = await funcsRes.json();
                     
                     try {
-                        // Tenta ler os vídeos mesmo se a resposta não for 200, caso o N8N retorne um erro amigável em JSON
                          const videosData = await videosRes.json();
                          state.videos = Array.isArray(videosData) ? videosData : [];
                     } catch(e) {
                          state.videos = [];
                     }
-
 
                     if (state.sistemas.length === 0) {
                         showToast('Nenhum projeto encontrado. Verifique a fonte de dados.', true);
@@ -498,26 +502,61 @@
             }
 
             function renderListagemVideos() {
-                 videosCountEl.textContent = `(${state.videos.length} itens)`;
-
-                 if (state.videos.length === 0) {
-                    videoListContainer.innerHTML = `<p class="text-center text-slate-500 py-4">Nenhum vídeo cadastrado ainda.</p>`;
-                    return;
-                 }
-                 
-                 // Mapeamento para nomes amigáveis na tabela
-                 const videoData = state.videos.map(v => {
+                
+                // --- 1. Mapeamento para nomes amigáveis (Aplicado a TODOS os vídeos) ---
+                const allMappedVideos = state.videos.map(v => {
+                    // Nota: Os IDs nos dados de vídeo são strings ou números. Usamos String() para garantir comparação consistente.
                     const sistema = state.sistemas.find(s => String(s.id) === String(v.sistema_id));
                     const funcionalidade = state.funcionalidades.find(f => String(f.id) === String(v.funcionalidade_id));
                     return {
                         ...v,
-                        sistema_name: sistema ? sistema.name : 'N/D',
-                        funcionalidade_name: funcionalidade ? funcionalidade.text : 'N/D',
+                        sistema_name: sistema ? sistema.name : 'N/D', // Captura o nome
+                        funcionalidade_name: funcionalidade ? funcionalidade.text : 'N/D', // Captura o nome
                         formatted_date: formatDate(v.data_gravacao),
                     };
-                 });
+                });
+                
+                let filteredVideos = allMappedVideos;
+                
+                // --- 2. Aplica Filtros ---
+                if (state.filterSistemaId) {
+                    // Filtra pelo ID do sistema.
+                    filteredVideos = filteredVideos.filter(v => String(v.sistema_id) === state.filterSistemaId);
+                }
+                if (state.filterTag) {
+                    // Filtra pela Tag.
+                    filteredVideos = filteredVideos.filter(v => v.tag === state.filterTag);
+                }
 
-                 // Renderização da Tabela
+                videosCountEl.textContent = `(${filteredVideos.length} itens)`;
+
+                // --- 3. Coleta Tags Únicas para o Filtro (baseado em TODOS os vídeos) ---
+                const uniqueTags = [...new Set(state.videos.map(v => v.tag).filter(t => t && t.trim() !== ''))].sort();
+                
+                // --- 4. Renderiza HTML dos Filtros ---
+                const sistemaOptionsHtml = state.sistemas.map(s => `<option value="${s.id}" ${state.filterSistemaId === String(s.id) ? 'selected' : ''}>${s.name}</option>`).join('');
+                const tagOptionsHtml = uniqueTags.map(tag => `<option value="${tag}" ${state.filterTag === tag ? 'selected' : ''}>${tag}</option>`).join('');
+
+                const filtersHtml = `
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <select id="video-filter-sistema" class="form-select w-full md:w-1/2">
+                            <option value="">Filtrar por Projeto...</option>
+                            ${sistemaOptionsHtml}
+                        </select>
+                        <select id="video-filter-tag" class="form-select w-full md:w-1/2">
+                            <option value="">Filtrar por Tag...</option>
+                            ${tagOptionsHtml}
+                        </select>
+                    </div>
+                `;
+
+                 if (filteredVideos.length === 0) {
+                    videoListContainer.innerHTML = filtersHtml + `<p class="text-center text-slate-500 py-4">Nenhum vídeo cadastrado que corresponda aos filtros.</p>`;
+                    addFilterListeners();
+                    return;
+                 }
+                 
+                 // --- 5. Renderização da Tabela ---
                  const tableHtml = `
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left text-slate-400">
@@ -532,7 +571,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${videoData.map(v => `
+                                ${filteredVideos.map(v => `
                                     <tr class="border-b border-slate-700 hover:bg-slate-700/20">
                                         <th scope="row" class="px-6 py-4 font-medium text-white max-w-xs truncate">${v.titulo}</th>
                                         <td class="px-6 py-4">${v.sistema_name}</td>
@@ -556,12 +595,34 @@
                     </div>
                  `;
 
-                 videoListContainer.innerHTML = tableHtml;
+                 videoListContainer.innerHTML = filtersHtml + tableHtml;
+
+                 // Adiciona listeners aos filtros recém-criados
+                 addFilterListeners();
 
                  // Adiciona listeners para os botões de edição (próxima etapa)
                  videoListContainer.querySelectorAll('.edit-video-btn').forEach(btn => {
                      btn.addEventListener('click', (e) => showToast(`Funcionalidade de edição (ID: ${e.currentTarget.dataset.id}) será implementada em breve!`));
                  });
+            }
+
+            function addFilterListeners() {
+                // Captura os elementos recém-criados
+                videoFilterSistemaSelect = document.getElementById('video-filter-sistema');
+                videoFilterTagSelect = document.getElementById('video-filter-tag');
+
+                if (videoFilterSistemaSelect) {
+                    videoFilterSistemaSelect.addEventListener('change', (e) => {
+                        state.filterSistemaId = e.target.value;
+                        renderListagemVideos();
+                    });
+                }
+                if (videoFilterTagSelect) {
+                    videoFilterTagSelect.addEventListener('change', (e) => {
+                        state.filterTag = e.target.value;
+                        renderListagemVideos();
+                    });
+                }
             }
 
 
@@ -570,18 +631,25 @@
             async function handleFormVideoSubmit(e) {
                 e.preventDefault();
                 const form = e.target;
+                const saveBtn = document.getElementById('btn-salvar-video');
                 
+                // 1. Initial Validation Check (Standard HTML5)
                 if (!form.reportValidity()) {
+                    showToast('Preencha todos os campos obrigatórios (Projeto, Funcionalidade, Título e URL).', true);
                     return; 
                 }
                 
+                // 2. Custom URL Validation
                 const loomUrl = form['video-url'].value;
-                if (!loomUrl.match(/^https:\/\/www\.loom\.com\/share\/[a-zA-Z0-9]+$/)) {
-                     form['video-url'].setCustomValidity('O URL do Loom deve ser no formato https://www.loom.com/share/...');
-                     form.reportValidity();
-                     form['video-url'].setCustomValidity('');
+                // CORREÇÃO: Permite a URL base OU a URL com parâmetros de consulta (?...) no final.
+                if (!loomUrl.match(/^https:\/\/www\.loom\.com\/share\/[a-zA-Z0-9]+(\?.*)?$/)) {
+                     showToast('URL do Loom inválido. Use o formato https://www.loom.com/share/...', true);
                      return;
                 }
+                
+                // --- START SAVING PROCESS ---
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
 
                 const payload = {
@@ -594,8 +662,6 @@
                     data_gravacao: new Date().toISOString()
                 };
 
-                btnSalvarVideo.disabled = true;
-                btnSalvarVideo.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
 
                 try {
                     const response = await authenticatedFetch(URLS.saveVideo, { 
@@ -605,7 +671,8 @@
                     
                     if (!response.ok) {
                          const errorText = await response.text();
-                         throw new Error(`Falha ao salvar. Status: ${response.status}. Detalhes: ${errorText.substring(0, 50)}...`);
+                         console.error('API Error:', response.status, errorText);
+                         throw new Error(`Falha ao salvar. Detalhes: ${errorText.substring(0, 50)}...`);
                     }
                     
                     showToast('Vídeo salvo com sucesso!');
@@ -614,10 +681,11 @@
                     await fetchInitialData(); // Recarrega os dados para atualizar a lista
 
                 } catch (error) {
-                    showToast(error.message || 'Falha ao salvar vídeo.', true);
+                    console.error('Erro no Submit:', error);
+                    showToast(error.message || 'Falha ao salvar vídeo. Verifique o console.', true);
                 } finally {
-                    btnSalvarVideo.disabled = false;
-                    btnSalvarVideo.innerHTML = `<i class="fa-solid fa-save"></i> Salvar Vídeo`;
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = `<i class="fa-solid fa-save"></i> Salvar Vídeo`;
                 }
             }
 
