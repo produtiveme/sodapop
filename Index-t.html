@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SodaPop - Gestão de Projetos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 10px;
+            border: 2px solid #1e293b;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #64748b;
+        }
+        .description-content p, .description-content ul, .description-content ol {
+            margin-bottom: 0.75rem;
+        }
+        .main-content {
+            transition: background-color 0.5s ease-in-out;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+        .calendar-day {
+            min-height: 120px;
+        }
+        .form-input, .form-select, .form-textarea {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #312e81;
+        }
+        .form-input.invalid, .form-textarea.invalid {
+            border-color: #ef4444; /* red-500 */
+        }
+        .kanban-board {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+        .kanban-column {
+            min-width: 300px;
+            width: 300px;
+            background-color: #1e293b; /* slate-800 */
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* Accordion style for Pendências tab */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        /* Todoist-like styles */
+        .task-checkbox-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #475569; /* slate-600 */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .task-checkbox-btn:hover {
+            background-color: rgba(71, 85, 105, 0.5); /* slate-600/50 */
+        }
+        .task-checkbox-btn svg {
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: white;
+        }
+        .task-item:hover .task-checkbox-btn svg {
+            opacity: 1;
+        }
+
+
+        /* Light Theme Styles - V2 (Correction) */
+        .light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f1f5f9; /* slate-100 */
+            --bg-tertiary: #e2e8f0; /* slate-200 */
+            --text-primary: #1e293b; /* slate-800 */
+            --text-secondary: #475569; /* slate-600 */
+            --text-muted: #64748b; /* slate-500 */
+            --border-color: #cbd5e1; /* slate-300 */
+            --border-color-hover: #94a3b8; /* slate-400 */
+        }
+
+        .light-theme, .light-theme body {
+            background-color: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme header, .light-theme footer {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        /* Generic Text Overrides */
+        .light-theme h1, .light-theme h2, .light-theme h3, .light-theme h4, 
+        .light-theme .text-white, .light-theme .font-medium.text-white, .light-theme .text-slate-200,
+        .light-theme .text-slate-300, .light-theme .font-semibold, .light-theme .font-bold {
+            color: var(--text-primary) !important;
+        }
+        .light-theme p, .light-theme span, .light-theme div, .light-theme .text-sm, .light-theme .text-xs {
+             color: inherit;
+        }
+        .light-theme .text-slate-400 { color: var(--text-secondary) !important; }
+        .light-theme .text-slate-500 { color: var(--text-muted) !important; }
+        .light-theme a { color: #4f46e5; }
+        .light-theme .text-indigo-400 { color: #4f46e5 !important; }
+        .light-theme .bg-slate-700.text-slate-300 { color: var(--text-primary) !important; }
+        .light-theme .text-red-400 { color: #ef4444 !important; }
+        .light-theme .text-green-400 { color: #22c55e !important; }
+        .light-theme .text-yellow-400 { color: #f59e0b !important; }
+
+
+        /* Component Specific Overrides */
+        .light-theme #app header button, .light-theme #responsible-filter, .light-theme #ticket-search-form input {
+            background-color: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme #app header button:hover, .light-theme #responsible-filter:hover {
+            background-color: #cbd5e1 !important;
+        }
+        .light-theme #app header button.bg-slate-700, .light-theme #responsible-filter.bg-slate-700 {
+            background-color: #93c5fd !important;
+            color: #1e3a8a !important;
+        }
+        .light-theme #logout-button, .light-theme #theme-toggle-btn, .light-theme #app-launcher-btn {
+            background-color: transparent !important;
+            color: var(--text-secondary) !important;
+        }
+        .light-theme #logout-button:hover, .light-theme #theme-toggle-btn:hover, .light-theme #app-launcher-btn:hover {
+            color: var(--text-primary) !important;
+        }
+
+        .light-theme .bg-slate-800, .light-theme .bg-slate-900\/70, .light-theme .bg-slate-800\/50, .light-theme .bg-slate-900,
+        .light-theme .bg-slate-700\/50, .light-theme .bg-slate-700 {
+            background-color: var(--bg-primary) !important;
+        }
+        .light-theme .border, .light-theme .border-b, .light-theme .border-t {
+            border-color: var(--border-color) !important;
+        }
+        .light-theme .form-input, .light-theme .form-select, .light-theme .form-textarea {
+            background-color: var(--bg-tertiary) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        .light-theme .kanban-column { background-color: var(--bg-secondary) !important; }
+        .light-theme .calendar-day { background-color: var(--bg-primary) !important; }
+        .light-theme .calendar-grid { background-color: var(--border-color) !important; }
+        .light-theme .calendar-grid .text-center { background-color: var(--bg-secondary) !important; color: var(--text-primary) !important;}
+        .light-theme .change-card.bg-slate-700 { background-color: var(--bg-tertiary) !important; }
+        .light-theme .bg-slate-700.rounded-full { background-color: var(--bg-tertiary) !important; }
+
+        .light-theme #modal-content, .light-theme #sub-modal-content, .light-theme #app-launcher-panel {
+            background-color: var(--bg-primary) !important;
+        }
+        .light-theme #modal-content .bg-slate-900\/50 {
+            background-color: var(--bg-secondary) !important;
+        }
+        .light-theme .hover\:bg-slate-700:hover, .light-theme .hover\:bg-slate-600:hover, .light-theme .hover\:bg-slate-700\/50:hover, .light-theme .hover\:bg-slate-700\/20:hover {
+             background-color: var(--bg-tertiary) !important;
+        }
+        .light-theme ::-webkit-scrollbar-track { background: #e2e8f0 !important; }
+        .light-theme ::-webkit-scrollbar-thumb { background-color: #94a3b8 !important; border-color: #e2e8f0 !important; }
+        .light-theme ::-webkit-scrollbar-thumb:hover { background-color: #64748b !important; }
+        
+        .light-theme #hill-chart-svg path, .light-theme #hill-chart-svg line { stroke: var(--border-color-hover) !important; }
+        .light-theme #hill-chart-svg text { fill: var(--text-secondary) !important; }
+        .light-theme #hill-chart-svg circle { stroke: var(--bg-primary) !important; }
+        
+        .light-theme .prose-invert {
+            --tw-prose-body: var(--text-secondary);
+            --tw-prose-headings: var(--text-primary);
+            --tw-prose-bold: var(--text-primary);
+            --tw-prose-links: #4f46e5;
+            --tw-prose-hr: var(--border-color);
+            --tw-prose-quotes: var(--text-primary);
+            --tw-prose-quote-borders: var(--border-color);
+            --tw-prose-code: var(--text-primary);
+            --tw-prose-pre-bg: var(--bg-tertiary);
+        }
+        .light-theme .task-checkbox-btn {
+            border-color: #cbd5e1; /* slate-300 */
+        }
+        .light-theme .task-checkbox-btn:hover {
+             background-color: rgba(203, 213, 225, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen">
+        <div class="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-lg shadow-lg">
+            <div class="text-center">
+                 <svg class="h-12 w-12 text-indigo-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h12A2.25 2.25 0 0 0 20.25 14.25V5.25A2.25 2.25 0 0 0 18 3H6A2.25 2.25 0 0 0 3.75 3ZM12 18.75m-2.25 0a2.25 2.25 0 1 0 4.5 0 2.25 2.25 0 1 0-4.5 0Z" />
+                </svg>
+                <h2 class="mt-6 text-3xl font-bold text-white">Bem-vindo ao SodaPop</h2>
+                <p class="mt-2 text-sm text-slate-400">Faça login para continuar</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Usuário</label>
+                        <input id="username" name="username" type="text" required class="form-input rounded-t-md" placeholder="Usuário">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Senha</label>
+                        <input id="password" name="password" type="password" required class="form-input rounded-b-md" placeholder="Senha">
+                    </div>
+                </div>
+                 <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <div id="app" class="hidden flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-20">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-4">
+                        <svg class="h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h12A2.25 2.25 0 0 0 20.25 14.25V5.25A2.25 2.25 0 0 0 18 3H6A2.25 2.25 0 0 0 3.75 3ZM12 18.75m-2.25 0a2.25 2.25 0 1 0 4.5 0 2.25 2.25 0 1 0-4.5 0Z" />
+                        </svg>
+                        <h1 class="text-xl font-bold text-white">SodaPop</h1>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="nav-sistemas" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-slate-700">Sistemas</button>
+                        <button id="nav-calendario" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Calendário</button>
+                        <button id="nav-atrasados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Atrasados</button>
+                        <button id="nav-finalizados" class="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-slate-700">Finalizados</button>
+                        <div class="h-6 border-l border-slate-600 mx-2"></div>
+                        <form id="ticket-search-form" class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">#</span>
+                            <input type="search" id="ticket-search-input" placeholder="Buscar Ticket..." class="form-input bg-slate-700 pl-7 w-32 text-sm py-1.5 focus:w-48 transition-all duration-300">
+                        </form>
+                        <div class="relative">
+                            <select id="responsible-filter" class="bg-slate-700 text-white text-sm font-medium rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                                <option value="">Meus Changes</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                               <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        <div class="h-6 border-l border-slate-600 mx-2"></div>
+                        <button id="app-launcher-btn" class="text-slate-400 hover:text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-700" title="Ferramentas">
+                            <i class="fa-solid fa-th-large"></i>
+                        </button>
+                        <button id="theme-toggle-btn" class="text-slate-400 hover:text-white" title="Alterar tema">
+                            <i id="theme-icon-sun" class="fa-solid fa-sun hidden"></i>
+                            <i id="theme-icon-moon" class="fa-solid fa-moon"></i>
+                        </button>
+                        <button id="logout-button" class="text-slate-400 hover:text-white" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <!-- App Launcher Panel -->
+        <div id="app-launcher-panel" class="hidden absolute top-16 right-4 w-80 max-w-sm bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-4 z-30">
+            <!-- App items will be injected by JS -->
+        </div>
+
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 main-content">
+            <!-- Loading Indicator -->
+            <div id="loading" class="flex items-center justify-center h-full">
+                 <div class="flex items-center justify-center space-x-2">
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400"></div>
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400" style="animation-delay: 0.2s;"></div>
+                    <div class="w-4 h-4 rounded-full animate-pulse bg-indigo-400" style="animation-delay: 0.4s;"></div>
+                    <p class="ml-4 text-slate-400">Carregando dados do N8N...</p>
+                </div>
+            </div>
+
+            <!-- Content Views -->
+            <div id="views-container" class="hidden">
+                <div id="sistemas-view"></div>
+                <div id="sistema-detail-view" class="hidden"></div>
+                <div id="meus-changes-view" class="hidden"></div>
+                <div id="calendario-view" class="hidden"></div>
+                <div id="overdue-view" class="hidden"></div>
+                <div id="finalizados-view" class="hidden"></div>
+            </div>
+        </main>
+        
+        <!-- Modals -->
+        <div id="main-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+            <div id="modal-content" class="bg-slate-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"></div>
+        </div>
+        <div id="sub-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden items-center justify-center p-4">
+            <div id="sub-modal-content" class="bg-slate-700 rounded-lg shadow-xl w-full max-w-sm p-6"></div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden transition-opacity duration-300">
+            <p id="toast-message"></p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-slate-800/50 border-t border-slate-700 text-center py-4">
+            <p id="footer-version" class="text-xs text-slate-500">ProdutiveMe | SodaPop v1.8.4</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            const state = {
+                isAuthenticated: false,
+                currentUser: null,
+                sistemas: [],
+                funcionalidades: [],
+                changes: [],
+                pendencias: [],
+                sodaPopUsers: [],
+                responsaveis: [],
+                allStatuses: [],
+                allChangeTypes: ['Added', 'Changed', 'Deprecated', 'Fixed', 'Removed', 'Security', 'Task'],
+                allFuncionalidadeTypes: ['Funcionalidade', 'Melhoria', 'Correção'],
+                allFuncionalidadeStages: ['C - Clarificar', 'O - Organizar', 'D - Desenhar', 'E - Executar'],
+                allFuncionalidadeComplexidades: ['P', 'M', 'G', 'GG', 'XGG'],
+                complexityPoints: { 'P': 1, 'M': 3, 'G': 7, 'GG': 15, 'XGG': 50 },
+                completedStatuses: ['Finalizado', 'Concluído'],
+                currentView: 'sistemas',
+                selectedSistema: null,
+                selectedResponsible: null,
+                calendarDate: new Date(),
+                selectedSistemaTab: 'funcionalidade',
+                meusChangesFilters: { sistema: '', status: [] },
+                sistemaTarefasFilters: { responsible: [], status: [] },
+                calendarFilters: { status: [], responsible: [], sistema: [] },
+                overdueFilters: { responsible: [], status: [], sistema: [] },
+                kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
+                finalizadosFilters: { startDate: '', endDate: '', sistema: [], tipo: [], funcionalidade: [] },
+                finalizadosSort: { column: 'data_encerramento', direction: 'desc' },
+            };
+
+            // --- DOM ELEMENTS ---
+            const bodyEl = document.body;
+            const loginViewEl = document.getElementById('login-view');
+            const appViewEl = document.getElementById('app');
+            const loginFormEl = document.getElementById('login-form');
+            const loginErrorEl = document.getElementById('login-error');
+            const loginButtonEl = document.getElementById('login-button');
+            const logoutButtonEl = document.getElementById('logout-button');
+            const themeToggleButton = document.getElementById('theme-toggle-btn');
+            const themeIconSun = document.getElementById('theme-icon-sun');
+            const themeIconMoon = document.getElementById('theme-icon-moon');
+            const appLauncherBtn = document.getElementById('app-launcher-btn');
+            const appLauncherPanel = document.getElementById('app-launcher-panel');
+            
+            const views = {
+                loading: document.getElementById('loading'),
+                container: document.getElementById('views-container'),
+                sistemas: document.getElementById('sistemas-view'),
+                sistemaDetail: document.getElementById('sistema-detail-view'),
+                meusChanges: document.getElementById('meus-changes-view'),
+                calendario: document.getElementById('calendario-view'),
+                overdue: document.getElementById('overdue-view'),
+                finalizados: document.getElementById('finalizados-view'),
+            };
+            const mainContentEl = document.getElementById('main-content');
+            const navSistemasBtn = document.getElementById('nav-sistemas');
+            const navCalendarioBtn = document.getElementById('nav-calendario');
+            const navAtrasadosBtn = document.getElementById('nav-atrasados');
+            const navFinalizadosBtn = document.getElementById('nav-finalizados');
+            const responsibleFilterEl = document.getElementById('responsible-filter');
+            const ticketSearchForm = document.getElementById('ticket-search-form');
+            const ticketSearchInput = document.getElementById('ticket-search-input');
+            const mainModalEl = document.getElementById('main-modal');
+            const modalContentEl = document.getElementById('modal-content');
+            const subModalEl = document.getElementById('sub-modal');
+            const subModalContentEl = document.getElementById('sub-modal-content');
+            const toastEl = document.getElementById('toast');
+            const toastMessageEl = document.getElementById('toast-message');
+
+            // --- N8N WEBHOOK URLS ---
+            const URLS = {
+                login: 'https://work.produ-cloud.com/webhook/login_sodaPop',
+                sistemas: 'https://work.produ-cloud.com/webhook/sistemas_sodaPop',
+                funcionalidades: 'https://work.produ-cloud.com/webhook/funcionalidades_sodaPop',
+                changes: 'https://work.produ-cloud.com/webhook/carrega-todos-change',
+                pendencias: 'https://work.produ-cloud.com/webhook/upgrade-busca-pendencias',
+                updateChange: 'https://work.produ-cloud.com/webhook/atualiza_change',
+                createChange: 'https://work.produ-cloud.com/webhook/cria_change',
+                createFuncionalidade: 'https://work.produ-cloud.com/webhook/cria_funcionalidade',
+                updateFuncionalidade: 'https://work.produ-cloud.com/webhook/atualiza_funcionalidade',
+                getUsers: 'https://work.produ-cloud.com/webhook/usuarios_sodaPop'
+            };
+            
+            // --- UTILITIES ---
+            const markdownConverter = new showdown.Converter({ simplifiedAutoLink: true, strikethrough: true, tables: true });
+            const formatDate = (dateString, forInput = false) => {
+                if (!dateString || dateString.startsWith('1970')) return forInput ? '' : 'N/D';
+                const date = new Date(dateString);
+                if (isNaN(date)) return forInput ? '' : 'Data inválida';
+                
+                if (forInput) {
+                    const year = date.getUTCFullYear();
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+                
+                return date.toLocaleDateString('pt-BR', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    timeZone: 'UTC' 
+                });
+            };
+
+            const formatPrazoRestante = (dateString) => {
+                if (!dateString || dateString.startsWith('1970')) {
+                    return null;
+                }
+                const prazo = new Date(dateString);
+                const hoje = new Date();
+                
+                // Zera as horas para comparar apenas as datas
+                prazo.setUTCHours(0, 0, 0, 0);
+                hoje.setHours(0, 0, 0, 0);
+
+                const diffTime = prazo.getTime() - hoje.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 0) {
+                    return { text: `Restam ${diffDays} dia(s)`, color: 'text-green-400' };
+                } else if (diffDays < 0) {
+                    return { text: `Atrasado há ${Math.abs(diffDays)} dia(s)`, color: 'text-red-400' };
+                } else {
+                    return { text: 'Vence hoje', color: 'text-yellow-400' };
+                }
+            };
+
+            const showToast = (message, isError = false) => {
+                toastMessageEl.textContent = message;
+                toastEl.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+                toastEl.classList.remove('hidden');
+                setTimeout(() => { toastEl.classList.add('hidden'); }, 3000);
+            };
+            const toggleTheme = () => {
+                bodyEl.classList.toggle('light-theme');
+                const isLight = bodyEl.classList.contains('light-theme');
+                themeIconSun.classList.toggle('hidden', !isLight);
+                themeIconMoon.classList.toggle('hidden', isLight);
+            };
+            const colorMap = { blue: { bg: 'bg-blue-900/10', border: 'border-blue-500', text: 'text-blue-400' }, green: { bg: 'bg-green-900/10', border: 'border-green-500', text: 'text-green-400' }, pink: { bg: 'bg-pink-900/10', border: 'border-pink-500', text: 'text-pink-400' }, gray: { bg: 'bg-slate-700/10', border: 'border-slate-500', text: 'text-slate-400' }, orange: { bg: 'bg-orange-900/10', border: 'border-orange-500', text: 'text-orange-400' }, default: { bg: 'bg-slate-800', border: 'border-slate-700', text: 'text-slate-300' } };
+            const statusMap = { 'BackLog': 'bg-slate-600 text-slate-200', 'Fazendo': 'bg-blue-500 text-white', 'Teste': 'bg-yellow-500 text-black', 'Concluído': 'bg-green-500 text-white', 'A Fazer': 'bg-gray-400 text-black', 'Em Andamento': 'bg-indigo-500 text-white', 'Finalizado': 'bg-green-600 text-white' };
+            const statusBorderMap = { 'BackLog': 'border-slate-500', 'Fazendo': 'border-blue-500', 'Teste': 'border-yellow-500', 'Concluído': 'border-green-500', 'A Fazer': 'border-gray-400', 'Em Andamento': 'border-indigo-500', 'Finalizado': 'border-green-600' };
+            const sistemaStatusMap = {
+                'Desenvolvimento': 'bg-blue-500/20 text-blue-300',
+                'Manutenção': 'bg-yellow-500/20 text-yellow-300',
+                'Concluído': 'bg-green-500/20 text-green-300',
+                'Pausado': 'bg-slate-500/20 text-slate-300'
+            };
+
+            // --- AUTHENTICATION ---
+            function checkAuth() {
+                const user = sessionStorage.getItem('sodapop_user');
+                if (user) {
+                    state.isAuthenticated = true;
+                    state.currentUser = JSON.parse(user);
+                    loginViewEl.classList.add('hidden');
+                    appViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('flex');
+                    fetchData();
+                } else {
+                    loginViewEl.classList.remove('hidden');
+                    appViewEl.classList.add('hidden');
+                }
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                loginButtonEl.disabled = true;
+                loginButtonEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Entrando...`;
+                loginErrorEl.classList.add('hidden');
+
+                const username = loginFormEl.username.value;
+                const password = loginFormEl.password.value;
+
+                try {
+                    const response = await fetch(URLS.login, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    if (!response.ok) throw new Error('Falha na comunicação com o servidor.');
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === "success") {
+                        const userData = { id: result.id, nome: username }; // Simula o objeto de usuário
+                        state.isAuthenticated = true;
+                        state.currentUser = userData;
+                        sessionStorage.setItem('sodapop_user', JSON.stringify(userData));
+                        checkAuth();
+                    } else {
+                         throw new Error('Usuário ou senha inválidos.');
+                    }
+                } catch (error) {
+                    loginErrorEl.textContent = error.message;
+                    loginErrorEl.classList.remove('hidden');
+                } finally {
+                    loginButtonEl.disabled = false;
+                    loginButtonEl.textContent = 'Entrar';
+                }
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('sodapop_user');
+                state.isAuthenticated = false;
+                state.currentUser = null;
+                Object.assign(state, {
+                    sistemas: [], funcionalidades: [], changes: [], pendencias: [], sodaPopUsers: [], responsaveis: [], allStatuses: [],
+                    currentView: 'sistemas', selectedSistema: null, selectedResponsible: null,
+                    meusChangesFilters: { sistema: '', status: [] }, calendarFilters: { status: [], responsible: [], sistema: [] },
+                    overdueFilters: { responsible: [], status: [], sistema: [] }, kanbanFilters: { status: [], responsible: [], funcionalidade: [] },
+                });
+                checkAuth();
+            }
+
+            // --- DATA OPERATIONS ---
+            async function fetchData() {
+                views.loading.classList.remove('hidden');
+                views.container.classList.add('hidden');
+                try {
+                    const [sistemasRes, funcionalidadesRes, changesRes, pendenciasRes, usersRes] = await Promise.all([
+                        fetch(URLS.sistemas), 
+                        fetch(URLS.funcionalidades), 
+                        fetch(URLS.changes),
+                        fetch(URLS.pendencias),
+                        fetch(URLS.getUsers)
+                    ]);
+                    if (!sistemasRes.ok || !funcionalidadesRes.ok || !changesRes.ok || !pendenciasRes.ok || !usersRes.ok) throw new Error('Falha ao buscar dados do N8N.');
+                    
+                    const rawSistemas = await sistemasRes.json();
+                    state.sistemas = rawSistemas.map(s => ({ ...s, prazo: s.prazo?.replace(/"/g, '') }));
+
+                    state.funcionalidades = await funcionalidadesRes.json();
+                    const rawChanges = await changesRes.json();
+                    state.changes = rawChanges.map(c => ({ ...c, prazo: c.prazo?.replace(/"/g, ''), data_encerramento: c.data_encerramento?.replace(/"/g, '') }));
+                    state.pendencias = await pendenciasRes.json();
+                    state.sodaPopUsers = await usersRes.json();
+                    
+                    state.responsaveis = state.sodaPopUsers.map(u => u.username).sort();
+                    state.allStatuses = [...new Set(state.changes.map(c => c.status).filter(Boolean))].sort();
+
+                    if (state.currentUser && state.currentUser.nome && !state.selectedResponsible) {
+                        const respName = state.responsaveis.find(r => state.currentUser.nome.toLowerCase().startsWith(r.toLowerCase()));
+                        if (respName) {
+                            state.selectedResponsible = respName;
+                        }
+                    }
+
+                    updateUI();
+                } catch (error) {
+                    console.error('Erro ao carregar dados:', error);
+                    views.loading.innerHTML = `<p class="text-red-400">Erro ao carregar os dados. Verifique a conexão com o N8N e tente novamente.</p>`;
+                } finally {
+                    views.loading.classList.add('hidden');
+                    views.container.classList.remove('hidden');
+                }
+            }
+            
+            async function updateChange(updatedChange) {
+                try {
+                    const response = await fetch(URLS.updateChange, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updatedChange) });
+                    if (!response.ok) throw new Error(`O servidor respondeu com o status ${response.status}`);
+                    const index = state.changes.findIndex(c => c.id == updatedChange.id);
+                    if (index !== -1) state.changes[index] = updatedChange;
+                    render();
+                    showToast('Change atualizado com sucesso!');
+                    return true;
+                } catch (error) {
+                    console.error('Erro ao atualizar o change:', error);
+                    showToast('Falha ao atualizar. Tente novamente.', true);
+                    return false;
+                }
+            }
+            
+            async function handleQuickComplete(changeId) {
+                const change = state.changes.find(c => c.id == changeId);
+                if (!change || state.completedStatuses.includes(change.status)) return;
+
+                const updatedChange = {
+                    ...change,
+                    status: 'Finalizado',
+                    data_encerramento: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                const el = document.querySelector(`.task-item[data-change-id="${changeId}"]`);
+                if (el) {
+                    el.style.opacity = '0.5';
+                }
+
+                if (!(await updateChange(updatedChange))) {
+                    if (el) el.style.opacity = '1';
+                }
+            }
+
+            async function handleSaveChanges(changeId, button) {
+                button.disabled = true;
+                button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+                const originalChange = state.changes.find(c => c.id == changeId);
+                const form = document.getElementById('edit-change-form');
+                
+                let prazoISO = null;
+                if (form.prazo.value) {
+                    const [year, month, day] = form.prazo.value.split('-').map(Number);
+                    prazoISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
+                }
+                
+                const responsibleSelect = form.responsible;
+                const responsibleId = responsibleSelect.value;
+                const responsibleName = responsibleId ? responsibleSelect.options[responsibleSelect.selectedIndex].text : '';
+                
+                const updatedChange = { 
+                    ...originalChange, 
+                    text: form.text.value, 
+                    status: form.status.value, 
+                    responsible: responsibleName,
+                    usuarioId: responsibleId ? parseInt(responsibleId, 10) : null,
+                    prazo: prazoISO, 
+                    type: form.type.value, 
+                    goldenTicket: form.goldenTicket.checked, 
+                    description: form.description.value, 
+                    updates: form.updates.value, 
+                    updatedAt: new Date().toISOString() 
+                };
+
+                if (state.completedStatuses.includes(updatedChange.status) && !state.completedStatuses.includes(originalChange.status)) {
+                    updatedChange.data_encerramento = new Date().toISOString();
+                }
+                if (await updateChange(updatedChange)) closeModal();
+                else { button.disabled = false; button.innerHTML = `Salvar Alterações`; }
+            }
+
+            async function handleCreateChange(sistemaId, funcionalidadeId, button) {
+                const form = document.getElementById('create-change-form');
+                let isValid = true;
+                ['text', 'responsible', 'status', 'type', 'description'].forEach(fieldName => {
+                    const field = form[fieldName];
+                    let fieldIsValid = (fieldName === 'description') ? field.value.trim().length >= 10 : !!field.value.trim();
+                    field.classList.toggle('invalid', !fieldIsValid);
+                    if (!fieldIsValid) isValid = false;
+                });
+                if (!isValid) return showToast('Por favor, preencha todos os campos obrigatórios.', true);
+                
+                button.disabled = true;
+                button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Criando...`;
+
+                let prazoISO = null;
+                if (form.prazo.value) {
+                    const [year, month, day] = form.prazo.value.split('-').map(Number);
+                    prazoISO = new Date(Date.UTC(year, month - 1, day)).toISOString();
+                }
+                
+                const responsibleSelect = form.responsible;
+                const responsibleId = responsibleSelect.value;
+                const responsibleName = responsibleId ? responsibleSelect.options[responsibleSelect.selectedIndex].text : '';
+
+                const newChangeData = { 
+                    funcionalidade_id: funcionalidadeId, 
+                    sistema_id: sistemaId, 
+                    text: form.text.value, 
+                    description: form.description.value, 
+                    type: form.type.value, 
+                    status: form.status.value, 
+                    responsible: responsibleName, 
+                    usuarioId: responsibleId ? parseInt(responsibleId, 10) : null,
+                    prazo: prazoISO, 
+                    goldenTicket: form.goldenTicket.checked, 
+                    data_encerramento: null, 
+                    updates: form.updates.value 
+                };
+
+                 try {
+                    const response = await fetch(URLS.createChange, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newChangeData) });
+                    if (!response.ok) throw new Error(`O servidor respondeu com o status ${response.status}`);
+                    const createdChange = await response.json();
+                    state.changes.push(createdChange);
+                    closeModal();
+                    render();
+                    showToast('Change criado com sucesso!');
+                } catch (error) {
+                    console.error('Erro ao criar o change:', error);
+                    showToast('Falha ao criar. Tente novamente.', true);
+                    button.disabled = false;
+                    button.innerHTML = `Criar Change`;
+                }
+            }
+
+             async function handleSaveFuncionalidade(funcId, button) {
+                button.disabled = true;
+                button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...`;
+                
+                const originalFunc = state.funcionalidades.find(f => f.id == funcId);
+                const form = document.getElementById('func-form');
+
+                const updatedFunc = {
+                    ...originalFunc,
+                    text: form.text.value,
+                    description: form.description.value,
+                    type: form.type.value,
+                    stage: form.stage.value,
+                    progress: parseInt(form.progress.value, 10),
+                    complexidade: form.complexidade.value,
+                    updatedAt: new Date().toISOString()
+                };
+
+                try {
+                    const response = await fetch(URLS.updateFuncionalidade, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedFunc) });
+                    if (!response.ok) throw new Error('Falha ao atualizar funcionalidade.');
+                    
+                    const index = state.funcionalidades.findIndex(f => f.id == funcId);
+                    if (index !== -1) state.funcionalidades[index] = updatedFunc;
+                    
+                    closeModal();
+                    render();
+                    showToast('Funcionalidade atualizada com sucesso!');
+                } catch (error) {
+                    console.error(error);
+                    showToast(error.message, true);
+                    button.disabled = false;
+                    button.innerHTML = 'Salvar Alterações';
+                }
+            }
+
+            async function handleCreateFuncionalidade(sistemaId, button) {
+                button.disabled = true;
+                button.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Criando...`;
+
+                const form = document.getElementById('func-form');
+                const newFuncData = {
+                    sistema_id: sistemaId,
+                    text: form.text.value,
+                    description: form.description.value,
+                    type: form.type.value,
+                    stage: form.stage.value,
+                    progress: parseInt(form.progress.value, 10),
+                    complexidade: form.complexidade.value,
+                };
+
+                try {
+                    const response = await fetch(URLS.createFuncionalidade, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newFuncData) });
+                    if (!response.ok) throw new Error('Falha ao criar funcionalidade.');
+                    
+                    const createdFunc = await response.json();
+                    state.funcionalidades.push(createdFunc);
+
+                    closeModal();
+                    render();
+                    showToast('Funcionalidade criada com sucesso!');
+                } catch (error) {
+                    console.error(error);
+                    showToast(error.message, true);
+                    button.disabled = false;
+                    button.innerHTML = 'Criar Funcionalidade';
+                }
+            }
+            
+            function handleTicketSearch(e) {
+                e.preventDefault();
+                const ticketId = ticketSearchInput.value.trim();
+                if (!ticketId) return;
+
+                const foundChange = state.changes.find(c => c.idChange == ticketId);
+
+                if (foundChange) {
+                    showChangeModal(foundChange.id);
+                } else {
+                    showToast(`Ticket #${ticketId} não encontrado.`, true);
+                }
+                ticketSearchInput.value = '';
+            }
+
+
+            // --- RENDER FUNCTIONS ---
+            function render() {
+                Object.values(views).forEach(v => v.classList.add('hidden'));
+                views.container.classList.remove('hidden');
+                const navButtons = { sistemas: navSistemasBtn, sistema_detail: navSistemasBtn, calendario: navCalendarioBtn, overdue: navAtrasadosBtn, finalizados: navFinalizadosBtn };
+                document.querySelectorAll('#app header button, #app header select').forEach(b => {
+                    if(b.id.startsWith('nav-')) b.classList.remove('bg-slate-700');
+                });
+                if (state.currentView === 'meus-changes') {
+                     responsibleFilterEl.classList.add('bg-slate-700');
+                } else if(navButtons[state.currentView]) {
+                     navButtons[state.currentView].classList.add('bg-slate-700');
+                }
+                mainContentEl.className = 'flex-grow container mx-auto p-4 sm:p-6 lg:p-8 main-content';
+                if(state.currentView === 'sistema-detail' && state.selectedSistema) {
+                    const color = colorMap[state.selectedSistema.color] || colorMap.default;
+                    mainContentEl.classList.add(color.bg);
+                }
+                if (state.currentView === 'sistemas') renderSistemasList();
+                else if (state.currentView === 'sistema-detail') renderSistemaDetail();
+                else if (state.currentView === 'meus-changes') renderMeusChanges();
+                else if (state.currentView === 'calendario') renderCalendar();
+                else if (state.currentView === 'overdue') renderOverdue();
+                else if (state.currentView === 'finalizados') renderFinalizados();
+            }
+            
+            function renderAppLauncher() {
+                const ecosystemApps = [
+                    { name: 'Pass', description: 'Dashboard do cliente.', link: 'pass.html', icon: 'fa-key' },
+                    { name: 'Key', description: 'Criação de senhas para clientes.', link: 'key.html', icon: 'fa-user-lock' },
+                    { name: 'Pearl', description: 'Mapeamento de gráficos Mermaid.', link: 'pearl.html', icon: 'fa-project-diagram' },
+                    { name: 'Star Piece', description: 'Registro de dores e processos.', link: 'starpiece.html', icon: 'fa-star' },
+                    { name: 'Lemonade', description: 'Gestão de eventos e marcos.', link: 'lemonade.html', icon: 'fa-lemon' },
+                    { name: 'Upgrade', description: 'Cadastro de pendências.', link: 'upgrade.html', icon: 'fa-rocket' }
+                ];
+
+                appLauncherPanel.innerHTML = '<div class="grid grid-cols-2 gap-4"></div>';
+                const grid = appLauncherPanel.querySelector('div');
+
+                ecosystemApps.forEach(app => {
+                    grid.innerHTML += `
+                        <a href="${app.link}" target="_blank" class="flex items-center p-3 rounded-lg hover:bg-slate-700">
+                            <i class="fa-solid ${app.icon} text-indigo-400 text-2xl w-10 text-center"></i>
+                            <div class="ml-3">
+                                <p class="font-semibold text-white">${app.name}</p>
+                                <p class="text-xs text-slate-400">${app.description}</p>
+                            </div>
+                        </a>
+                    `;
+                });
+            }
+
+            function renderSistemasList() {
+                views.sistemas.classList.remove('hidden');
+                views.sistemas.innerHTML = `<h2 class="text-2xl font-bold text-white mb-6">Todos os Sistemas</h2>`;
+                
+                const groupedSistemas = state.sistemas.reduce((acc, sistema) => {
+                    const status = sistema.status || 'Sem Status';
+                    if (!acc[status]) {
+                        acc[status] = [];
+                    }
+                    acc[status].push(sistema);
+                    return acc;
+                }, {});
+
+                const preferredStatusOrder = ['Desenvolvimento', 'Manutenção', 'Pausado', 'Concluído'];
+                const allStatusesInData = Object.keys(groupedSistemas);
+                
+                const statusOrder = [
+                    ...preferredStatusOrder.filter(s => allStatusesInData.includes(s)),
+                    ...allStatusesInData.filter(s => !preferredStatusOrder.includes(s) && s !== 'Sem Status'),
+                ];
+
+                if (allStatusesInData.includes('Sem Status')) {
+                    statusOrder.push('Sem Status');
+                }
+
+                statusOrder.forEach(status => {
+                    if (groupedSistemas[status] && groupedSistemas[status].length > 0) {
+                        const statusTitle = document.createElement('h3');
+                        statusTitle.className = 'text-xl font-semibold text-indigo-400 mt-8 mb-4 border-b border-slate-700 pb-2';
+                        statusTitle.textContent = status;
+                        views.sistemas.appendChild(statusTitle);
+
+                        const grid = document.createElement('div');
+                        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
+
+                        groupedSistemas[status].forEach(sistema => {
+                            const color = colorMap[sistema.color] || colorMap.default;
+                            const card = document.createElement('div');
+                            
+                            const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                            let totalPontos = 0;
+                            let pontosConcluidos = 0;
+
+                            sistemaFuncs.forEach(func => {
+                                const pontos = state.complexityPoints[func.complexidade] || 0;
+                                totalPontos += pontos;
+                                pontosConcluidos += pontos * ((func.progress || 0) / 100);
+                            });
+
+                            const progressoPonderado = totalPontos > 0 ? (pontosConcluidos / totalPontos) * 100 : 0;
+                            
+                            const statusInfo = sistemaStatusMap[sistema.status] || { bg: 'bg-gray-500/20', text: 'text-gray-300' };
+                            const statusHtml = sistema.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusInfo.bg} ${statusInfo.text}">${sistema.status}</span>` : '';
+                            
+                            const prazoInfo = formatPrazoRestante(sistema.prazo);
+                            const prazoHtml = prazoInfo ? `<div class="flex items-center text-xs font-semibold ${prazoInfo.color} mt-4"><i class="fa-solid fa-stopwatch mr-2"></i><span>${prazoInfo.text}</span></div>` : '';
+
+
+                            card.className = `border ${color.border} bg-slate-800 rounded-lg p-5 flex flex-col justify-between hover:border-indigo-400 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10`;
+                            card.innerHTML = `
+                                <div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs font-semibold ${color.text} uppercase">${sistema.type || 'Projeto'}</span>
+                                        ${statusHtml}
+                                    </div>
+                                    <h3 class="text-lg font-bold text-white mt-2">${sistema.name}</h3>
+                                    <div class="text-sm text-slate-400 mt-2 h-16 overflow-hidden description-content">${markdownConverter.makeHtml(sistema.description || '')}</div>
+                                </div>
+                                 <div class="mt-4">
+                                    ${prazoHtml}
+                                    <div class="flex justify-between text-xs text-slate-400 mb-1 mt-2">
+                                        <span>Progresso</span>
+                                        <span>${Math.round(progressoPonderado)}%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-700 rounded-full h-1.5">
+                                        <div class="bg-indigo-400 h-1.5 rounded-full" style="width: ${progressoPonderado}%"></div>
+                                    </div>
+                                </div>`;
+                            card.addEventListener('click', () => { state.selectedSistema = sistema; state.selectedSistemaTab = 'funcionalidade'; state.currentView = 'sistema-detail'; render(); });
+                            grid.appendChild(card);
+                        });
+                        views.sistemas.appendChild(grid);
+                    }
+                });
+            }
+
+            function renderSistemaDetail() {
+                views.sistemaDetail.classList.remove('hidden');
+                const sistema = state.selectedSistema, color = colorMap[sistema.color] || colorMap.default;
+                
+                const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == sistema.id && p.status !== 'Concluído');
+                const pendenciasCounterHtml = sistemaPendencias.length > 0 ? `<span class="ml-2 bg-yellow-500 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">${sistemaPendencias.length}</span>` : '';
+
+                views.sistemaDetail.innerHTML = `
+                    <button id="back-to-sistemas" class="mb-6 text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar para Sistemas</button>
+                    <div class="flex items-center space-x-4 mb-2"><div class="w-4 h-10 rounded-full" style="background-color: var(--tw-color-${color.border.replace('border-','')}-500)"></div><div><h2 class="text-3xl font-bold text-white">${sistema.name}</h2><p class="text-slate-400">${sistema.type||'Projeto'}</p></div></div>
+                    <div class="mt-4 border-b border-slate-700 flex space-x-1">
+                        <button id="tab-funcionalidade" class="px-4 py-2 text-sm font-medium border-b-2">Por Funcionalidade</button>
+                        <button id="tab-calendario" class="px-4 py-2 text-sm font-medium border-b-2">Por Calendário</button>
+                        <button id="tab-tarefas" class="px-4 py-2 text-sm font-medium border-b-2">Tarefas</button>
+                        <button id="tab-kanban" class="px-4 py-2 text-sm font-medium border-b-2">Kanban</button>
+                        <button id="tab-hillchart" class="px-4 py-2 text-sm font-medium border-b-2">Hill Chart</button>
+                        <button id="tab-pendencias" class="flex items-center px-4 py-2 text-sm font-medium border-b-2">Pendências ${pendenciasCounterHtml}</button>
+                    </div><div id="sistema-tab-content" class="mt-6"></div>`;
+
+                const tabs = {
+                    funcionalidade: views.sistemaDetail.querySelector('#tab-funcionalidade'),
+                    calendario: views.sistemaDetail.querySelector('#tab-calendario'),
+                    tarefas: views.sistemaDetail.querySelector('#tab-tarefas'),
+                    kanban: views.sistemaDetail.querySelector('#tab-kanban'),
+                    hillchart: views.sistemaDetail.querySelector('#tab-hillchart'),
+                    pendencias: views.sistemaDetail.querySelector('#tab-pendencias')
+                };
+                Object.keys(tabs).forEach(tabKey => {
+                    const key = tabKey.replace('_', '-');
+                    tabs[tabKey].className = `px-4 py-2 text-sm font-medium border-b-2 ${state.selectedSistemaTab === key ? 'border-indigo-500 text-white' : 'border-transparent text-slate-400 hover:text-white'}`;
+                    if (tabKey === 'pendencias') {
+                        tabs[tabKey].classList.add('flex', 'items-center');
+                    }
+                    tabs[tabKey].addEventListener('click', () => { state.selectedSistemaTab = key; render(); });
+                });
+                
+                if (state.selectedSistemaTab === 'funcionalidade') renderSistemaFuncionalidadeView();
+                else if (state.selectedSistemaTab === 'calendario') renderSistemaCalendarioView();
+                else if (state.selectedSistemaTab === 'tarefas') renderSistemaTarefasView();
+                else if (state.selectedSistemaTab === 'kanban') renderSistemaKanbanView();
+                else if (state.selectedSistemaTab === 'hillchart') renderSistemaHillChartView();
+                else if (state.selectedSistemaTab === 'pendencias') renderSistemaPendenciasView();
+
+                views.sistemaDetail.querySelector('#back-to-sistemas').addEventListener('click', () => { state.currentView = 'sistemas'; render(); });
+            }
+
+            function renderSistemaTarefasView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                
+                let changes = state.changes.filter(c => 
+                    c.sistema_id == state.selectedSistema.id && 
+                    !state.completedStatuses.includes(c.status)
+                );
+
+                const projectResponsaveis = [...new Set(changes.map(c => c.responsible).filter(Boolean))].sort();
+
+                if (state.sistemaTarefasFilters.responsible.length > 0) {
+                    changes = changes.filter(c => state.sistemaTarefasFilters.responsible.includes(c.responsible));
+                }
+                if (state.sistemaTarefasFilters.status.length > 0) {
+                    changes = changes.filter(c => state.sistemaTarefasFilters.status.includes(c.status));
+                }
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+                const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 8);
+
+                const groupedByDate = { overdue: [], today: [], next7days: [], future: [], noDate: [] };
+
+                changes.forEach(change => {
+                    if (!change.prazo || change.prazo.startsWith('1970')) {
+                        groupedByDate.noDate.push(change);
+                        return;
+                    }
+                    const prazoDate = new Date(change.prazo);
+                    if (prazoDate < today) groupedByDate.overdue.push(change);
+                    else if (prazoDate >= today && prazoDate < tomorrow) groupedByDate.today.push(change);
+                    else if (prazoDate >= tomorrow && prazoDate < nextWeek) groupedByDate.next7days.push(change);
+                    else groupedByDate.future.push(change);
+                });
+
+                const dateGroupOrder = [
+                    { key: 'overdue', title: 'Atrasado', color: 'text-red-400' },
+                    { key: 'today', title: 'Hoje', color: 'text-green-400' },
+                    { key: 'next7days', title: 'Próximos 7 Dias', color: 'text-yellow-400' },
+                    { key: 'future', title: 'Futuro', color: 'text-slate-400' },
+                    { key: 'noDate', title: 'Sem Prazo', color: 'text-slate-500' }
+                ];
+                
+                const createFilterDropdown = (id, btnTxt, items, chkdItems, stKey, valKey, nameKey) => `<div class="relative w-full md:w-auto"><button id="${id}-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>${btnTxt} (${chkdItems.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="${id}-dropdown" class="hidden absolute top-full right-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600 max-h-60 overflow-y-auto"><div class="p-2 space-y-1">${items.map(item => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="sistema-tarefas-filter-checkbox" data-filter-type="${stKey}" value="${item[valKey]}" ${chkdItems.includes(item[valKey]) ? 'checked' : ''}><span>${item[nameKey]}</span></label>`).join('')}</div></div></div>`;
+
+                let contentHtml = `<div class="flex items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg">
+                    ${createFilterDropdown('sistema-responsible-filter', 'Responsável', projectResponsaveis.map(r => ({value: r, name: r})), state.sistemaTarefasFilters.responsible, 'responsible', 'value', 'name')}
+                    ${createFilterDropdown('sistema-status-filter', 'Status', state.allStatuses.filter(s => !state.completedStatuses.includes(s)).map(s => ({value: s, name: s})), state.sistemaTarefasFilters.status, 'status', 'value', 'name')}
+                </div>`;
+
+                let hasContent = false;
+                dateGroupOrder.forEach(groupInfo => {
+                    const changesInGroup = groupedByDate[groupInfo.key];
+                    if (changesInGroup.length > 0) {
+                        hasContent = true;
+                        contentHtml += `<h3 class="font-bold ${groupInfo.color} mt-6 mb-2 text-lg">${groupInfo.title}</h3><ul>`;
+                        changesInGroup.forEach(change => {
+                            const prazoRelativo = formatPrazoRestante(change.prazo);
+                            const prazoColor = prazoRelativo ? prazoRelativo.color : 'text-slate-500';
+
+                            contentHtml += `
+                                <li class="task-item group flex items-center gap-4 py-3 border-b border-slate-700" data-change-id="${change.id}">
+                                    <div class="task-checkbox-btn" data-change-id="${change.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </div>
+                                    <div class="flex-grow cursor-pointer" data-change-id="${change.id}">
+                                        <p class="text-slate-200">${change.text}</p>
+                                        <div class="flex items-center gap-4 text-xs mt-1">
+                                            ${change.prazo ? `<span class="${prazoColor} flex items-center gap-1.5"><i class="fa-solid fa-calendar"></i> ${formatDate(change.prazo)}</span>` : ''}
+                                            <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-hashtag"></i> ${change.idChange}</span>
+                                            ${change.responsible ? `<span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-user"></i> ${change.responsible}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button class="edit-change-btn hidden group-hover:block text-slate-400 hover:text-white px-2" data-change-id="${change.id}"><i class="fa-solid fa-pencil"></i></button>
+                                </li>
+                            `;
+                        });
+                        contentHtml += `</ul>`;
+                    }
+                });
+
+                 if (!hasContent) {
+                    contentHtml += `<p class="text-slate-500 mt-6 text-center">Nenhuma tarefa encontrada para este projeto com os filtros selecionados.</p>`;
+                }
+                
+                container.innerHTML = contentHtml;
+                
+                ['sistema-responsible-filter', 'sistema-status-filter'].forEach(id => {
+                    const btn = container.querySelector(`#${id}-btn`), dropdown = container.querySelector(`#${id}-dropdown`);
+                    if(btn) btn.addEventListener('click', () => dropdown.classList.toggle('hidden'));
+                });
+
+                container.querySelectorAll('.sistema-tarefas-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    const type = e.target.dataset.filterType;
+                    const value = e.target.value;
+                    if (e.target.checked) state.sistemaTarefasFilters[type].push(value);
+                    else state.sistemaTarefasFilters[type] = state.sistemaTarefasFilters[type].filter(item => item !== value);
+                    render();
+                }));
+
+                container.querySelectorAll('.task-checkbox-btn').forEach(btn => btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    handleQuickComplete(e.currentTarget.dataset.changeId);
+                }));
+                container.querySelectorAll('.flex-grow, .edit-change-btn').forEach(el => el.addEventListener('click', e => {
+                     e.stopPropagation();
+                    showChangeModal(e.currentTarget.dataset.changeId);
+                }));
+            }
+            
+            function renderSistemaPendenciasView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                const sistemaPendencias = state.pendencias.filter(p => p.sistema_id == state.selectedSistema.id);
+
+                if (sistemaPendencias.length === 0) {
+                    container.innerHTML = `<div class="bg-slate-800 p-6 rounded-md text-center"><p class="text-slate-500">Nenhuma pendência encontrada para este sistema.</p></div>`;
+                    return;
+                }
+                
+                const pendenciaStatusMap = {
+                    'Aguardando': { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30' },
+                    'Concluído': { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+                };
+
+                container.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Pendências do Projeto</h3>
+                    <div class="space-y-3">
+                        ${sistemaPendencias.map(p => {
+                            const statusInfo = pendenciaStatusMap[p.status] || { bg: 'bg-slate-600/20', text: 'text-slate-400', border: 'border-slate-600/30' };
+                            return `
+                                <div class="bg-slate-800 rounded-lg border ${statusInfo.border} overflow-hidden">
+                                    <button class="w-full p-4 flex justify-between items-center text-left accordion-toggle">
+                                        <div class="flex-grow">
+                                            <div class="flex items-center gap-3">
+                                                <span class="font-semibold text-white">${p.title}</span>
+                                                <span class="text-xs font-bold px-2 py-1 rounded-full ${statusInfo.bg} ${statusInfo.text}">${p.status}</span>
+                                            </div>
+                                            <p class="text-xs text-slate-400 mt-1">Responsável: ${p.responsible || 'N/D'}</p>
+                                        </div>
+                                        <i class="fa-solid fa-chevron-down transition-transform"></i>
+                                    </button>
+                                    <div class="accordion-content">
+                                        <div class="px-4 pb-4 pt-2 border-t border-slate-700">
+                                            <div class="text-sm text-slate-300 prose prose-sm prose-invert max-w-none">${markdownConverter.makeHtml(p.descricao || '_Sem descrição detalhada._')}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                container.querySelectorAll('.accordion-toggle').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const content = button.nextElementSibling;
+                        const icon = button.querySelector('i');
+                        if (content.style.maxHeight) {
+                            content.style.maxHeight = null;
+                            icon.classList.remove('rotate-180');
+                        } else {
+                            content.style.maxHeight = content.scrollHeight + "px";
+                            icon.classList.add('rotate-180');
+                        }
+                    });
+                });
+            }
+            
+            function renderSistemaFuncionalidadeView() {
+                const sistema = state.selectedSistema;
+                const sistemaFuncs = state.funcionalidades.filter(f => f.sistema_id == sistema.id);
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                
+                const funcsHtml = sistemaFuncs.length > 0 ? sistemaFuncs.map(f => {
+                    const progress = f.progress || 0;
+                    const colorClass = (colorMap[sistema.color] || colorMap.default).text;
+                    const circumference = 16 * 2 * Math.PI;
+                    const pontos = state.complexityPoints[f.complexidade] || 0;
+
+                    return `
+                        <li class="func-item-wrapper group bg-slate-800 p-3 rounded-md hover:bg-slate-700/50 transition-colors flex items-center justify-between" data-func-id="${f.id}">
+                            <div class="flex-grow cursor-pointer flex items-center">
+                                <span class="pr-4">${f.text}</span>
+                                 <span class="bg-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">${f.complexidade || 'N/D'} (${pontos} pts)</span>
+                            </div>
+                            <div class="flex items-center flex-shrink-0">
+                                <button class="edit-func-btn hidden group-hover:block text-slate-400 hover:text-white mr-3" data-func-id="${f.id}"><i class="fa-solid fa-pencil text-xs"></i></button>
+                                <div class="relative w-10 h-10">
+                                    <svg class="w-full h-full" viewBox="0 0 36 36">
+                                        <circle class="text-slate-700" stroke-width="3" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18"/>
+                                        <circle class="progress-ring__circle ${colorClass}" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - progress / 100 * circumference}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="16" cx="18" cy="18"/>
+                                    </svg>
+                                    <span class="absolute inset-0 flex items-center justify-center text-xs font-bold">${progress}%</span>
+                                </div>
+                            </div>
+                        </li>`;
+                }).join('') : '<li class="text-slate-500">Nenhuma funcionalidade.</li>';
+
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-semibold text-white">Funcionalidades</h3>
+                                <button id="add-new-func-btn" class="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700"><i class="fa-solid fa-plus mr-2"></i>Nova</button>
+                            </div>
+                            <ul id="func-list" class="space-y-2">${funcsHtml}</ul>
+                        </div>
+                        <div id="changes-container" class="lg:col-span-2">
+                            <div class="flex items-center justify-center h-full bg-slate-800/50 rounded-lg">
+                                <p class="text-slate-500">Selecione uma funcionalidade</p>
+                            </div>
+                        </div>
+                    </div>`;
+                    
+                container.querySelectorAll('.func-item-wrapper .flex-grow').forEach(item => item.addEventListener('click', e => {
+                    const wrapper = e.currentTarget.closest('.func-item-wrapper');
+                    container.querySelectorAll('.func-item-wrapper').forEach(i => i.classList.remove('bg-indigo-600'));
+                    wrapper.classList.add('bg-indigo-600');
+                    renderChangesForFunc(wrapper.dataset.funcId);
+                }));
+
+                container.querySelectorAll('.edit-func-btn').forEach(btn => btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    renderFuncionalidadeModal(e.currentTarget.dataset.funcId);
+                }));
+
+                container.querySelector('#add-new-func-btn').addEventListener('click', () => renderFuncionalidadeModal());
+            }
+
+            function renderChangesForFunc(funcId) {
+                 const container = views.sistemaDetail.querySelector('#changes-container');
+                const func = state.funcionalidades.find(f => f.id == funcId);
+                const changes = state.changes.filter(c => c.funcionalidade_id == funcId);
+                
+                container.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-xl font-semibold text-white">${func.text}</h3>
+                            <span class="bg-indigo-500/20 text-indigo-300 text-xs font-medium px-2.5 py-0.5 rounded-full">${func.type || 'N/D'}</span>
+                        </div>
+                        <div class="prose prose-sm prose-invert max-w-none text-slate-400 description-content mt-2 border-b border-slate-700 pb-4 mb-4">
+                            ${markdownConverter.makeHtml(func.description || 'Sem descrição.')}
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                             <h4 class="font-semibold text-white">Changes (${changes.length})</h4>
+                             <button id="add-new-change-btn" data-func-id="${funcId}" class="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700"><i class="fa-solid fa-plus mr-2"></i>Novo Change</button>
+                        </div>
+
+                        <div class="space-y-3">
+                            ${changes.length > 0 ? changes.map(change => `
+                                <div class="change-card bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center justify-between cursor-pointer hover:border-indigo-500" data-change-id="${change.id}">
+                                    <div class="flex items-center min-w-0">
+                                        <div class="mr-4">
+                                            ${change.goldenTicket ? '<i class="fa-solid fa-star text-yellow-400 text-lg"></i>' : '<div class="w-1 h-10 bg-slate-700 rounded-full"></div>'}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-white truncate">${change.text}</p>
+                                            <p class="text-xs text-slate-400"><span class="font-mono">Ticket-${change.idChange}</span> | ${change.responsible || 'N/D'}</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-bold px-2 py-1 rounded-full ${statusMap[change.status] || ''}">${change.status}</span>
+                                </div>
+                            `).join('') : '<p class="text-slate-500">Nenhum change para esta funcionalidade.</p>'}
+                        </div>
+                    </div>
+                `;
+
+                container.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+                container.querySelector('#add-new-change-btn').addEventListener('click', e => renderCreateModal(e.currentTarget.dataset.funcId, state.selectedSistema.id));
+            }
+            
+             function renderSistemaCalendarioView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                const date = state.calendarDate;
+                const year = date.getFullYear(), month = date.getMonth();
+                const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let html = `<div class="flex items-center justify-between mb-6"><h2 class="text-2xl font-bold text-white">${monthNames[month]} ${year}</h2><div class="flex space-x-2"><button id="sistema-prev-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-left"></i></button><button id="sistema-next-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-right"></i></button></div></div><div class="calendar-grid bg-slate-700 rounded-lg overflow-hidden border border-slate-700">`;
+                dayNames.forEach(day => { html += `<div class="text-center font-semibold text-xs py-2 bg-slate-800 text-slate-400">${day}</div>`; });
+                for (let i = 0; i < firstDayOfMonth; i++) { html += `<div class="bg-slate-800/50"></div>`; }
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = new Date(year, month, day).toISOString().split('T')[0];
+                    const todaysChanges = state.changes.filter(c => c.sistema_id == state.selectedSistema.id && c.prazo && c.prazo.startsWith(dateStr));
+                    html += `<div class="calendar-day bg-slate-800 p-2 relative"><span class="text-sm font-semibold">${day}</span><div class="mt-1 space-y-1 overflow-y-auto max-h-24">`;
+                    todaysChanges.forEach(change => {
+                        html += `<div class="change-card text-xs p-1 rounded-md cursor-pointer border-l-4 ${statusBorderMap[change.status] || 'border-slate-500'} bg-slate-700 hover:bg-slate-600" data-change-id="${change.id}">
+                                     <p class="font-semibold break-words"><span class="font-mono">T-${change.idChange}:</span> ${change.text}</p>
+                                     <div class="mt-1"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statusMap[change.status] || ''}">${change.status}</span></div>
+                                 </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                html += `</div>`;
+                container.innerHTML = html;
+                document.getElementById('sistema-prev-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); render(); });
+                document.getElementById('sistema-next-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); render(); });
+                container.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', (e) => showChangeModal(e.currentTarget.dataset.changeId)));
+            }
+
+            function renderSistemaKanbanView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                let changes = state.changes.filter(c => c.sistema_id == state.selectedSistema.id);
+                const funcionalidadesSistema = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
+
+                if (state.kanbanFilters.status.length > 0) changes = changes.filter(c => state.kanbanFilters.status.includes(c.status));
+                if (state.kanbanFilters.responsible.length > 0) changes = changes.filter(c => state.kanbanFilters.responsible.includes(c.responsible));
+                if (state.kanbanFilters.funcionalidade.length > 0) changes = changes.filter(c => state.kanbanFilters.funcionalidade.includes(c.funcionalidade_id));
+                
+                const createFilterDropdown = (id, btnTxt, items, chkdItems, stKey, valKey, nameKey) => `<div class="relative w-full md:w-auto"><button id="${id}-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>${btnTxt} (${chkdItems.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="${id}-dropdown" class="hidden absolute top-full left-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600 max-h-60 overflow-y-auto"><div class="p-2 space-y-1">${items.map(item => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="kanban-filter-checkbox" data-filter-type="${stKey}" value="${item[valKey]}" ${chkdItems.includes(item[valKey]) ? 'checked' : ''}><span>${item[nameKey]}</span></label>`).join('')}</div></div></div>`;
+
+                const orderedStatuses = ['BackLog', 'Fazendo', 'Teste', 'Finalizado'];
+                const otherStatuses = state.allStatuses.filter(s => !orderedStatuses.includes(s) && !state.completedStatuses.includes(s));
+                const completedStatuses = state.allStatuses.filter(s => state.completedStatuses.includes(s) && s !== 'Finalizado');
+                const allKanbanStatuses = [...orderedStatuses, ...otherStatuses, ...completedStatuses];
+
+                container.innerHTML = `
+                    <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg">
+                        ${createFilterDropdown('kanban-func-filter', 'Funcionalidade', funcionalidadesSistema, state.kanbanFilters.funcionalidade, 'funcionalidade', 'id', 'text')}
+                        ${createFilterDropdown('kanban-resp-filter', 'Responsável', state.responsaveis.map(r=>({value:r, name:r})), state.kanbanFilters.responsible, 'responsible', 'value', 'name')}
+                        ${createFilterDropdown('kanban-status-filter', 'Status', state.allStatuses.map(s=>({value:s, name:s})), state.kanbanFilters.status, 'status', 'value', 'name')}
+                    </div>
+                    <div class="kanban-board">
+                        ${allKanbanStatuses.map(status => {
+                            const columnChanges = changes.filter(c => c.status === status);
+                            return `
+                                <div class="kanban-column">
+                                    <h3 class="font-semibold text-white mb-3 flex justify-between items-center text-sm"><span>${status}</span><span class="bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full">${columnChanges.length}</span></h3>
+                                    <div class="space-y-3 h-full overflow-y-auto">
+                                        ${columnChanges.length > 0 ? columnChanges.map(change => {
+                                            const func = state.funcionalidades.find(f => f.id == change.funcionalidade_id);
+                                            return `
+                                                <div class="bg-slate-900/70 p-3 rounded-md shadow-md cursor-pointer hover:bg-slate-700 border-l-4 ${statusBorderMap[change.status] || 'border-slate-500'}" data-change-id="${change.id}">
+                                                    <p class="font-semibold text-sm text-slate-200">${change.text}</p>
+                                                    <div class="text-xs text-indigo-400 mt-1 mb-2 truncate" title="${func?.text || ''}">${func?.text || 'Sem funcionalidade'}</div>
+                                                    <div class="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/50">
+                                                        <div>
+                                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statusMap[change.status] || ''}">${change.status}</span>
+                                                        </div>
+                                                         <span class="text-xs text-slate-400">${change.responsible}</span>
+                                                    </div>
+                                                </div>
+                                            `
+                                        }).join('') : '<p class="text-sm text-slate-500 text-center mt-4">Nenhum item</p>'}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                ['kanban-func-filter', 'kanban-resp-filter', 'kanban-status-filter'].forEach(id => {
+                    const btn = container.querySelector(`#${id}-btn`), dropdown = container.querySelector(`#${id}-dropdown`);
+                    if(btn) btn.addEventListener('click', () => dropdown.classList.toggle('hidden'));
+                });
+                container.querySelectorAll('.kanban-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    const type = e.target.dataset.filterType, value = e.target.value;
+                    if (e.target.checked) state.kanbanFilters[type].push(value);
+                    else state.kanbanFilters[type] = state.kanbanFilters[type].filter(item => item !== value);
+                    render();
+                }));
+                container.querySelectorAll('.bg-slate-900\\/70').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+            }
+            
+            function renderSistemaHillChartView() {
+                const container = views.sistemaDetail.querySelector('#sistema-tab-content');
+                const funcionalidades = state.funcionalidades.filter(f => f.sistema_id == state.selectedSistema.id);
+                
+                container.innerHTML = `
+                    <div class="bg-slate-800/50 p-6 rounded-lg">
+                        <svg id="hill-chart-svg" width="100%" viewBox="0 0 800 300"></svg>
+                    </div>
+                `;
+
+                const svg = container.querySelector('#hill-chart-svg');
+                const width = 800;
+                const height = 300;
+                const margin = { top: 60, right: 40, bottom: 40, left: 40 };
+                const chartWidth = width - margin.left - margin.right;
+                const chartHeight = height - margin.top - margin.bottom;
+
+                const chartGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                chartGroup.setAttribute('transform', `translate(${margin.left}, ${margin.top})`);
+                svg.appendChild(chartGroup);
+                
+                const hillHeight = chartHeight * 0.8;
+                const hillTopY = 0;
+                const hillBottomY = hillHeight;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M 0 ${hillBottomY} C ${chartWidth * 0.25} ${hillTopY}, ${chartWidth * 0.75} ${hillTopY}, ${chartWidth} ${hillBottomY}`);
+                path.setAttribute('stroke', '#334155');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                chartGroup.appendChild(path);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', chartWidth / 2);
+                line.setAttribute('y1', hillTopY - 10);
+                line.setAttribute('x2', chartWidth / 2);
+                line.setAttribute('y2', hillBottomY + 10);
+                line.setAttribute('stroke', '#334155');
+                line.setAttribute('stroke-width', '1');
+                line.setAttribute('stroke-dasharray', '4');
+                chartGroup.appendChild(line);
+
+                const upHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                upHillLabel.setAttribute('x', chartWidth / 4);
+                upHillLabel.setAttribute('y', chartHeight);
+                upHillLabel.setAttribute('text-anchor', 'middle');
+                upHillLabel.setAttribute('fill', '#94a3b8');
+                upHillLabel.textContent = 'Subindo a colina (Planejamento)';
+                chartGroup.appendChild(upHillLabel);
+
+                const downHillLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                downHillLabel.setAttribute('x', chartWidth * 3 / 4);
+                downHillLabel.setAttribute('y', chartHeight);
+                downHillLabel.setAttribute('text-anchor', 'middle');
+                downHillLabel.setAttribute('fill', '#94a3b8');
+                downHillLabel.textContent = 'Descendo a colina (Execução)';
+                chartGroup.appendChild(downHillLabel);
+                
+                const points = [];
+                const p0 = { x: 0, y: hillBottomY };
+                const p1 = { x: chartWidth * 0.25, y: hillTopY };
+                const p2 = { x: chartWidth * 0.75, y: hillTopY };
+                const p3 = { x: chartWidth, y: hillBottomY };
+
+                funcionalidades.forEach(func => {
+                    const t = (func.progress || 0) / 100;
+                    const x = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
+                    const y = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
+                    points.push({ x, y, text: func.text });
+                });
+
+                const labelPositions = [];
+                const labelHeight = 18;
+                const labelPadding = 4;
+
+                points.sort((a, b) => a.x - b.x).forEach(point => {
+                    let labelY = point.y - 15;
+                    const textWidth = point.text.length * 6;
+                    let placed = false;
+                    let attempts = 0;
+                    let moveUp = true;
+
+                    while (!placed && attempts < 20) {
+                        let overlapping = false;
+                        for (const pos of labelPositions) {
+                            if (Math.abs(labelY - pos.y) < labelHeight && Math.abs(point.x - pos.x) < (textWidth / 2 + (pos.text.length * 6) / 2) ) {
+                                overlapping = true;
+                                break;
+                            }
+                        }
+                        if (!overlapping && labelY > -margin.top + labelHeight && labelY < chartHeight) {
+                            labelPositions.push({ x: point.x, y: labelY, text: point.text });
+                            placed = true;
+                        } else {
+                            if (moveUp) {
+                                labelY -= (labelHeight + labelPadding);
+                                if (labelY < -margin.top + labelHeight) {
+                                    moveUp = false;
+                                    labelY = point.y + 25;
+                                }
+                            } else {
+                                labelY += (labelHeight + labelPadding);
+                            }
+                        }
+                        attempts++;
+                    }
+                    point.labelY = placed ? labelY : point.y - 20;
+                });
+                
+                points.forEach(point => {
+                     const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    connector.setAttribute('x1', point.x);
+                    connector.setAttribute('y1', point.y - 5);
+                    connector.setAttribute('x2', point.x);
+                    connector.setAttribute('y2', point.labelY + 8);
+                    connector.setAttribute('stroke', '#475569');
+                    connector.setAttribute('stroke-width', '1');
+                    chartGroup.appendChild(connector);
+
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', point.x);
+                    text.setAttribute('y', point.labelY);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('fill', '#cbd5e1');
+                    text.setAttribute('font-size', '12');
+                    text.textContent = point.text;
+                    chartGroup.appendChild(text);
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', point.x);
+                    circle.setAttribute('cy', point.y);
+                    circle.setAttribute('r', '5');
+                    circle.setAttribute('fill', '#818cf8');
+                    circle.setAttribute('stroke', '#1e293b');
+                    circle.setAttribute('stroke-width', '2');
+                    chartGroup.appendChild(circle);
+                });
+            }
+
+
+            function renderMeusChanges() {
+                views.meusChanges.classList.remove('hidden');
+                const responsible = state.selectedResponsible;
+                let changes = state.changes.filter(c => c.responsible === responsible && !state.completedStatuses.includes(c.status));
+                
+                if (state.meusChangesFilters.sistema) changes = changes.filter(c => c.sistema_id == state.meusChangesFilters.sistema);
+                if (state.meusChangesFilters.status.length > 0) changes = changes.filter(c => state.meusChangesFilters.status.includes(c.status));
+
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+                const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 8); // To include today + 7 days
+
+                const groupedByDate = { overdue: [], today: [], next7days: [], future: [], noDate: [] };
+
+                changes.forEach(change => {
+                    if (!change.prazo || change.prazo.startsWith('1970')) {
+                        groupedByDate.noDate.push(change);
+                        return;
+                    }
+                    const prazoDate = new Date(change.prazo);
+                    // No need to setUTCHours if we compare with local `today` `tomorrow` etc.
+                    if (prazoDate < today) groupedByDate.overdue.push(change);
+                    else if (prazoDate >= today && prazoDate < tomorrow) groupedByDate.today.push(change);
+                    else if (prazoDate >= tomorrow && prazoDate < nextWeek) groupedByDate.next7days.push(change);
+                    else groupedByDate.future.push(change);
+                });
+
+                const dateGroupOrder = [
+                    { key: 'overdue', title: 'Atrasado', color: 'text-red-400' },
+                    { key: 'today', title: 'Hoje', color: 'text-green-400' },
+                    { key: 'next7days', title: 'Próximos 7 Dias', color: 'text-yellow-400' },
+                    { key: 'future', title: 'Futuro', color: 'text-slate-400' },
+                    { key: 'noDate', title: 'Sem Prazo', color: 'text-slate-500' }
+                ];
+                
+                let contentHtml = `<h2 class="text-2xl font-bold text-white mb-4">Changes de ${responsible}</h2><div class="flex items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg"><select id="meus-changes-sistema-filter" class="bg-slate-700 text-white text-sm rounded-md px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full md:w-auto"><option value="">Todos os Sistemas</option>${state.sistemas.map(s => `<option value="${s.id}" ${state.meusChangesFilters.sistema == s.id ? 'selected' : ''}>${s.name}</option>`).join('')}</select><div class="relative w-full md:w-auto"><button id="status-filter-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>Filtrar por Status (${state.meusChangesFilters.status.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="status-filter-dropdown" class="hidden absolute top-full right-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600"><div class="p-2 space-y-1">${state.allStatuses.filter(s => !state.completedStatuses.includes(s)).map(status => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="status-filter-checkbox" value="${status}" ${state.meusChangesFilters.status.includes(status) ? 'checked' : ''}><span>${status}</span></label>`).join('')}</div></div></div></div>`;
+                
+                let hasContent = false;
+                dateGroupOrder.forEach(groupInfo => {
+                    const changesInGroup = groupedByDate[groupInfo.key];
+                    if (changesInGroup.length > 0) {
+                        hasContent = true;
+                        contentHtml += `<h3 class="font-bold ${groupInfo.color} mt-6 mb-2 text-lg">${groupInfo.title}</h3><ul>`;
+                        changesInGroup.forEach(change => {
+                            const sistema = state.sistemas.find(s => s.id == change.sistema_id);
+                            const prazoRelativo = formatPrazoRestante(change.prazo);
+                            const prazoColor = prazoRelativo ? prazoRelativo.color : 'text-slate-500';
+
+                            contentHtml += `
+                                <li class="task-item group flex items-center gap-4 py-3 border-b border-slate-700" data-change-id="${change.id}">
+                                    <div class="task-checkbox-btn" data-change-id="${change.id}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </div>
+                                    <div class="flex-grow cursor-pointer" data-change-id="${change.id}">
+                                        <p class="text-slate-200">${change.text}</p>
+                                        <div class="flex items-center gap-4 text-xs mt-1">
+                                            ${change.prazo ? `<span class="${prazoColor} flex items-center gap-1.5"><i class="fa-solid fa-calendar"></i> ${formatDate(change.prazo)}</span>` : ''}
+                                            <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-hashtag"></i> ${change.idChange}</span>
+                                            ${sistema ? `<span class="text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-folder"></i> ${sistema.name}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button class="edit-change-btn hidden group-hover:block text-slate-400 hover:text-white px-2" data-change-id="${change.id}"><i class="fa-solid fa-pencil"></i></button>
+                                </li>
+                            `;
+                        });
+                        contentHtml += `</ul>`;
+                    }
+                });
+
+                if(!hasContent) {
+                    contentHtml += `<p class="text-slate-500 mt-6 text-center">Nenhuma tarefa encontrada para os filtros selecionados.</p>`;
+                }
+
+                views.meusChanges.innerHTML = contentHtml;
+
+                // Add event listeners
+                document.getElementById('meus-changes-sistema-filter').addEventListener('change', e => { state.meusChangesFilters.sistema = e.target.value; render(); });
+                const statusBtn = document.getElementById('status-filter-btn'), statusDropdown = document.getElementById('status-filter-dropdown');
+                if(statusBtn) statusBtn.addEventListener('click', () => statusDropdown.classList.toggle('hidden'));
+                document.querySelectorAll('.status-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    if (e.target.checked) state.meusChangesFilters.status.push(e.target.value);
+                    else state.meusChangesFilters.status = state.meusChangesFilters.status.filter(s => s !== e.target.value);
+                    render();
+                }));
+                views.meusChanges.querySelectorAll('.task-checkbox-btn').forEach(btn => btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    handleQuickComplete(e.currentTarget.dataset.changeId);
+                }));
+                views.meusChanges.querySelectorAll('.flex-grow, .edit-change-btn').forEach(el => el.addEventListener('click', e => {
+                     e.stopPropagation();
+                    showChangeModal(e.currentTarget.dataset.changeId);
+                }));
+            }
+            
+            function renderCalendar() {
+                views.calendario.classList.remove('hidden');
+                const date = state.calendarDate;
+                const year = date.getFullYear(), month = date.getMonth();
+                const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+                const createFilterDropdown = (id, btnTxt, items, chkdItems, stKey, valKey, nameKey) => `<div class="relative w-full md:w-auto"><button id="${id}-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>${btnTxt} (${chkdItems.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="${id}-dropdown" class="hidden absolute top-full left-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600 max-h-60 overflow-y-auto"><div class="p-2 space-y-1">${items.map(item => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="calendar-filter-checkbox" data-filter-type="${stKey}" value="${item[valKey]}" ${chkdItems.includes(item[valKey]) ? 'checked' : ''}><span>${item[nameKey]}</span></label>`).join('')}</div></div></div>`;
+                let changes = state.changes;
+                if (state.calendarFilters.status.length > 0) changes = changes.filter(c => state.calendarFilters.status.includes(c.status));
+                if (state.calendarFilters.responsible.length > 0) changes = changes.filter(c => state.calendarFilters.responsible.includes(c.responsible));
+                if (state.calendarFilters.sistema.length > 0) changes = changes.filter(c => state.calendarFilters.sistema.includes(c.sistema_id));
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let html = `<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4"><h2 class="text-2xl font-bold text-white mb-4 md:mb-0">${monthNames[month]} ${year}</h2><div class="flex items-center gap-4 bg-slate-800/50 p-3 rounded-lg">${createFilterDropdown('calendar-sistema-filter', 'Sistema', state.sistemas, state.calendarFilters.sistema, 'sistema', 'id', 'name')}${createFilterDropdown('calendar-responsible-filter', 'Responsável', state.responsaveis.map(r=>({name:r,value:r})), state.calendarFilters.responsible, 'responsible', 'value', 'name')}${createFilterDropdown('calendar-status-filter', 'Status', state.allStatuses.map(s=>({name:s,value:s})), state.calendarFilters.status, 'status', 'value', 'name')}</div></div><div class="flex items-center justify-end mb-6"><div class="flex space-x-2"><button id="prev-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-left"></i></button><button id="next-month" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-md"><i class="fa-solid fa-chevron-right"></i></button></div></div><div class="calendar-grid bg-slate-700 rounded-lg overflow-hidden border border-slate-700">`;
+                dayNames.forEach(day => { html += `<div class="text-center font-semibold text-xs py-2 bg-slate-800 text-slate-400">${day}</div>`; });
+                for (let i = 0; i < firstDayOfMonth; i++) { html += `<div class="bg-slate-800/50"></div>`; }
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = new Date(year, month, day).toISOString().split('T')[0];
+                    const todaysChanges = changes.filter(c => c.prazo && c.prazo.startsWith(dateStr));
+                    html += `<div class="calendar-day bg-slate-800 p-2 relative"><span class="text-sm font-semibold">${day}</span><div class="mt-1 space-y-1 overflow-y-auto max-h-24">`;
+                    todaysChanges.forEach(change => {
+                        html += `<div class="change-card text-xs p-1 rounded-md cursor-pointer border-l-4 ${statusBorderMap[change.status] || 'border-slate-500'} bg-slate-700 hover:bg-slate-600" data-change-id="${change.id}">
+                                     <p class="font-semibold break-words"><span class="font-mono">T-${change.idChange}:</span> ${change.text}</p>
+                                     <div class="mt-1"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statusMap[change.status] || ''}">${change.status}</span></div>
+                                 </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                html += `</div>`;
+                views.calendario.innerHTML = html;
+                document.getElementById('prev-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); render(); });
+                document.getElementById('next-month').addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); render(); });
+                ['calendar-sistema-filter', 'calendar-responsible-filter', 'calendar-status-filter'].forEach(id => {
+                    const btn = document.getElementById(`${id}-btn`), dropdown = document.getElementById(`${id}-dropdown`);
+                    if(btn) btn.addEventListener('click', () => dropdown.classList.toggle('hidden'));
+                });
+                document.querySelectorAll('.calendar-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    const type = e.target.dataset.filterType, value = e.target.value;
+                    if (e.target.checked) state.calendarFilters[type].push(value);
+                    else state.calendarFilters[type] = state.calendarFilters[type].filter(item => item !== value);
+                    render();
+                }));
+                views.calendario.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+            }
+
+            function renderOverdue() {
+                views.overdue.classList.remove('hidden');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Define a data/hora para o início de HOJE
+                let overdueChanges = state.changes.filter(change => {
+                    if (!change.prazo || change.prazo.startsWith('1970') || state.completedStatuses.includes(change.status)) return false;
+                    const prazoDate = new Date(change.prazo);
+                    return prazoDate < today;
+                });
+                if (state.overdueFilters.sistema.length > 0) overdueChanges = overdueChanges.filter(c => state.overdueFilters.sistema.includes(c.sistema_id));
+                if (state.overdueFilters.responsible.length > 0) overdueChanges = overdueChanges.filter(c => state.overdueFilters.responsible.includes(c.responsible));
+                if (state.overdueFilters.status.length > 0) overdueChanges = overdueChanges.filter(c => state.overdueFilters.status.includes(c.status));
+                const createFilterDropdown = (id, btnTxt, items, chkdItems, stKey, valKey, nameKey) => `<div class="relative w-full md:w-auto"><button id="${id}-btn" class="w-full bg-slate-700 text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"><span>${btnTxt} (${chkdItems.length})</span><i class="fa-solid fa-chevron-down text-xs ml-2"></i></button><div id="${id}-dropdown" class="hidden absolute top-full left-0 mt-2 w-56 bg-slate-700 rounded-md shadow-lg z-10 border border-slate-600 max-h-60 overflow-y-auto"><div class="p-2 space-y-1">${items.map(item => `<label class="flex items-center space-x-2 p-2 hover:bg-slate-600 rounded-md cursor-pointer"><input type="checkbox" class="overdue-filter-checkbox" data-filter-type="${stKey}" value="${item[valKey]}" ${chkdItems.includes(item[valKey]) ? 'checked' : ''}><span>${item[nameKey]}</span></label>`).join('')}</div></div></div>`;
+                const groupedChanges = overdueChanges.reduce((acc, change) => {
+                    const sistema = state.sistemas.find(s => s.id == change.sistema_id) || { name: 'Sistema Desconhecido', id: 'unknown' };
+                    if (!acc[sistema.id]) acc[sistema.id] = { sistemaName: sistema.name, changes: [] };
+                    acc[sistema.id].changes.push(change);
+                    return acc;
+                }, {});
+                views.overdue.innerHTML = `<h2 class="text-2xl font-bold text-white mb-4">Changes Atrasados (${overdueChanges.length})</h2><div class="flex flex-col md:flex-row md:items-center gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg">${createFilterDropdown('overdue-sistema-filter', 'Sistema', state.sistemas, state.overdueFilters.sistema, 'sistema', 'id', 'name')}${createFilterDropdown('overdue-responsible-filter', 'Responsável', state.responsaveis.map(r=>({name:r,value:r})), state.overdueFilters.responsible, 'responsible', 'value', 'name')}${createFilterDropdown('overdue-status-filter', 'Status', state.allStatuses.filter(s=>!state.completedStatuses.includes(s)).map(s=>({name:s,value:s})), state.overdueFilters.status, 'status', 'value', 'name')}</div><div class="space-y-6">${Object.keys(groupedChanges).length > 0 ? Object.values(groupedChanges).map(group => `<div><h3 class="text-lg font-semibold text-indigo-400 mb-3">${group.sistemaName}</h3><div class="space-y-3">${group.changes.map(change => {
+                                    const prazoDate = new Date(change.prazo);
+                                    // Recalcula a diferença de dias com base no início de hoje
+                                    const diffTime = Math.abs(today.getTime() - prazoDate.getTime());
+                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                    return `<div class="change-card bg-slate-800 p-4 rounded-lg border border-red-500/50 flex items-center justify-between cursor-pointer" data-change-id="${change.id}"><div class="flex items-center min-w-0"><div class="mr-4">${change.goldenTicket ? '<i class="fa-solid fa-star text-yellow-400 text-lg"></i>' : `<div class="w-1 h-10 bg-red-500/50 rounded-full"></div>`}</div><div class="min-w-0"><p class="font-semibold text-white truncate">${change.text}</p><p class="text-xs text-slate-400"><span class="font-mono">Ticket-${change.idChange}</span> | Responsável: ${change.responsible}</p></div></div><div class="text-right flex-shrink-0 ml-4"><span class="text-xs font-bold px-2 py-1 rounded-full ${statusMap[change.status] || ''}">${change.status}</span><p class="text-sm font-bold text-red-400 mt-1">${diffDays} dia(s) atrasado</p></div></div>`
+                                }).join('')}</div></div>`).join('') : `<p class="text-slate-500 mt-6">Nenhum change atrasado encontrado.</p>`}</div>`;
+                ['overdue-sistema-filter', 'overdue-responsible-filter', 'overdue-status-filter'].forEach(id => {
+                    const btn = document.getElementById(`${id}-btn`), dropdown = document.getElementById(`${id}-dropdown`);
+                    if(btn) btn.addEventListener('click', () => dropdown.classList.toggle('hidden'));
+                });
+                document.querySelectorAll('.overdue-filter-checkbox').forEach(checkbox => checkbox.addEventListener('change', e => {
+                    const type = e.target.dataset.filterType, value = e.target.value;
+                    if (e.target.checked) state.overdueFilters[type].push(value);
+                    else state.overdueFilters[type] = state.overdueFilters[type].filter(item => item !== value);
+                    render();
+                }));
+                views.overdue.querySelectorAll('.change-card').forEach(card => card.addEventListener('click', e => showChangeModal(e.currentTarget.dataset.changeId)));
+            }
+
+            function renderFinalizados() {
+                 views.finalizados.classList.remove('hidden');
+
+                const { startDate, endDate, sistema, tipo, funcionalidade } = state.finalizadosFilters;
+                let finalizados = state.changes.filter(c => state.completedStatuses.includes(c.status) && c.data_encerramento);
+                
+                if (startDate) finalizados = finalizados.filter(c => new Date(c.data_encerramento) >= new Date(startDate));
+                if (endDate) finalizados = finalizados.filter(c => new Date(c.data_encerramento) <= new Date(endDate));
+                if (sistema.length > 0) finalizados = finalizados.filter(c => sistema.includes(c.sistema_id));
+                if (tipo.length > 0) finalizados = finalizados.filter(c => tipo.includes(c.type));
+                if (funcionalidade.length > 0) finalizados = finalizados.filter(c => funcionalidade.includes(c.funcionalidade_id));
+                
+                const { column, direction } = state.finalizadosSort;
+                finalizados.sort((a, b) => {
+                    const valA = a[column];
+                    const valB = b[column];
+                    let comparison = 0;
+                    if (valA > valB) comparison = 1;
+                    else if (valA < valB) comparison = -1;
+                    return direction === 'asc' ? comparison : -comparison;
+                });
+
+                 const getSortIcon = (col) => {
+                    if (column !== col) return '';
+                    return direction === 'asc' ? '▲' : '▼';
+                };
+
+                views.finalizados.innerHTML = `
+                    <h2 class="text-2xl font-bold text-white mb-4">Changes Finalizados</h2>
+                    <div class="bg-slate-800/50 p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label class="text-xs text-slate-400">De</label>
+                            <input type="date" id="finalizados-start-date" class="form-input" value="${startDate}">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400">Até</label>
+                            <input type="date" id="finalizados-end-date" class="form-input" value="${endDate}">
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Sistema</label>
+                             <select id="finalizados-sistema" class="form-select"><option value="">Todos</option>${state.sistemas.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Tipo</label>
+                            <select id="finalizados-tipo" class="form-select"><option value="">Todos</option>${state.allChangeTypes.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+                        </div>
+                         <div>
+                            <label class="text-xs text-slate-400">Funcionalidade</label>
+                            <select id="finalizados-funcionalidade" class="form-select"></select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto bg-slate-800 rounded-lg">
+                        <table class="w-full text-sm text-left text-slate-400">
+                            <thead class="text-xs text-slate-300 uppercase bg-slate-700/50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="idChange">Ticket ${getSortIcon('idChange')}</th>
+                                    <th scope="col" class="px-6 py-3">Nome</th>
+                                    <th scope="col" class="px-6 py-3">Sistema</th>
+                                    <th scope="col" class="px-6 py-3">Funcionalidade</th>
+                                    <th scope="col" class="px-6 py-3">Tipo</th>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="prazo">Prazo ${getSortIcon('prazo')}</th>
+                                    <th scope="col" class="px-6 py-3">Responsável</th>
+                                    <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="data_encerramento">Finalizado Em ${getSortIcon('data_encerramento')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${finalizados.map(change => {
+                                    const sistema = state.sistemas.find(s => s.id == change.sistema_id);
+                                    const func = state.funcionalidades.find(f => f.id == change.funcionalidade_id);
+                                    return `
+                                        <tr class="border-b border-slate-700 hover:bg-slate-700/20">
+                                            <th scope="row" class="px-6 py-4 font-medium text-white whitespace-nowrap">Ticket-${change.idChange}</th>
+                                            <td class="px-6 py-4 text-white">${change.text}</td>
+                                            <td class="px-6 py-4">${sistema?.name || 'N/A'}</td>
+                                            <td class="px-6 py-4">${func?.text || 'N/A'}</td>
+                                            <td class="px-6 py-4">${change.type}</td>
+                                            <td class="px-6 py-4">${formatDate(change.prazo)}</td>
+                                            <td class="px-6 py-4">${change.responsible}</td>
+                                            <td class="px-6 py-4">${formatDate(change.data_encerramento)}</td>
+                                        </tr>
+                                    `
+                                }).join('')}
+                                ${finalizados.length === 0 ? '<tr><td colspan="8" class="text-center py-8">Nenhum resultado encontrado.</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                document.getElementById('finalizados-start-date').addEventListener('change', e => { state.finalizadosFilters.startDate = e.target.value; render(); });
+                document.getElementById('finalizados-end-date').addEventListener('change', e => { state.finalizadosFilters.endDate = e.target.value; render(); });
+                
+                const sistemaSelect = document.getElementById('finalizados-sistema');
+                const funcSelect = document.getElementById('finalizados-funcionalidade');
+
+                const updateFuncOptions = () => {
+                    const selectedSistema = sistemaSelect.value;
+                    const funcs = state.funcionalidades.filter(f => !selectedSistema || f.sistema_id === selectedSistema);
+                    funcSelect.innerHTML = '<option value="">Todas</option>' + funcs.map(f => `<option value="${f.id}">${f.text}</option>`).join('');
+                };
+                
+                updateFuncOptions();
+                
+                sistemaSelect.addEventListener('change', e => {
+                    state.finalizadosFilters.sistema = e.target.value ? [e.target.value] : [];
+                    updateFuncOptions();
+                    render();
+                });
+                funcSelect.addEventListener('change', e => { state.finalizadosFilters.funcionalidade = e.target.value ? [e.target.value] : []; render(); });
+
+                document.getElementById('finalizados-tipo').addEventListener('change', e => { state.finalizadosFilters.tipo = e.target.value ? [e.target.value] : []; render(); });
+
+                views.finalizados.querySelectorAll('th[data-sort]').forEach(th => {
+                    th.addEventListener('click', () => {
+                        const column = th.dataset.sort;
+                        if (state.finalizadosSort.column === column) {
+                            state.finalizadosSort.direction = state.finalizadosSort.direction === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            state.finalizadosSort.column = column;
+                            state.finalizadosSort.direction = 'asc';
+                        }
+                        render();
+                    });
+                });
+            }
+
+            function showChangeModal(changeId) {
+                const change = state.changes.find(c => c.id == changeId);
+                if (!change) return;
+                const sistema = state.sistemas.find(s => s.id == change.sistema_id);
+                const funcionalidade = state.funcionalidades.find(f => f.id == change.funcionalidade_id);
+                
+                modalContentEl.innerHTML = `
+                    <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            ${change.goldenTicket ? '<i class="fa-solid fa-star text-yellow-400 text-lg"></i>' : ''}
+                            <span class="text-xs font-bold px-2 py-1 rounded-full ${statusMap[change.status] || ''}">${change.status}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                             <button id="edit-change-btn" data-change-id="${change.id}" class="text-slate-400 hover:text-white"><i class="fa-solid fa-pencil"></i></button>
+                             <button id="close-modal-btn" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+                        </div>
+                    </div>
+                    <div class="p-6 overflow-y-auto flex-grow">
+                        <h3 class="text-2xl font-bold text-white mb-1">${change.text}</h3>
+                        <p class="text-xs text-slate-500 font-mono mb-2">Ticket-${change.idChange}</p>
+                        <p class="text-sm text-slate-400 mb-6">Em <span class="font-semibold text-indigo-400">${sistema?.name||'?'}</span> > <span class="font-semibold text-slate-300">${funcionalidade?.text||'?'}</span></p>
+                        <div class="grid grid-cols-3 gap-6 text-sm mb-6">
+                            <div><strong class="block text-slate-500">Responsável</strong> <span class="text-white">${change.responsible||'N/D'}</span></div>
+                            <div><strong class="block text-slate-500">Tipo</strong> <span class="text-white">${change.type||'N/D'}</span></div>
+                            <div><strong class="block text-slate-500">Prazo</strong> <span class="text-white">${formatDate(change.prazo)}</span></div>
+                        </div>
+                        <h4 class="font-semibold text-white mb-2">Descrição</h4>
+                        <div class="prose prose-sm prose-invert max-w-none text-slate-300 description-content">${markdownConverter.makeHtml(change.description || '')}</div>
+                        ${change.updates ? `
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-white mb-2">Link do Google</h4>
+                            <div class="flex items-center gap-4">
+                                <a href="${change.updates}" target="_blank" class="text-indigo-400 hover:underline break-all">${change.updates}</a>
+                                <a href="${change.updates}" target="_blank" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded-md text-xs flex-shrink-0">
+                                    Abrir Link <i class="fa-solid fa-arrow-up-right-from-square ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div id="modal-actions" class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3"></div>
+                `;
+                renderModalActions(change);
+                openModal();
+                modalContentEl.querySelector('#edit-change-btn').addEventListener('click', (e) => renderEditModal(e.currentTarget.dataset.changeId));
+                modalContentEl.querySelector('#close-modal-btn').addEventListener('click', closeModal);
+            }
+
+            function renderModalActions(change) {
+                const actionsContainer = modalContentEl.querySelector('#modal-actions');
+                actionsContainer.innerHTML = '';
+                const baseButtonClasses = "px-4 py-2 rounded-md text-sm font-medium";
+
+                switch(change.status) {
+                    case 'BackLog':
+                        actionsContainer.innerHTML = `<button data-action="start" class="${baseButtonClasses} bg-blue-600 hover:bg-blue-700 text-white">Iniciar (Fazendo)</button>`;
+                        break;
+                    case 'Fazendo':
+                        actionsContainer.innerHTML = `
+                            <button data-action="send_test" class="${baseButtonClasses} bg-yellow-500 hover:bg-yellow-600 text-black">Enviar para Teste</button>
+                            <button data-action="finalize" class="${baseButtonClasses} bg-green-600 hover:bg-green-700 text-white">Finalizar</button>`;
+                        break;
+                    case 'Teste':
+                        actionsContainer.innerHTML = `
+                             <button data-action="reprove" class="${baseButtonClasses} bg-red-600 hover:bg-red-700 text-white">Reprovar (Fazendo)</button>
+                             <button data-action="approve" class="${baseButtonClasses} bg-green-600 hover:bg-green-700 text-white">Aprovar (Finalizar)</button>`;
+                        break;
+                }
+                
+                actionsContainer.addEventListener('click', e => {
+                    if (e.target.tagName !== 'BUTTON') return;
+                    const action = e.target.dataset.action;
+                    const actions = {
+                        start: { newStatus: 'Fazendo' },
+                        finalize: { newStatus: 'Finalizado' },
+                        approve: { newStatus: 'Finalizado' },
+                        send_test: { newStatus: 'Teste', needsResponsible: true, promptTitle: 'Selecione o responsável pelo teste' },
+                        reprove: { newStatus: 'Fazendo', needsResponsible: true, promptTitle: 'Selecione o responsável pela correção' }
+                    };
+                    const actionConfig = actions[action];
+                    if (actionConfig.needsResponsible) {
+                        promptForResponsible(change, actionConfig.newStatus, actionConfig.promptTitle);
+                    } else {
+                        const updatedChange = { ...change, status: actionConfig.newStatus, updatedAt: new Date().toISOString() };
+                        if (actionConfig.newStatus === 'Finalizado') updatedChange.data_encerramento = new Date().toISOString();
+                        updateChange(updatedChange).then(success => success && closeModal());
+                    }
+                });
+            }
+            
+            function promptForResponsible(change, newStatus, title) {
+                const availableUsers = state.sodaPopUsers.filter(u => u.username !== change.responsible);
+                subModalContentEl.innerHTML = `
+                    <h3 class="text-lg font-bold text-white mb-4">${title}</h3>
+                    <select id="new-responsible-select" class="form-select mb-4">
+                        <option value="">Selecione...</option>
+                        ${availableUsers.map(u => `<option value="${u.id}">${u.username}</option>`).join('')}
+                    </select>
+                    <div class="flex justify-end space-x-3">
+                        <button id="cancel-responsible-change" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
+                        <button id="confirm-responsible-change" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Confirmar</button>
+                    </div>`;
+                subModalEl.classList.remove('hidden');
+                subModalEl.classList.add('flex');
+                subModalEl.querySelector('#cancel-responsible-change').addEventListener('click', () => subModalEl.classList.add('hidden'));
+                subModalEl.querySelector('#confirm-responsible-change').addEventListener('click', () => {
+                    const newResponsibleId = subModalEl.querySelector('#new-responsible-select').value;
+                    if (!newResponsibleId) return showToast('Selecione um responsável.', true);
+
+                    const selectedUser = state.sodaPopUsers.find(u => u.id == newResponsibleId);
+                    if (!selectedUser) {
+                        console.error("Usuário selecionado não encontrado na lista state.sodaPopUsers");
+                        return showToast('Ocorreu um erro ao selecionar o usuário.', true);
+                    }
+
+                    const updatedChange = { 
+                        ...change, 
+                        status: newStatus, 
+                        responsible: selectedUser.username, 
+                        usuarioId: selectedUser.id, 
+                        updatedAt: new Date().toISOString() 
+                    };
+                    updateChange(updatedChange).then(success => {
+                        if (success) { subModalEl.classList.add('hidden'); closeModal(); }
+                    });
+                });
+            }
+
+            function renderEditModal(changeId) {
+                const change = state.changes.find(c => c.id == changeId);
+                if (!change) return;
+
+                const usersOptions = state.sodaPopUsers.map(u => `<option value="${u.id}" ${u.id == change.usuarioId ? 'selected' : ''}>${u.username}</option>`).join('');
+
+                modalContentEl.innerHTML = `<form id="edit-change-form" class="flex flex-col h-full"><div class="p-6 border-b border-slate-700"><h3 class="text-xl font-bold text-white">Editando Change (Ticket-${change.idChange})</h3></div>
+                        <div class="p-6 overflow-y-auto flex-grow space-y-4">
+                            <div><label for="text" class="block text-sm font-medium text-slate-400 mb-1">Título</label><input type="text" id="text" name="text" class="form-input" value="${change.text || ''}"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label for="status" class="block text-sm font-medium text-slate-400 mb-1">Status</label><select id="status" name="status" class="form-select">${state.allStatuses.map(s => `<option value="${s}" ${s === change.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+                                <div>
+                                    <label for="responsible" class="block text-sm font-medium text-slate-400 mb-1">Responsável</label>
+                                    <select id="responsible" name="responsible" class="form-select">
+                                        <option value="">Selecione...</option>
+                                        ${usersOptions}
+                                    </select>
+                                </div>
+                            </div><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label for="type" class="block text-sm font-medium text-slate-400 mb-1">Tipo</label><select id="type" name="type" class="form-select">${state.allChangeTypes.map(t => `<option value="${t}" ${t === change.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+                                <div><label for="prazo" class="block text-sm font-medium text-slate-400 mb-1">Prazo</label><input type="date" id="prazo" name="prazo" class="form-input" value="${formatDate(change.prazo, true)}"></div>
+                            </div>
+                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Link do Google</label><input type="url" id="updates" name="updates" class="form-input" value="${change.updates || ''}" pattern="https://docs\\.google\\.com/.*" title="Por favor, insira um link válido do Google (docs.google.com)."></div>
+                             <div><label for="description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label><textarea id="description" name="description" rows="6" class="form-textarea">${change.description || ''}</textarea></div>
+                            <div class="flex items-center"><input type="checkbox" id="goldenTicket" name="goldenTicket" class="h-4 w-4 rounded" ${change.goldenTicket ? 'checked' : ''}><label for="goldenTicket" class="ml-2 block text-sm">Golden Ticket <i class="fa-solid fa-star text-yellow-400"></i></label></div>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3">
+                            <button type="button" id="cancel-edit-btn" data-change-id="${change.id}" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
+                            <button type="submit" id="save-change-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Salvar Alterações</button>
+                        </div></form>`;
+                const form = document.getElementById('edit-change-form');
+                form.addEventListener('submit', (e) => { e.preventDefault(); handleSaveChanges(changeId, form.querySelector('#save-change-btn')); });
+                document.getElementById('cancel-edit-btn').addEventListener('click', (e) => showChangeModal(e.currentTarget.dataset.changeId));
+            }
+
+            function renderCreateModal(funcionalidadeId, sistemaId) {
+                const func = state.funcionalidades.find(f => f.id == funcionalidadeId);
+                const usersOptions = state.sodaPopUsers.map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+
+                modalContentEl.innerHTML = `
+                    <form id="create-change-form" class="flex flex-col h-full">
+                        <div class="p-6 border-b border-slate-700">
+                             <h3 class="text-xl font-bold text-white">Novo Change em ${func.text}</h3>
+                        </div>
+                        <div class="p-6 overflow-y-auto flex-grow space-y-4">
+                            <div><label for="text" class="block text-sm font-medium text-slate-400 mb-1">Título*</label><input type="text" id="text" name="text" class="form-input" required></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label for="status" class="block text-sm font-medium text-slate-400 mb-1">Status*</label><select id="status" name="status" class="form-select" required>${state.allStatuses.map(s => `<option value="${s}" ${s === 'BackLog' ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+                                <div>
+                                    <label for="responsible" class="block text-sm font-medium text-slate-400 mb-1">Responsável*</label>
+                                    <select id="responsible" name="responsible" class="form-select" required>
+                                        <option value="">Selecione...</option>
+                                        ${usersOptions}
+                                    </select>
+                                </div>
+                            </div><div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label for="type" class="block text-sm font-medium text-slate-400 mb-1">Tipo*</label><select id="type" name="type" class="form-select" required>${state.allChangeTypes.map(t => `<option value="${t}" ${t === 'Task' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+                                <div><label for="prazo" class="block text-sm font-medium text-slate-400 mb-1">Prazo</label><input type="date" id="prazo" name="prazo" class="form-input"></div>
+                            </div>
+                            <div><label for="updates" class="block text-sm font-medium text-slate-400 mb-1">Link do Google</label><input type="url" id="updates" name="updates" class="form-input" pattern="https://docs\\.google\\.com/.*" title="Por favor, insira um link válido do Google (docs.google.com)."></div>
+                             <div><label for="description" class="block text-sm font-medium text-slate-400 mb-1">Descrição* (mín. 10 caracteres)</label><textarea id="description" name="description" rows="6" class="form-textarea" required minlength="10"></textarea></div>
+                            <div class="flex items-center"><input type="checkbox" id="goldenTicket" name="goldenTicket" class="h-4 w-4 rounded"><label for="goldenTicket" class="ml-2 block text-sm text-slate-300">Golden Ticket <i class="fa-solid fa-star text-yellow-400"></i></label></div>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3">
+                            <button type="button" id="cancel-create-btn" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
+                            <button type="submit" id="create-change-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Criar Change</button>
+                        </div>
+                    </form>`;
+                openModal();
+                const form = document.getElementById('create-change-form');
+                form.addEventListener('submit', (e) => { e.preventDefault(); handleCreateChange(sistemaId, funcionalidadeId, form.querySelector('#create-change-btn')); });
+                document.getElementById('cancel-create-btn').addEventListener('click', closeModal);
+            }
+
+            function renderFuncionalidadeModal(funcId = null) {
+                const isEditing = funcId !== null;
+                const func = isEditing ? state.funcionalidades.find(f => f.id == funcId) : {};
+                const title = isEditing ? 'Editando Funcionalidade' : 'Nova Funcionalidade';
+
+                modalContentEl.innerHTML = `
+                    <form id="func-form" class="flex flex-col h-full">
+                        <div class="p-6 border-b border-slate-700">
+                             <h3 class="text-xl font-bold text-white">${title}</h3>
+                        </div>
+                        <div class="p-6 overflow-y-auto flex-grow space-y-4">
+                            <div>
+                                <label for="func-text" class="block text-sm font-medium text-slate-400 mb-1">Título</label>
+                                <input type="text" id="func-text" name="text" class="form-input" value="${func.text || ''}" required>
+                            </div>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="func-type" class="block text-sm font-medium text-slate-400 mb-1">Tipo</label>
+                                    <select id="func-type" name="type" class="form-select" required>
+                                        ${state.allFuncionalidadeTypes.map(t => `<option value="${t}" ${t === (func.type || 'Funcionalidade') ? 'selected' : ''}>${t}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="func-stage" class="block text-sm font-medium text-slate-400 mb-1">Etapa</label>
+                                    <select id="func-stage" name="stage" class="form-select" required>
+                                         ${state.allFuncionalidadeStages.map(s => `<option value="${s}" ${s === (func.stage || 'C - Clarificar') ? 'selected' : ''}>${s}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                     <label for="func-complexidade" class="block text-sm font-medium text-slate-400 mb-1">Complexidade</label>
+                                    <select id="func-complexidade" name="complexidade" class="form-select" required>
+                                        ${state.allFuncionalidadeComplexidades.map(c => `<option value="${c}" ${c === (func.complexidade || 'P') ? 'selected' : ''}>${c} (${state.complexityPoints[c]} pts)</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="func-progress" class="block text-sm font-medium text-slate-400 mb-1">Progresso (${func.progress || 0}%)</label>
+                                    <input type="range" id="func-progress" name="progress" min="0" max="100" value="${func.progress || 0}" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="func-description" class="block text-sm font-medium text-slate-400 mb-1">Descrição</label>
+                                <textarea id="func-description" name="description" rows="6" class="form-textarea">${func.description || ''}</textarea>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 border-t border-slate-700 flex justify-end items-center space-x-3">
+                            <button type="button" id="cancel-func-btn" class="bg-slate-600 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700">Cancelar</button>
+                            <button type="submit" id="save-func-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">${isEditing ? 'Salvar Alterações' : 'Criar Funcionalidade'}</button>
+                        </div>
+                    </form>
+                `;
+                openModal();
+                
+                const form = document.getElementById('func-form');
+                const progressInput = form.querySelector('#func-progress');
+                const progressLabel = form.querySelector('label[for="func-progress"]');
+
+                progressInput.addEventListener('input', () => {
+                    progressLabel.textContent = `Progresso (${progressInput.value}%)`;
+                });
+
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const button = form.querySelector('#save-func-btn');
+                    if (isEditing) {
+                        handleSaveFuncionalidade(funcId, button);
+                    } else {
+                        handleCreateFuncionalidade(state.selectedSistema.id, button);
+                    }
+                });
+                document.getElementById('cancel-func-btn').addEventListener('click', closeModal);
+            }
+
+            function openModal() {
+                mainModalEl.classList.remove('hidden');
+                mainModalEl.classList.add('flex');
+            }
+            function closeModal() {
+                mainModalEl.classList.add('hidden');
+                mainModalEl.classList.remove('flex');
+                modalContentEl.innerHTML = '';
+            }
+            function updateUI() {
+                responsibleFilterEl.innerHTML = '<option value="">Meus Changes</option>';
+                state.responsaveis.forEach(r => {
+                    const option = document.createElement('option');
+                    option.value = r;
+                    option.textContent = r;
+                    if (r === state.selectedResponsible) {
+                        option.selected = true;
+                    }
+                    responsibleFilterEl.appendChild(option);
+                });
+                render();
+            }
+
+            // --- EVENT LISTENERS ---
+            loginFormEl.addEventListener('submit', handleLogin);
+            logoutButtonEl.addEventListener('click', handleLogout);
+            themeToggleButton.addEventListener('click', toggleTheme);
+
+            navSistemasBtn.addEventListener('click', () => {
+                state.currentView = 'sistemas'; state.selectedSistema = null; 
+                if (state.currentUser && state.currentUser.nome) {
+                    const respName = state.responsaveis.find(r => state.currentUser.nome.startsWith(r));
+                    state.selectedResponsible = respName || null;
+                } else {
+                    state.selectedResponsible = null;
+                }
+                responsibleFilterEl.value = state.selectedResponsible || '';
+                render();
+            });
+            navCalendarioBtn.addEventListener('click', () => {
+                state.currentView = 'calendario'; state.selectedSistema = null; state.selectedResponsible = null;
+                responsibleFilterEl.value = '';
+                render();
+            });
+            navAtrasadosBtn.addEventListener('click', () => {
+                state.currentView = 'overdue'; state.selectedSistema = null; state.selectedResponsible = null;
+                responsibleFilterEl.value = '';
+                render();
+            });
+             navFinalizadosBtn.addEventListener('click', () => {
+                state.currentView = 'finalizados'; state.selectedSistema = null; state.selectedResponsible = null;
+                responsibleFilterEl.value = '';
+                render();
+            });
+            responsibleFilterEl.addEventListener('change', (e) => {
+                state.meusChangesFilters = { sistema: '', status: [] };
+                if(e.target.value) {
+                    state.selectedResponsible = e.target.value;
+                    state.currentView = 'meus-changes';
+                    state.selectedSistema = null;
+                } else { 
+                    state.selectedResponsible = null;
+                    state.currentView = 'sistemas'; 
+                }
+                render();
+            });
+            mainModalEl.addEventListener('click', (e) => { if (e.target === mainModalEl) closeModal(); });
+
+            ticketSearchForm.addEventListener('submit', handleTicketSearch);
+
+            appLauncherBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                appLauncherPanel.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!appLauncherPanel.classList.contains('hidden') && !appLauncherPanel.contains(e.target) && e.target !== appLauncherBtn) {
+                    appLauncherPanel.classList.add('hidden');
+                }
+            });
+
+            // --- INITIALIZATION ---
+            checkAuth();
+            renderAppLauncher();
+        });
+    </script>
+</body>
+</html>
