@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curral Burguer Gestão</title>
+  
+  <!-- Carrega o Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Carrega as Fontes do Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@10..48,700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Estilos Globais -->
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #FFF9F3;
+    }
+    .font-heading {
+      font-family: 'Bricolage Grotesque', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Onde a aplicação será "montada" -->
+  <div id="root"></div>
+
+  <!-- Nosso código JavaScript Puro -->
+  <script type="module">
+    // --- Constantes de Identidade Visual ---
+    const COLORS = {
+      orange: '#FF4E00',
+      fawn: '#FFC280',
+      black: '#1D1C1B',
+      blue: '#6B9E83',
+      azure: '#D4E7E6',
+      shell: '#FFF9F3',
+    };
+
+    // --- URLs dos Webhooks (GET já definidos, POST/PUT são placeholders) ---
+    const N8N_URLS = {
+      login: 'https://work.produ-cloud.com/webhook/curral-burguer_login', // Placeholder
+      loadProducts: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_produtos',
+      loadSuppliers: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_todo_fornecedor',
+      loadProductSuppliers: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_produto_fornecedor',
+      loadStockHistory: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_historico_estoque',
+      loadQuotes: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_todo_cotacao',
+      loadQuoteItems: 'https://work.produ-cloud.com/webhook/curral-burguer_carrega_item_cotacao',
+      createQuote: 'https://work.produ-cloud.com/webhook/curral-burguer_create_cotacao', 
+      updateQuoteItem: 'https://work.produ-cloud.com/webhook/curral-burguer_update_item_cotacao',
+    };
+
+    // --- Mock Data (Baseado nos JSONs fornecidos) ---
+    const MOCK_DATA = {
+      products: [
+        {"id":"27e2dbc1-2eec-801f-b734-d0b1f4561bb7","name":"Batata-Frita McCain Surecrisp 7MM","property_alerta_de_estoque":true,"property_categoria":["Alimento"],"property_estoque_m_nimo":20,"property_fornecedor_do_produto":["2992dbc1-2eec-80ff-9389-ea520ca56932","2992dbc1-2eec-80cd-9866-d4aa32ce15fe","2992dbc1-2eec-80df-9915-f906eea066a6"],"property_cota_o":[],"property_unidade_de_medida":"Caixa","property_estoque_atual":15,"property_nome":"Batata-Frita McCain Surecrisp 7MM"},
+        {"id":"2992dbc1-2eec-8061-a660-cdf1e99d8bf1","name":"Hambúrguer Simples","property_alerta_de_estoque":true,"property_categoria":[],"property_estoque_m_nimo":5,"property_fornecedor_do_produto":["2992dbc1-2eec-8024-a7ad-fb705e942caf","2992dbc1-2eec-8063-83e9-cf13653c8cc1","2992dbc1-2eec-8006-9b83-dcd9776223d0"],"property_cota_o":[],"property_unidade_de_medida":null,"property_estoque_atual":0,"property_nome":"Hambúrguer Simples"}
+      ],
+      suppliers: [
+        {"id":"2992dbc1-2eec-8010-a05d-e27677ba38ad","name":"Fornecedor A","property_produto_fornecedor":["2992dbc1-2eec-80ff-9389-ea520ca56932","2992dbc1-2eec-8024-a7ad-fb705e942caf"],"property_item_da_cota_o":["2992dbc1-2eec-8056-b518-c8814321d3a9"],"property_nome":"Fornecedor A"},
+        {"id":"2992dbc1-2eec-802a-8897-fe6916ac7650","name":"Fornecedor C","property_produto_fornecedor":["2992dbc1-2eec-80df-9915-f906eea066a6","2992dbc1-2eec-8006-9b83-dcd9776223d0"],"property_item_da_cota_o":[],"property_nome":"Fornecedor C"},
+        {"id":"2992dbc1-2eec-8099-a456-cc0f94cb450c","name":"Fornecedor B","property_produto_fornecedor":["2992dbc1-2eec-80cd-9866-d4aa32ce15fe","2992dbc1-2eec-8063-83e9-cf13653c8cc1"],"property_item_da_cota_o":["2992dbc1-2eec-8005-907f-d37c72b60271"],"property_nome":"Fornecedor B"}
+      ],
+      productSuppliers: [
+        {"id":"2992dbc1-2eec-8006-9b83-dcd9776223d0","name":"Hambúrguer - FC","property_fornecedor":["2992dbc1-2eec-802a-8897-fe6916ac7650"],"property_produto":["2992dbc1-2eec-8061-a660-cdf1e99d8bf1"],"property_nome":"Hambúrguer - FC"},
+        {"id":"2992dbc1-2eec-8024-a7ad-fb705e942caf","name":"Hambúrguer - FA","property_fornecedor":["2992dbc1-2eec-8010-a05d-e27677ba38ad"],"property_produto":["2992dbc1-2eec-8061-a660-cdf1e99d8bf1"],"property_nome":"Hambúrguer - FA"},
+        {"id":"2992dbc1-2eec-8063-83e9-cf13653c8cc1","name":"Hambúrguer - FB","property_fornecedor":["2992dbc1-2eec-8099-a456-cc0f94cb450c"],"property_produto":["2992dbc1-2eec-861-a660-cdf1e99d8bf1"],"property_nome":"Hambúrguer - FB"},
+        {"id":"2992dbc1-2eec-80cd-9866-d4aa32ce15fe","name":"Batata Frita - FB","property_fornecedor":["2992dbc1-2eec-8099-a456-cc0f94cb450c"],"property_produto":["27e2dbc1-2eec-801f-b734-d0b1f4561bb7"],"property_nome":"Batata Frita - FB"},
+        {"id":"2992dbc1-2eec-80df-9915-f906eea066a6","name":"Batata Frita - FC","property_fornecedor":["2992dbc1-2eec-802a-8897-fe6916ac7650"],"property_produto":["27e2dbc1-2eec-801f-b734-d0b1f4561bb7"],"property_nome":"Batata Frita - FC"},
+        {"id":"2992dbc1-2eec-80ff-9389-ea520ca56932","name":"Batata Frita - FA","property_fornecedor":["2992dbc1-2eec-8010-a05d-e27677ba38ad"],"property_produto":["27e2dbc1-2eec-801f-b734-d0b1f4561bb7"],"property_nome":"Batata Frita - FA"}
+      ],
+      quotes: [
+        {"id":"2992dbc1-2eec-8073-ae0d-cfa1b33e517a","name":"COT-001","property_produto":["2992dbc1-2eec-8061-a660-cdf1e99d8bf1"],"property_quantidade":100,"property_unidade_de_medida":["Unidade"],"property_item":["2992dbc1-2eec-8056-b518-c8814321d3a9","2992dbc1-2eec-8005-907f-d37c72b60271"],"property_status":"Rascunho","property_nome":"COT-001"}
+      ],
+      quoteItems: [
+        {"id":"2992dbc1-2eec-8005-907f-d37c72b60271","name":"002","property_status":"Criado","property_fornecedor":["2992dbc1-2eec-8099-a456-cc0f94cb450c"],"property_cota_o":["2992dbc1-2eec-8073-ae0d-cfa1b33e517a"],"property_produto":[],"property_nome":"002", "property_preco": null},
+        {"id":"2992dbc1-2eec-8056-b518-c8814321d3a9","name":"001","property_status":"Criado","property_fornecedor":["2992dbc1-2eec-8010-a05d-e27677ba38ad"],"property_cota_o":["2992dbc1-2eec-8073-ae0d-cfa1b33e517a"],"property_produto":[],"property_nome":"001", "property_preco": null}
+      ],
+    };
+
+    // --- Estado Global da Aplicação ---
+    // Substitui o React Context e useState
+    const appState = {
+      user: null, // RN-002
+      currentView: 'login', // 'login', 'estoque', 'cotacao', 'cotacao/detail/:id', 'produtos', 'fornecedores'
+      loading: false,
+      error: '',
+      // Dados do "banco de dados"
+      products: [],
+      suppliers: [],
+      productSuppliers: [],
+      quotes: [],
+      quoteItems: [],
+      // Filtros
+      filterLowStock: true,
+    };
+
+    const root = document.getElementById('root');
+
+    // --- Funções de Simulação de API ---
+    
+    // Função de simulação de fetch
+    const fetchApi = async (endpoint, payload = null) => {
+      appState.loading = true;
+      appState.error = '';
+      render(); // Mostra o loading
+      
+      console.log(`Simulando API: ${endpoint}`, payload);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        if (endpoint === N8N_URLS.loadProducts) return MOCK_DATA.products;
+        if (endpoint === N8N_URLS.loadSuppliers) return MOCK_DATA.suppliers;
+        if (endpoint === N8N_URLS.loadProductSuppliers) return MOCK_DATA.productSuppliers;
+        if (endpoint === N8N_URLS.loadQuotes) return MOCK_DATA.quotes;
+        if (endpoint === N8N_URLS.loadQuoteItems) return MOCK_DATA.quoteItems;
+        return [];
+      } catch (err) {
+        appState.error = `Falha ao carregar dados de ${endpoint}`;
+        return [];
+      } finally {
+        appState.loading = false;
+        render(); // Remove o loading
+      }
+    };
+
+    // Carrega todos os dados iniciais
+    const loadInitialData = async () => {
+      appState.loading = true;
+      render();
+      
+      const [
+        productsData, 
+        suppliersData, 
+        productSuppliersData, 
+        quotesData, 
+        quoteItemsData
+      ] = await Promise.all([
+        fetchApi(N8N_URLS.loadProducts),
+        fetchApi(N8N_URLS.loadSuppliers),
+        fetchApi(N8N_URLS.loadProductSuppliers),
+        fetchApi(N8N_URLS.loadQuotes),
+        fetchApi(N8N_URLS.loadQuoteItems)
+      ]);
+      
+      appState.products = productsData;
+      appState.suppliers = suppliersData;
+      appState.productSuppliers = productSuppliersData;
+      appState.quotes = quotesData;
+      appState.quoteItems = quoteItemsData;
+      
+      appState.loading = false;
+      render();
+    };
+
+    // --- Funções de Lógica de Negócio (CRUD Simulado) ---
+    
+    // RN-001: Criar Cotação
+    const createQuoteFromProduct = (productId) => {
+      appState.loading = true;
+      render();
+      const product = appState.products.find(p => p.id === productId);
+      if (!product) {
+        appState.error = 'Produto não encontrado.';
+        appState.loading = false;
+        render();
+        return null;
+      }
+
+      const productSupplierIds = product.property_fornecedor_do_produto;
+      const supplierIds = appState.productSuppliers
+        .filter(ps => productSupplierIds.includes(ps.id))
+        .map(ps => ps.property_fornecedor[0]);
+      const uniqueSupplierIds = [...new Set(supplierIds)];
+
+      if (uniqueSupplierIds.length === 0) {
+        appState.error = 'Produto sem fornecedores cadastrados.';
+        appState.loading = false;
+        render();
+        return null;
+      }
+      
+      const newQuoteId = `cot-id-${Math.random().toString(36).substr(2, 9)}`;
+      const newQuoteName = `COT-${String(appState.quotes.length + 1).padStart(3, '0')}`;
+      const newQuote = {
+        id: newQuoteId, name: newQuoteName, property_produto: [productId],
+        property_quantidade: 1, property_unidade_de_medida: [product.property_unidade_de_medida],
+        property_item: [], property_status: "Rascunho", property_nome: newQuoteName
+      };
+      
+      const newItems = uniqueSupplierIds.map((supplierId, index) => {
+        const newItemId = `item-id-${Math.random().toString(36).substr(2, 9)}`;
+        newQuote.property_item.push(newItemId);
+        return {
+          id: newItemId, name: `${String(index + 1).padStart(3, '0')}`,
+          property_status: "Criado", property_fornecedor: [supplierId],
+          property_cota_o: [newQuoteId], property_produto: [productId],
+          property_nome: `${String(index + 1).padStart(3, '0')}`, property_preco: null
+        };
+      });
+
+      appState.quotes.push(newQuote);
+      appState.quoteItems.push(...newItems);
+      appState.loading = false;
+      
+      console.log('Nova Cotação Criada:', newQuote);
+      console.log('Novos Itens Criados:', newItems);
+      
+      return newQuoteId;
+    };
+
+    // Atualizar Preço
+    const updateQuoteItemPrice = (itemId, price) => {
+      const item = appState.quoteItems.find(i => i.id === itemId);
+      if (item) {
+        item.property_preco = parseFloat(price) || 0;
+      }
+      // Não precisa re-renderizar, o blur do input cuida disso
+    };
+
+    // RN-001-2: Aprovar Item
+    const approveQuoteItem = (itemId, quoteId) => {
+      const quote = appState.quotes.find(q => q.id === quoteId);
+      if (!quote) return;
+
+      const itemIdsInQuote = quote.property_item;
+      appState.quoteItems = appState.quoteItems.map(item => {
+        if (!itemIdsInQuote.includes(item.id)) return item;
+        if (item.id === itemId) {
+          return { ...item, property_status: "Aprovado" };
+        } else if (item.property_status !== "Aprovado") {
+          return { ...item, property_status: "Rejeitado" };
+        }
+        return item;
+      });
+
+      quote.property_status = "Concluída";
+      render(); // Re-renderiza a tela com novos status
+    };
+
+    // RN-001-2: Rejeitar Item
+    const rejectQuoteItem = (itemId) => {
+      appState.quoteItems = appState.quoteItems.map(item => 
+        item.id === itemId ? { ...item, property_status: "Rejeitado" } : item
+      );
+      render(); // Re-renderiza
+    };
+
+    // --- Helpers de Mapeamento ---
+    const getProductName = (id) => appState.products.find(p => p.id === id)?.property_nome || 'Produto desconhecido';
+    const getSupplierName = (id) => appState.suppliers.find(s => s.id === id)?.property_nome || 'Fornecedor desconhecido';
+
+    // --- Funções de Renderização (Geram HTML) ---
+    
+    // Tela de Login
+    const renderLoginScreen = () => {
+      return `
+        <div class="flex items-center justify-center min-h-screen">
+          <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-xl">
+            <h1 class="text-3xl font-bold text-center font-heading" style="color: ${COLORS.black};">
+              Curral Burguer
+              <span style="color: ${COLORS.orange};"> Gestão</span>
+            </h1>
+            <p class="text-center text-gray-600">Acesse para gerenciar cotações.</p>
+            
+            <form id="login-form" class="space-y-4">
+              <div>
+                <label for="username" class="text-sm font-medium text-gray-700">Usuário</label>
+                <input id="username" type="text" value="admin" required
+                  class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2"
+                  style="--tw-ring-color: ${COLORS.orange};" />
+              </div>
+              <div>
+                <label for="password" class="text-sm font-medium text-gray-700">Senha</label>
+                <input id="password" type="password" value="admin" required
+                  class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2"
+                  style="--tw-ring-color: ${COLORS.orange};" />
+              </div>
+              
+              ${appState.error ? `
+                <div class="p-3 text-center text-red-800 bg-red-100 border border-red-300 rounded-md">
+                  ${appState.error}
+                </div>
+              ` : ''}
+
+              <button id="login-button" type="submit" ${appState.loading ? 'disabled' : ''}
+                class="w-full py-2 px-4 font-semibold text-white rounded-md shadow-md transition-all duration-300 disabled:opacity-50"
+                style="background-color: ${appState.loading ? COLORS.fawn : COLORS.orange};">
+                ${appState.loading ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    };
+
+    // Navegação Lateral
+    const renderSidebarNav = () => {
+      const navItems = [
+        { id: 'estoque', label: 'Estoque' },
+        { id: 'cotacao', label: 'Cotações' },
+        { id: 'produtos', label: 'Produtos' },
+        { id: 'fornecedores', label: 'Fornecedores' },
+      ];
+
+      return `
+        <nav class="w-full md:w-64 p-4 space-y-2 bg-white shadow-lg md:min-h-screen">
+          <h2 class="text-2xl font-bold px-2 pb-4 font-heading" style="color: ${COLORS.black};">
+            Curral
+            <span style="color: ${COLORS.orange};"> Gestão</span>
+          </h2>
+          
+          ${navItems.map(item => {
+            const isActive = appState.currentView.startsWith(item.id);
+            return `
+              <button
+                data-view="${item.id}"
+                class="nav-link w-full text-left px-3 py-3 rounded-md transition-all duration-200
+                ${isActive ? 'font-semibold text-white' : 'text-gray-700 hover:bg-gray-200'}
+                ${isActive && item.id === 'estoque' ? 'font-heading' : ''}"
+                style="background-color: ${isActive ? COLORS.orange : 'transparent'};
+                       font-family: ${isActive ? "'Bricolage Grotesque', sans-serif" : "'Inter', sans-serif"};"
+              >
+                ${item.label}
+              </button>
+            `;
+          }).join('')}
+          
+          <div class="pt-4 border-t mt-4">
+            <button id="logout-button" class="w-full text-left px-3 py-2 rounded-md text-gray-700 hover:bg-gray-200">
+              Sair
+            </button>
+          </div>
+        </nav>
+      `;
+    };
+
+    // Cabeçalho da Tela
+    const renderScreenHeader = (title, subtitle, buttonsHtml = '') => {
+      return `
+        <div class="mb-6">
+          <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h1 class="text-3xl font-bold font-heading" style="color: ${COLORS.black};">
+                ${title}
+              </h1>
+              <p class="text-gray-600 mt-1">${subtitle}</p>
+            </div>
+            <div class="space-x-2 flex-shrink-0">${buttonsHtml}</div>
+          </div>
+          <hr class="mt-4" />
+        </div>
+      `;
+    };
+
+    // Tela de Estoque
+    const renderEstoqueScreen = () => {
+      const buttonsHtml = `
+        <button id="filter-stock-btn"
+          class="px-4 py-2 rounded-md text-sm font-medium"
+          style="background-color: ${appState.filterLowStock ? COLORS.orange : COLORS.azure};
+                 color: ${appState.filterLowStock ? 'white' : COLORS.black};"
+        >
+          ${appState.filterLowStock ? 'Mostrar Todos' : 'Filtrar Estoque Baixo'}
+        </button>
+      `;
+
+      const filteredProducts = appState.products.filter(p => {
+        const isLow = p.property_estoque_atual < p.property_estoque_m_nimo;
+        return !appState.filterLowStock || (appState.filterLowStock && isLow);
+      });
+
+      return `
+        ${renderScreenHeader('Estoque', 'Produtos com estoque baixo ou zerado.', buttonsHtml)}
+        
+        ${appState.loading ? '<p>Carregando produtos...</p>' : `
+          <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead style="background-color: ${COLORS.azure};">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Produto</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estoque Atual</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estoque Mínimo</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${filteredProducts.map(product => {
+                  const isLow = product.property_estoque_atual < product.property_estoque_m_nimo;
+                  return `
+                    <tr key="${product.id}" class="${isLow ? 'bg-red-50' : ''}">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.property_nome}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm ${isLow ? 'font-bold text-red-600' : 'text-gray-600'}">${product.property_estoque_atual}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_estoque_m_nimo}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${isLow ? `
+                          <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            Abaixo do Mínimo
+                          </span>
+                        ` : `
+                          <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" style="background-color: ${COLORS.azure}; color: ${COLORS.blue};">
+                            OK
+                          </span>
+                        `}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button data-product-id="${product.id}" class="cotar-btn px-3 py-1 rounded-md text-xs font-medium text-white disabled:opacity-50"
+                          style="background-color: ${COLORS.orange};" ${appState.loading ? 'disabled' : ''}>
+                          Cotar
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      `;
+    };
+
+    // Tela de Lista de Cotações
+    const renderCotacaoListScreen = () => {
+      return `
+        ${renderScreenHeader('Cotações', 'Gerencie cotações novas e existentes.')}
+        ${appState.loading ? '<p>Carregando cotações...</p>' : `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${appState.quotes.map(quote => `
+              <div key="${quote.id}" class="p-4 bg-white rounded-lg shadow">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="text-lg font-bold font-heading">
+                    ${quote.property_nome}
+                  </h3>
+                  <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                    quote.property_status === 'Rascunho' ? 'bg-yellow-100 text-yellow-800' :
+                    quote.property_status === 'Concluída' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
+                  }">
+                    ${quote.property_status}
+                  </span>
+                </div>
+                <p class="text-sm text-gray-600">
+                  Produto: ${getProductName(quote.property_produto[0])}
+                </p>
+                <button
+                  data-view="cotacao/detail/${quote.id}"
+                  class="nav-link mt-4 w-full px-4 py-2 rounded-md text-sm font-medium text-white"
+                  style="background-color: ${COLORS.blue};"
+                >
+                  Ver Detalhes
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      `;
+    };
+
+    // Tela de Detalhes da Cotação
+    const renderCotacaoDetailScreen = (quoteId) => {
+      const quote = appState.quotes.find(q => q.id === quoteId);
+      if (!quote) {
+        appState.error = "Cotação não encontrada.";
+        return renderCotacaoListScreen(); // Volta para lista
+      }
+      
+      const items = appState.quoteItems.filter(item => item.property_cota_o.includes(quoteId));
+      const isQuoteFinalized = quote.property_status === 'Concluída' || quote.property_status === 'Cancelada';
+
+      const getWhatsappText = (item) => {
+        const supplierName = getSupplierName(item.property_fornecedor[0]);
+        const productName = getProductName(quote.property_produto[0]);
+        return encodeURI(`Olá ${supplierName}, gostaria de cotar o seguinte item: ${productName}. Poderia me passar o valor? Obrigado!`);
+      };
+
+      const buttonsHtml = `
+        <button data-view="cotacao"
+          class="nav-link px-4 py-2 rounded-md text-sm font-medium bg-gray-200 hover:bg-gray-300"
+        >
+          &larr; Voltar para Lista
+        </button>
+      `;
+      
+      return `
+        ${renderScreenHeader(quote.property_nome, `Produto: ${getProductName(quote.property_produto[0])} | Status: ${quote.property_status}`, buttonsHtml)}
+        
+        <div class="space-y-4">
+          ${items.map(item => {
+            const supplierName = getSupplierName(item.property_fornecedor[0]);
+            return `
+              <div key="${item.id}" class="p-4 bg-white rounded-lg shadow grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <!-- Coluna 1: Fornecedor e Status -->
+                <div>
+                  <h4 class="font-bold text-lg">${supplierName}</h4>
+                  <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                    item.property_status === 'Criado' ? 'bg-blue-100 text-blue-800' :
+                    item.property_status === 'Aprovado' ? 'bg-green-100 text-green-800' :
+                    item.property_status === 'Rejeitado' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }">
+                    ${item.property_status}
+                  </span>
+                </div>
+                
+                <!-- Coluna 2: Preço e WhatsApp -->
+                <div class="flex flex-col md:flex-row gap-2 items-center">
+                  <input
+                    data-item-id="${item.id}"
+                    type="number"
+                    placeholder="R$ 0,00"
+                    value="${item.property_preco || ''}"
+                    ${isQuoteFinalized ? 'disabled' : ''}
+                    class="price-input w-full md:w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100"
+                    style="--tw-ring-color: ${COLORS.orange};"
+                  />
+                  <a
+                    href="https://wa.me/?text=${getWhatsappText(item)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="w-full md:w-auto text-center px-4 py-2 rounded-md text-sm font-medium text-white"
+                    style="background-color: #25D366;"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+
+                <!-- Coluna 3: Ações -->
+                <div class="flex gap-2">
+                  ${!isQuoteFinalized ? `
+                    <button
+                      data-item-id="${item.id}"
+                      data-quote-id="${quote.id}"
+                      class="approve-btn flex-1 px-4 py-2 rounded-md text-sm font-medium text-white"
+                      style="background-color: ${COLORS.blue};"
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      data-item-id="${item.id}"
+                      class="reject-btn flex-1 px-4 py-2 rounded-md text-sm font-medium bg-gray-200 hover:bg-gray-300"
+                    >
+                      Rejeitar
+                    </button>
+                  ` : item.property_status === 'Aprovado' ? `
+                    <p class="text-green-700 font-bold text-center">Item Aprovado</p>
+                  ` : item.property_status === 'Rejeitado' ? `
+                     <p class="text-red-700 font-bold text-center">Item Rejeitado</p>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    };
+    
+    // Tela de Produtos
+    const renderProdutosScreen = () => {
+       return `
+        ${renderScreenHeader('Produtos', 'Cadastro de todos os produtos.')}
+        ${appState.loading ? '<p>Carregando produtos...</p>' : `
+           <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead style="background-color: ${COLORS.azure};">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Produto</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Estoque Atual</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Unidade</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${appState.products.map(product => `
+                    <tr key="${product.id}">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.property_nome}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_estoque_atual}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_unidade_de_medida || 'N/A'}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button data-product-id="${product.id}" class="cotar-btn px-3 py-1 rounded-md text-xs font-medium text-white disabled:opacity-50"
+                          style="background-color: ${COLORS.orange};" ${appState.loading ? 'disabled' : ''}>
+                          Cotar
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      `;
+    }
+    
+    // Tela de Fornecedores
+    const renderFornecedoresScreen = () => {
+      return `
+        ${renderScreenHeader('Fornecedores', 'Cadastro de todos os fornecedores.')}
+         ${appState.loading ? '<p>Carregando fornecedores...</p>' : `
+           <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead style="background-color: ${COLORS.azure};">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Fornecedor</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${appState.suppliers.map(supplier => `
+                    <tr key="${supplier.id}">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${supplier.property_nome}</td>
+                    </tr>
+                  `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      `;
+    }
+
+    // --- Roteador Principal e Adição de Eventos ---
+    
+    const renderCurrentView = () => {
+      const view = appState.currentView;
+      const mainContent = document.getElementById('main-content');
+      if (!mainContent) return;
+
+      // Limpa eventos antigos
+      mainContent.innerHTML = ''; 
+
+      // Roteamento
+      if (view === 'estoque') {
+        mainContent.innerHTML = renderEstoqueScreen();
+        // Adiciona eventos específicos da tela
+        document.getElementById('filter-stock-btn')?.addEventListener('click', handleFilterStock);
+        document.querySelectorAll('.cotar-btn').forEach(btn => btn.addEventListener('click', handleCreateQuote));
+      } 
+      else if (view.startsWith('cotacao')) {
+        const parts = view.split('/');
+        const detailId = parts.length > 2 && parts[1] === 'detail' ? parts[2] : null;
+
+        if (detailId) {
+          mainContent.innerHTML = renderCotacaoDetailScreen(detailId);
+          // Adiciona eventos de detalhe
+          document.querySelectorAll('.price-input').forEach(input => input.addEventListener('blur', handlePriceUpdate));
+          document.querySelectorAll('.approve-btn').forEach(btn => btn.addEventListener('click', handleApproveItem));
+          document.querySelectorAll('.reject-btn').forEach(btn => btn.addEventListener('click', handleRejectItem));
+        } else {
+          mainContent.innerHTML = renderCotacaoListScreen();
+        }
+        // Eventos de navegação (Voltar, Ver Detalhes) são tratados pelo handleNavigate global
+      }
+      else if (view === 'produtos') {
+        mainContent.innerHTML = renderProdutosScreen();
+        document.querySelectorAll('.cotar-btn').forEach(btn => btn.addEventListener('click', handleCreateQuote));
+      }
+      else if (view === 'fornecedores') {
+         mainContent.innerHTML = renderFornecedoresScreen();
+      }
+    };
+    
+    const render = () => {
+      root.innerHTML = ''; // Limpa a tela
+      
+      if (appState.error) {
+        // Mostra erro global (simplificado)
+        const errorDiv = document.createElement('div');
+        errorDiv.className = "relative p-4 mb-4 text-red-800 bg-red-100 border border-red-300 rounded-md";
+        errorDiv.innerHTML = `<span>${appState.error}</span><button id="close-error" class="absolute top-2 right-2 text-red-800 font-bold">&times;</button>`;
+        root.appendChild(errorDiv);
+        document.getElementById('close-error')?.addEventListener('click', () => {
+          appState.error = '';
+          render();
+        });
+      }
+
+      if (!appState.user) {
+        // Renderiza Login
+        const loginDiv = document.createElement('div');
+        loginDiv.innerHTML = renderLoginScreen();
+        root.appendChild(loginDiv);
+        // Adiciona eventos de login
+        document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+      } else {
+        // Renderiza App Principal
+        const appDiv = document.createElement('div');
+        appDiv.className = "flex flex-col md:flex-row min-h-screen";
+        appDiv.innerHTML = `
+          ${renderSidebarNav()}
+          <main id="main-content" class="flex-1 p-4 md:p-8 bg-gray-50"></main>
+        `;
+        root.appendChild(appDiv);
+        
+        // Renderiza a view atual dentro do <main>
+        renderCurrentView();
+
+        // Adiciona eventos globais do app (navegação)
+        document.getElementById('logout-button')?.addEventListener('click', handleLogout);
+        document.querySelectorAll('.nav-link').forEach(btn => btn.addEventListener('click', handleNavigate));
+      }
+    };
+
+    // --- Funções de Manipulação de Eventos (Handlers) ---
+
+    const handleLogin = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      appState.loading = true;
+      appState.error = '';
+      render();
+
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simula API
+
+      if (username === 'admin' && password === 'admin') {
+        appState.user = { id: 'u1', name: 'Admin Curral' };
+        await loadInitialData(); // Carrega dados após o login
+        appState.currentView = 'estoque';
+      } else {
+        appState.error = 'Usuário ou senha inválidos.';
+      }
+      appState.loading = false;
+      render(); // Re-renderiza tudo
+    };
+
+    const handleLogout = () => {
+      appState.user = null;
+      appState.currentView = 'login';
+      appState.error = '';
+      appState.products = []; // Limpa dados
+      appState.quotes = [];
+      appState.quoteItems = [];
+      appState.suppliers = [];
+      appState.productSuppliers = [];
+      render();
+    };
+
+    const handleNavigate = (e) => {
+      const view = e.currentTarget.dataset.view;
+      if (view) {
+        appState.currentView = view;
+        appState.error = ''; // Limpa erros ao navegar
+        render();
+      }
+    };
+
+    const handleFilterStock = () => {
+      appState.filterLowStock = !appState.filterLowStock;
+      render();
+    };
+
+    const handleCreateQuote = (e) => {
+      const productId = e.currentTarget.dataset.productId;
+      const newQuoteId = createQuoteFromProduct(productId);
+      if (newQuoteId) {
+        appState.currentView = `cotacao/detail/${newQuoteId}`;
+        render();
+      }
+    };
+
+    const handlePriceUpdate = (e) => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const price = e.currentTarget.value;
+      updateQuoteItemPrice(itemId, price);
+      // Não precisa renderizar, o valor já está no input
+    };
+
+    const handleApproveItem = (e) => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const quoteId = e.currentTarget.dataset.quoteId;
+      approveQuoteItem(itemId, quoteId);
+      // render() é chamado dentro de approveQuoteItem
+    };
+    
+    const handleRejectItem = (e) => {
+      const itemId = e.currentTarget.dataset.itemId;
+      rejectQuoteItem(itemId);
+      // render() é chamado dentro de rejectQuoteItem
+    };
+
+    // --- Inicialização ---
+    render(); // Renderiza a aplicação pela primeira vez
+
+  </script>
+
+</body>
+</html>
