@@ -10,6 +10,9 @@
   
   <!-- Carrega as Fontes do Google -->
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@10..48,700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- ** NOVO: Carrega o Chart.js ** -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- Estilos Globais -->
   <style>
@@ -20,6 +23,23 @@
     .font-heading {
       font-family: 'Bricolage Grotesque', sans-serif;
     }
+    /* Garante que o main-content ocupe o espaço disponível */
+    #main-content {
+      flex: 1 1 auto;
+    }
+    /* Adiciona cursor de link para botões de navegação */
+    .nav-link {
+      cursor: pointer;
+    }
+    /* Estilo para o nome do produto clicável */
+    .product-history-link {
+      cursor: pointer;
+      text-decoration: underline;
+      color: #1E40AF; /* Um azul para indicar o link */
+    }
+    .product-history-link:hover {
+      color: #1D4ED8;
+    }
   </style>
 </head>
 <body>
@@ -29,6 +49,10 @@
 
   <!-- Nosso código JavaScript Puro -->
   <script type="module">
+    // --- ATUALIZAR AQUI A CADA NOVA VERSÃO ---
+    const APP_VERSION = '0.5.0';
+    // -----------------------------------------
+
     // --- Constantes de Identidade Visual ---
     const COLORS = {
       orange: '#FF4E00',
@@ -52,7 +76,8 @@
       updateQuoteItem: 'https://work.produ-cloud.com/webhook/curral-burguer_update_item_cotacao',
     };
 
-    // --- Mock Data (Baseado nos JSONs fornecidos) ---
+    // --- Mock Data (Usado apenas se a API falhar) ---
+    // (Mantido para fallback, mas não será usado se a API funcionar)
     const MOCK_DATA = {
       products: [
         {"id":"27e2dbc1-2eec-801f-b734-d0b1f4561bb7","name":"Batata-Frita McCain Surecrisp 7MM","property_alerta_de_estoque":true,"property_categoria":["Alimento"],"property_estoque_m_nimo":20,"property_fornecedor_do_produto":["2992dbc1-2eec-80ff-9389-ea520ca56932","2992dbc1-2eec-80cd-9866-d4aa32ce15fe","2992dbc1-2eec-80df-9915-f906eea066a6"],"property_cota_o":[],"property_unidade_de_medida":"Caixa","property_estoque_atual":15,"property_nome":"Batata-Frita McCain Surecrisp 7MM"},
@@ -78,13 +103,16 @@
         {"id":"2992dbc1-2eec-8005-907f-d37c72b60271","name":"002","property_status":"Criado","property_fornecedor":["2992dbc1-2eec-8099-a456-cc0f94cb450c"],"property_cota_o":["2992dbc1-2eec-8073-ae0d-cfa1b33e517a"],"property_produto":[],"property_nome":"002", "property_preco": null},
         {"id":"2992dbc1-2eec-8056-b518-c8814321d3a9","name":"001","property_status":"Criado","property_fornecedor":["2992dbc1-2eec-8010-a05d-e27677ba38ad"],"property_cota_o":["2992dbc1-2eec-8073-ae0d-cfa1b33e517a"],"property_produto":[],"property_nome":"001", "property_preco": null}
       ],
+      stockHistory: [
+        {"id":"2992dbc1-2eec-802a-ab07-edd5065525c3", "property_criado_em":"2025-10-27T16:58:00.000Z", "property_produto":["27e2dbc1-2eec-801f-b734-d0b1f4561bb7"], "property_movimento":"Entrada", "property_quantidade":10},
+        {"id":"2992dbc1-2eec-80ad-998e-ca1e5054f42b", "property_criado_em":"2025-10-27T14:33:00.000Z", "property_produto":["27e2dbc1-2eec-801f-b734-d0b1f4561bb7"], "property_movimento":"Saída", "property_quantidade":5}
+      ]
     };
 
     // --- Estado Global da Aplicação ---
-    // Substitui o React Context e useState
     const appState = {
       user: null, // RN-002
-      currentView: 'login', // 'login', 'estoque', 'cotacao', 'cotacao/detail/:id', 'produtos', 'fornecedores'
+      currentView: 'login', // 'login', 'loading', 'estoque', 'estoque/detail/:id', 'cotacao', 'cotacao/detail/:id', 'produtos', 'fornecedores'
       loading: false,
       error: '',
       // Dados do "banco de dados"
@@ -93,6 +121,7 @@
       productSuppliers: [],
       quotes: [],
       quoteItems: [],
+      stockHistory: [], // Armazena o histórico de estoque
       // Filtros
       filterLowStock: true,
     };
@@ -101,48 +130,73 @@
 
     // --- Funções de Simulação de API ---
     
-    // Função de simulação de fetch
+    // Função de fetch real
     const fetchApi = async (endpoint, payload = null) => {
-      appState.loading = true;
+      appState.loading = true; // Mantém um estado de loading global
       appState.error = '';
-      render(); // Mostra o loading
       
-      console.log(`Simulando API: ${endpoint}`, payload);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log(`Chamando API: ${endpoint}`, payload);
       
       try {
+        const response = await fetch(endpoint, {
+          method: payload ? 'POST' : 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload ? JSON.stringify(payload) : null
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro na rede: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (Array.isArray(data)) {
+          return data;
+        }
+        if (data.data && Array.isArray(data.data)) {
+          return data.data;
+        }
+        if (typeof data === 'object' && data !== null) {
+            return data;
+        }
+
+        console.warn("Resposta da API não era um array:", data);
+        return [];
+      } catch (err) {
+        console.error("Falha ao buscar dados:", err);
+        appState.error = `Falha ao carregar dados de ${endpoint}. Verifique a conexão ou o console para mais detalhes.`;
+        // Se a API falhar, usamos o MOCK_DATA como fallback
         if (endpoint === N8N_URLS.loadProducts) return MOCK_DATA.products;
         if (endpoint === N8N_URLS.loadSuppliers) return MOCK_DATA.suppliers;
         if (endpoint === N8N_URLS.loadProductSuppliers) return MOCK_DATA.productSuppliers;
         if (endpoint === N8N_URLS.loadQuotes) return MOCK_DATA.quotes;
         if (endpoint === N8N_URLS.loadQuoteItems) return MOCK_DATA.quoteItems;
-        return [];
-      } catch (err) {
-        appState.error = `Falha ao carregar dados de ${endpoint}`;
-        return [];
+        if (endpoint === N8N_URLS.loadStockHistory) return MOCK_DATA.stockHistory;
+        return []; // Retorna vazio em caso de erro
       } finally {
         appState.loading = false;
-        render(); // Remove o loading
+        // Não renderiza aqui, deixa a função chamadora (ex: loadInitialData) controlar a renderização
       }
     };
 
     // Carrega todos os dados iniciais
     const loadInitialData = async () => {
       appState.loading = true;
-      render();
       
       const [
         productsData, 
         suppliersData, 
         productSuppliersData, 
         quotesData, 
-        quoteItemsData
+        quoteItemsData,
+        stockHistoryData
       ] = await Promise.all([
         fetchApi(N8N_URLS.loadProducts),
         fetchApi(N8N_URLS.loadSuppliers),
         fetchApi(N8N_URLS.loadProductSuppliers),
         fetchApi(N8N_URLS.loadQuotes),
-        fetchApi(N8N_URLS.loadQuoteItems)
+        fetchApi(N8N_URLS.loadQuoteItems),
+        fetchApi(N8N_URLS.loadStockHistory)
       ]);
       
       appState.products = productsData;
@@ -150,9 +204,9 @@
       appState.productSuppliers = productSuppliersData;
       appState.quotes = quotesData;
       appState.quoteItems = quoteItemsData;
+      appState.stockHistory = stockHistoryData;
       
       appState.loading = false;
-      render();
     };
 
     // --- Funções de Lógica de Negócio (CRUD Simulado) ---
@@ -217,7 +271,6 @@
       if (item) {
         item.property_preco = parseFloat(price) || 0;
       }
-      // Não precisa re-renderizar, o blur do input cuida disso
     };
 
     // RN-001-2: Aprovar Item
@@ -251,6 +304,22 @@
     // --- Helpers de Mapeamento ---
     const getProductName = (id) => appState.products.find(p => p.id === id)?.property_nome || 'Produto desconhecido';
     const getSupplierName = (id) => appState.suppliers.find(s => s.id === id)?.property_nome || 'Fornecedor desconhecido';
+
+    // Helper de Formatação de Data
+    const formatDate = (dateString) => {
+      if (!dateString) return 'Data desconhecida';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      } catch (e) {
+        console.error("Erro ao formatar data:", dateString, e);
+        return dateString;
+      }
+    };
 
     // --- Funções de Renderização (Geram HTML) ---
     
@@ -293,6 +362,28 @@
             </form>
           </div>
         </div>
+      `;
+    };
+
+    // Tela de Carregamento
+    const renderLoadingScreen = () => {
+      return `
+        <div class="flex flex-col items-center justify-center h-full p-8">
+          <h2 class="text-2xl font-semibold font-heading" style="color: ${COLORS.black};">Carregando dados do N8N...</h2>
+          <p class="text-gray-600 mt-2">Isso pode levar alguns segundos.</p>
+          <div class="mt-8 w-16 h-16 border-4 border-t-4 rounded-full animate-spin" 
+               style="border-color: ${COLORS.azure}; border-top-color: ${COLORS.orange};">
+          </div>
+        </div>
+      `;
+    };
+
+    // Rodapé
+    const renderFooter = () => {
+      return `
+        <footer class="p-4 text-center text-sm text-gray-600 bg-gray-50 border-t border-gray-200">
+          Desenvolvido pelo ProdutiveMe. Versão ${APP_VERSION}
+        </footer>
       `;
     };
 
@@ -392,7 +483,14 @@
                   const isLow = product.property_estoque_atual < product.property_estoque_m_nimo;
                   return `
                     <tr key="${product.id}" class="${isLow ? 'bg-red-50' : ''}">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.property_nome}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button 
+                          data-view="estoque/detail/${product.id}"
+                          class="nav-link product-history-link font-medium"
+                        >
+                          ${product.property_nome}
+                        </button>
+                      </td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm ${isLow ? 'font-bold text-red-600' : 'text-gray-600'}">${product.property_estoque_atual}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_estoque_m_nimo}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -419,6 +517,77 @@
             </table>
           </div>
         `}
+      `;
+    };
+
+    // Tela de Detalhe do Estoque
+    const renderEstoqueDetailScreen = (productId) => {
+      const product = appState.products.find(p => p.id === productId);
+      if (!product) {
+        appState.error = "Produto não encontrado.";
+        appState.currentView = 'estoque'; // Volta para a lista
+        renderCurrentView(); // Re-renderiza a view de estoque
+        return; // Retorna o HTML da view de estoque
+      }
+      
+      const history = appState.stockHistory
+        .filter(item => item.property_produto && item.property_produto.includes(productId))
+        .sort((a, b) => new Date(b.property_criado_em) - new Date(a.property_criado_em)); // Ordena do mais novo para o mais antigo
+
+      const buttonsHtml = `
+        <button data-view="estoque"
+          class="nav-link px-4 py-2 rounded-md text-sm font-medium bg-gray-200 hover:bg-gray-300"
+        >
+          &larr; Voltar para Estoque
+        </button>
+      `;
+
+      return `
+        ${renderScreenHeader(`Histórico: ${product.property_nome}`, `Estoque Atual: ${product.property_estoque_atual} | Mínimo: ${product.property_estoque_m_nimo}`, buttonsHtml)}
+
+        <!-- ** NOVO: Wrapper para Gráfico e Tabela ** -->
+        <div class="space-y-6">
+          
+          <!-- ** NOVO: Container do Gráfico ** -->
+          <div class="p-4 bg-white rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4 font-heading" style="color: ${COLORS.black};">Evolução do Estoque</h3>
+            <canvas id="stock-line-chart"></canvas>
+          </div>
+
+          <!-- Tabela (agora com um título) -->
+          <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <h3 class="text-lg font-semibold p-4 font-heading" style="color: ${COLORS.black};">Histórico de Movimentação</h3>
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead style="background-color: ${COLORS.azure};">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Data</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Movimento</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Quantidade</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${history.length > 0 ? history.map(item => {
+                  const isEntrada = item.property_movimento === 'Entrada';
+                  return `
+                    <tr key="${item.id}">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${formatDate(item.property_criado_em)}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${isEntrada ? 'text-green-600' : 'text-red-600'}">
+                        ${item.property_movimento}
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${isEntrada ? 'text-green-600' : 'text-red-600'}">
+                        ${isEntrada ? '+' : '-'} ${item.property_quantidade}
+                      </td>
+                    </tr>
+                  `;
+                }).join('') : `
+                  <tr>
+                    <td colspan="3" class="px-6 py-4 text-center text-gray-500">Nenhum histórico de movimentação encontrado.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
       `;
     };
 
@@ -464,7 +633,9 @@
       const quote = appState.quotes.find(q => q.id === quoteId);
       if (!quote) {
         appState.error = "Cotação não encontrada.";
-        return renderCotacaoListScreen(); // Volta para lista
+        appState.currentView = 'cotacao'; // Volta para lista
+        renderCurrentView();
+        return;
       }
       
       const items = appState.quoteItems.filter(item => item.property_cota_o.includes(quoteId));
@@ -578,7 +749,14 @@
                       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.property_nome}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_estoque_atual}</td>
                       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${product.property_unidade_de_medida || 'N/A'}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        <button 
+                          data-view="estoque/detail/${product.id}"
+                          class="nav-link px-3 py-1 rounded-md text-xs font-medium text-white"
+                          style="background-color: ${COLORS.blue};"
+                        >
+                          Histórico
+                        </button>
                         <button data-product-id="${product.id}" class="cotar-btn px-3 py-1 rounded-md text-xs font-medium text-white disabled:opacity-50"
                           style="background-color: ${COLORS.orange};" ${appState.loading ? 'disabled' : ''}>
                           Cotar
@@ -618,6 +796,86 @@
       `;
     }
 
+    // ** NOVO: Função para inicializar o gráfico de linha **
+    // (Deve ser declarada antes de ser usada em renderCurrentView)
+    const initStockChart = (productId) => {
+      const product = appState.products.find(p => p.id === productId);
+      if (!product) return;
+
+      const ctx = document.getElementById('stock-line-chart');
+      if (!ctx) return; // Se o canvas não for encontrado, sai
+
+      // 1. Pega o histórico e ordena do mais antigo para o mais novo
+      const history = appState.stockHistory
+        .filter(item => item.property_produto && item.property_produto.includes(productId))
+        .sort((a, b) => new Date(a.property_criado_em) - new Date(b.property_criado_em));
+
+      // 2. Calcula o estoque inicial
+      const estoqueAtual = product.property_estoque_atual;
+      const totalEntradas = history.reduce((acc, item) => 
+        item.property_movimento === 'Entrada' ? acc + item.property_quantidade : acc, 0);
+      const totalSaidas = history.reduce((acc, item) => 
+        item.property_movimento === 'Saída' ? acc + item.property_quantidade : acc, 0);
+      
+      // Estoque Inicial = Estoque Atual - (Total de Entradas) + (Total de Saídas)
+      const estoqueInicial = estoqueAtual - totalEntradas + totalSaidas;
+
+      // 3. Prepara os dados para o gráfico
+      const labels = ['Estoque Inicial'];
+      const data = [estoqueInicial];
+      let currentStock = estoqueInicial;
+
+      history.forEach(item => {
+        if (item.property_movimento === 'Entrada') {
+          currentStock += item.property_quantidade;
+        } else { // Saída
+          currentStock -= item.property_quantidade;
+        }
+        labels.push(formatDate(item.property_criado_em));
+        data.push(currentStock);
+      });
+      
+      // 4. Destrói gráfico anterior, se houver (para evitar bugs de navegação)
+      // Usamos uma variável global temporária para rastrear a instância do gráfico
+      if (window.myStockChart) {
+        window.myStockChart.destroy();
+      }
+
+      // 5. Cria o gráfico
+      window.myStockChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Quantidade em Estoque',
+            data: data,
+            borderColor: COLORS.orange,
+            backgroundColor: 'rgba(255, 78, 0, 0.1)',
+            fill: true,
+            tension: 0.1,
+            pointBackgroundColor: COLORS.orange,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                title: (tooltipItems) => `Data: ${tooltipItems[0].label}`,
+                label: (tooltipItem) => `Estoque: ${tooltipItem.raw}`
+              }
+            }
+          }
+        }
+      });
+    };
+
     // --- Roteador Principal e Adição de Eventos ---
     
     const renderCurrentView = () => {
@@ -625,13 +883,24 @@
       const mainContent = document.getElementById('main-content');
       if (!mainContent) return;
 
-      // Limpa eventos antigos
       mainContent.innerHTML = ''; 
 
-      // Roteamento
+      if (view === 'loading') {
+        mainContent.innerHTML = renderLoadingScreen();
+        return;
+      }
+
+      const estoqueDetailParts = view.match(/^estoque\/detail\/(.+)$/);
+      if (estoqueDetailParts) {
+        const productId = estoqueDetailParts[1];
+        mainContent.innerHTML = renderEstoqueDetailScreen(productId);
+        // ** NOVO: Inicializa o gráfico após o HTML ser renderizado **
+        initStockChart(productId);
+        return;
+      }
+
       if (view === 'estoque') {
         mainContent.innerHTML = renderEstoqueScreen();
-        // Adiciona eventos específicos da tela
         document.getElementById('filter-stock-btn')?.addEventListener('click', handleFilterStock);
         document.querySelectorAll('.cotar-btn').forEach(btn => btn.addEventListener('click', handleCreateQuote));
       } 
@@ -641,14 +910,12 @@
 
         if (detailId) {
           mainContent.innerHTML = renderCotacaoDetailScreen(detailId);
-          // Adiciona eventos de detalhe
           document.querySelectorAll('.price-input').forEach(input => input.addEventListener('blur', handlePriceUpdate));
           document.querySelectorAll('.approve-btn').forEach(btn => btn.addEventListener('click', handleApproveItem));
           document.querySelectorAll('.reject-btn').forEach(btn => btn.addEventListener('click', handleRejectItem));
         } else {
           mainContent.innerHTML = renderCotacaoListScreen();
         }
-        // Eventos de navegação (Voltar, Ver Detalhes) são tratados pelo handleNavigate global
       }
       else if (view === 'produtos') {
         mainContent.innerHTML = renderProdutosScreen();
@@ -660,10 +927,9 @@
     };
     
     const render = () => {
-      root.innerHTML = ''; // Limpa a tela
+      root.innerHTML = ''; 
       
       if (appState.error) {
-        // Mostra erro global (simplificado)
         const errorDiv = document.createElement('div');
         errorDiv.className = "relative p-4 mb-4 text-red-800 bg-red-100 border border-red-300 rounded-md";
         errorDiv.innerHTML = `<span>${appState.error}</span><button id="close-error" class="absolute top-2 right-2 text-red-800 font-bold">&times;</button>`;
@@ -675,26 +941,24 @@
       }
 
       if (!appState.user) {
-        // Renderiza Login
         const loginDiv = document.createElement('div');
         loginDiv.innerHTML = renderLoginScreen();
         root.appendChild(loginDiv);
-        // Adiciona eventos de login
         document.getElementById('login-form')?.addEventListener('submit', handleLogin);
       } else {
-        // Renderiza App Principal
         const appDiv = document.createElement('div');
         appDiv.className = "flex flex-col md:flex-row min-h-screen";
         appDiv.innerHTML = `
           ${renderSidebarNav()}
-          <main id="main-content" class="flex-1 p-4 md:p-8 bg-gray-50"></main>
+          <div class="flex-1 flex flex-col">
+            <main id="main-content" class="flex-1 p-4 md:p-8 bg-gray-50"></main>
+            ${renderFooter()}
+          </div>
         `;
         root.appendChild(appDiv);
         
-        // Renderiza a view atual dentro do <main>
         renderCurrentView();
 
-        // Adiciona eventos globais do app (navegação)
         document.getElementById('logout-button')?.addEventListener('click', handleLogout);
         document.querySelectorAll('.nav-link').forEach(btn => btn.addEventListener('click', handleNavigate));
       }
@@ -709,38 +973,50 @@
       
       appState.loading = true;
       appState.error = '';
-      render();
+      render(); 
 
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simula API
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
 
       if (username === 'admin' && password === 'admin') {
         appState.user = { id: 'u1', name: 'Admin Curral' };
-        await loadInitialData(); // Carrega dados após o login
-        appState.currentView = 'estoque';
+        appState.currentView = 'loading'; 
+        render(); 
+        
+        await loadInitialData(); 
+        
+        appState.currentView = 'estoque'; 
+        appState.loading = false; 
+        render(); 
       } else {
         appState.error = 'Usuário ou senha inválidos.';
+        appState.loading = false; 
+        render(); 
       }
-      appState.loading = false;
-      render(); // Re-renderiza tudo
     };
 
     const handleLogout = () => {
       appState.user = null;
       appState.currentView = 'login';
       appState.error = '';
-      appState.products = []; // Limpa dados
+      appState.products = []; 
       appState.quotes = [];
       appState.quoteItems = [];
       appState.suppliers = [];
       appState.productSuppliers = [];
+      appState.stockHistory = []; 
       render();
     };
 
     const handleNavigate = (e) => {
       const view = e.currentTarget.dataset.view;
       if (view) {
+        // Se estivermos saindo da tela de gráfico, destrói a instância
+        if (appState.currentView.startsWith('estoque/detail/') && window.myStockChart) {
+          window.myStockChart.destroy();
+          window.myStockChart = null;
+        }
         appState.currentView = view;
-        appState.error = ''; // Limpa erros ao navegar
+        appState.error = ''; 
         render();
       }
     };
@@ -759,24 +1035,29 @@
       }
     };
 
+Object.keys(N8N_URLS).forEach(key => {
+  if (key.startsWith('load') && !window.location.href.includes('localhost')) {
+    fetch(N8N_URLS[key]).then(res => res.json()).then(data => {
+      console.log(`Pre-warmed cache for: ${key}`);
+    }).catch(err => console.warn(`Failed to pre-warm cache for ${key}: ${err.message}`));
+  }
+});
+
     const handlePriceUpdate = (e) => {
       const itemId = e.currentTarget.dataset.itemId;
       const price = e.currentTarget.value;
       updateQuoteItemPrice(itemId, price);
-      // Não precisa renderizar, o valor já está no input
     };
 
     const handleApproveItem = (e) => {
       const itemId = e.currentTarget.dataset.itemId;
       const quoteId = e.currentTarget.dataset.quoteId;
       approveQuoteItem(itemId, quoteId);
-      // render() é chamado dentro de approveQuoteItem
     };
     
     const handleRejectItem = (e) => {
       const itemId = e.currentTarget.dataset.itemId;
       rejectQuoteItem(itemId);
-      // render() é chamado dentro de rejectQuoteItem
     };
 
     // --- Inicialização ---
